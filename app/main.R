@@ -86,15 +86,12 @@ ui <- function(id){
     header = dashboardHeader(
       nav = navbarMenu(
         navbarTab("Variant calling", tabName = ns("variant_calling")),
-        navbarTab("Expression profile", tabName = ns("expression_profile")),
-
         navbarTab("Summary", tabName = ns("summary")),
         navbarTab("Fusion genes", tabName = ns("fusion_genes")),
 
-
+        navbarTab("Expression profile", tabName = ns("expression_profile")),
         navbarTab("Network graph", tabName = ns("network_graph")),
-        navbarTab("Hidden IGV Item", tabName = ns("hidden_igv"))
-
+        navbarTab("IGV", tabName = ns("hidden_igv"))
       )
     ),
     sidebar = dashboardSidebar(disable = TRUE),
@@ -121,18 +118,22 @@ ui <- function(id){
               ),
               tabItem(tabName = ns("variant_calling"),
                       tabBox(id = ns("variant_calling_tabs"), width = 12, collapsible = FALSE, # title = uiOutput(ns("igv_dropdown_ui"))
-                             tabPanel("Somatic small variant calling",tabName = ns("somatic_var_call_panel"),value = "somatic",
-                                      tags$style(HTML(".btn-group > .btn.active {background-color: skyblue; color: white;}
-                                                 .btn-mygrey {background-color: lightgray; color: black;}
-                                                ")),
-                                      do.call(tabsetPanel, c(id = ns("tabset"), lapply(names(set_patient_to_sample("somatic")), function(sample) {
-                                        tabPanel(title = sample, somatic_var_call_table$ui(ns(paste0("somatic_tab_", sample))))
-                                      })))),
+                             
                              tabPanel("Germline small variant calling",tabName = ns("germline_var_call_panel"),value = "germline",
                                       do.call(tabsetPanel, c(id = ns("germline_patients"), lapply(names(set_patient_to_sample("germline")), function(sample) {
                                         tabPanel(title = sample, germline_var_call_table$ui(ns(paste0("germline_tab_", sample))))
                                       })))
-                             )
+                             ),
+                             tabPanel("Somatic small variant calling",tabName = ns("somatic_var_call_panel"),value = "somatic",
+                                      tags$style(HTML(".btn-group > .btn.active {background-color: skyblue; color: white;}
+                                                 .btn-mygrey {background-color: lightgray; color: black;}
+                                                ")),
+                                      
+                                      do.call(tabsetPanel, c(id = ns("tabset"), lapply(names(set_patient_to_sample("somatic")), function(sample) {
+                                        tabPanel(title = sample, somatic_var_call_table$ui(ns(paste0("somatic_tab_", sample))))
+                                      }))))
+                             
+
  
                       )),
               tabItem(tabName = ns("fusion_genes"),
@@ -202,50 +203,37 @@ server <- function(id) {
                                   fusion_overview = list(),
                                   navigation_context = reactiveVal(NULL))     # somatic or germline or fusion     # from where are we opening IGV
     
-## run summary module
-    
-    lapply(patients_list(), function(patient) {
-      
-      summary$server(paste0("summary_table_", patient), patient, shared_data)
-      create_report$server(paste0("create_report_", patient), patient, shared_data)
-    })
-
-
-    # getColFilterValues <- function(flag,expr_flag) {
-    #   reactive({
-    #     colnames_list <- colFilter(flag,expr_flag)
-    #     list(all_columns = colnames_list$all_columns, default_setting = colnames_list$default_setting)
-    #   })
-    # }
-
-# #################
-#   ## filter table columns dropdown button for fusion
-#     all_colnames_val_fusion <- getColFilterValues("fusion")
-#     output$colFilter_dropdown_ui_fusion <- renderUI({
-#       req(all_colnames_val_fusion())
-#       colFilterDropdown_ui(ns("colFilter_dropdown_fusion"), all_colnames_val_fusion()$all_columns, all_colnames_val_fusion()$default_setting,columnName_map("fusion"))
+# ## run summary module
+#     
+#     lapply(patients_list(), function(patient) {
+# 
+#       summary$server(paste0("summary_table_", patient), patient, shared_data)
+#       create_report$server(paste0("create_report_", patient), patient, shared_data)
 #     })
+# 
+
+#################
+# filter table columns dropdown button for fusion
 # 
 #     ## run fusion genes module
 #     samples_fuze <- set_patient_to_sample("fusion")
-#     selected_columns_fusion <- colFilterDropdown_server("colFilter_dropdown_fusion", all_colnames_val_fusion()$all_columns, all_colnames_val_fusion()$default_setting)
 #     lapply(names(samples_fuze), function(patient) {
-#       fusion_genes_table$server(paste0("geneFusion_tab_", patient), samples_fuze[[patient]], selected_columns_fusion, columnName_map("fusion"), shared_data)
+#       fusion_genes_table$server(paste0("geneFusion_tab_", patient), samples_fuze[[patient]], shared_data)
 #     })
-##################
-    # Run somatic varcall module
-
-    samples_som <- set_patient_to_sample("somatic")
-
-    lapply(names(samples_som), function(patient) {
-      somatic_var_call_table$server(paste0("somatic_tab_", patient), samples_som[[patient]], shared_data)
-    })
+# # ##################
+#     # Run somatic varcall module
+# 
+#     samples_som <- set_patient_to_sample("somatic")
+# 
+#     lapply(names(samples_som), function(patient) {
+#       somatic_var_call_table$server(paste0("somatic_tab_", patient), samples_som[[patient]], shared_data)
+#     })
 
 ##################
 
     # Run germline varcall module
     samples_germ <- set_patient_to_sample("germline")
-    
+
     lapply(names(samples_germ), function(patient) {
       germline_var_call_table$server(paste0("germline_tab_", patient), samples_germ[[patient]],shared_data)
     })
@@ -254,73 +242,23 @@ server <- function(id) {
 # 
 #     samples_expr <- set_patient_to_sample("expression")
 # 
-#     # Reaktivní value for watching which panel is active
-#     expr_flag <- reactive({
-#       patients <- names(samples_expr)
-# 
-#       for (patient in patients) {
-#         panel_id <- paste0("expression_profile_tabs_", patient)
-# 
-#         if (!is.null(input[[panel_id]])) {
-#           if (input[[panel_id]] == "allGenes") {
-#             return("all_genes")
-#           } else if (input[[panel_id]] == "genesOfinterest") {
-#             return("genes_of_interest")}}
-#       }
-#       return(NULL)
-#     })
-# 
-#     all_colnames_val_expression <- reactive({
-#       req(expr_flag())
-#       return(getColFilterValues("expression", expr_flag())())
-#     })
-# 
-#     output$colFilter_dropdown_ui_expression <- renderUI({
-#       req(all_colnames_val_expression())
-#       colFilterDropdown_ui(ns("colFilter_dropdown_expression"), all_colnames_val_expression()$all_columns, all_colnames_val_expression()$default_setting,columnName_map("expression",expr_flag(),all_colnames_val_expression()$all_columns)$dropdown_btn)
-#       })
-# 
 #     observe({
-#       req(all_colnames_val_expression())
-#       selected_columns_expression <- colFilterDropdown_server("colFilter_dropdown_expression", all_colnames_val_expression()$all_columns, all_colnames_val_expression()$default_setting)
-# 
 #       lapply(names(samples_expr), function(patient) {
-# 
-#         # Všechny genes_of_interest
-#         expression_profile_table$server(
-#           id = paste0("genesOfinterest_tab_", patient),
-#           patient = samples_expr[[patient]],
-#           dataset_type = "genes_of_interest",
-#           selected_columns = selected_columns_expression,
-#           column_mapping = columnName_map("expression", expr_flag(), all_colnames_val_expression()$all_columns),
-#           all_colnames = all_colnames_val_expression(),
-#           expression_var = shared_data$expression_goi_var
-#         )
-# 
-#         # Všechny all_genes
-#         expression_profile_table$server(
-#           id = paste0("allGenes_tab_", patient),
-#           patient = samples_expr[[patient]],
-#           dataset_type = "all_genes",
-#           selected_columns = selected_columns_expression,
-#           column_mapping = columnName_map("expression", expr_flag(), all_colnames_val_expression()$all_columns),
-#           all_colnames = all_colnames_val_expression(),
-#           expression_var = shared_data$expression_all_var
-#         )
-# 
+#         expression_profile_table$server(paste0("genesOfinterest_tab_", patient),samples_expr[[patient]],"genes_of_interest",shared_data$expression_goi_var)
+#         expression_profile_table$server(paste0("allGenes_tab_", patient),samples_expr[[patient]],"all_genes",shared_data$expression_all_var)
 #       })
 #     })
+# 
+# 
+# ##################    
+    # run network graph module
 
-
-##################    
-    ## run network graph module    
-    
     # networkGraph_cytoscape$server("network_graph", shared_data)
-    
-    
-
-
-
+    # 
+    # 
+    # 
+    # 
+    # 
     # # # Spustíme statický server při startu celé aplikace
     # # start_static_server(dir = "/Users/katerinajuraskova/Desktop/sequiaViz/input_files/MOII_e117/primary_analysis/230426_MOII_e117_tkane/mapped")
     # # Spustíme statický server při startu celé aplikace

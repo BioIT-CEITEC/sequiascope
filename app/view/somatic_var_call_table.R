@@ -14,7 +14,9 @@ box::use(
   stats[setNames],
   shinyalert[shinyalert,useShinyalert],
   shinyjs[useShinyjs,hide,show],
-  data.table[data.table,as.data.table]
+  data.table[data.table,as.data.table,copy],
+  DT[renderDT,datatable,formatStyle,styleEqual,DTOutput],
+  magrittr[`%>%`],
 )
 
 box::use(
@@ -55,17 +57,20 @@ ui <- function(id) {
            downloadButton(ns("Table_download"),"Download")),
          uiOutput(ns("filterTab")))),
      use_spinner(reactableOutput(ns("somatic_var_call_tab"))),
+    # use_spinner(DTOutput(ns("somatic_var_call_tab"))),
      tags$br(),
      div(style = "display: flex; justify-content: space-between; align-items: top; width: 100%;",
        div(
+         tags$br(),
          actionButton(ns("selectPathogenic_button"), "Select variants as possibly oncogenic", status = "info"),
          tags$br(),
-           reactableOutput(ns("selectPathogenic_tab")),
+         fluidRow(
+           column(12,reactableOutput(ns("selectPathogenic_tab")))),
          tags$br(),
-           actionButton(ns("delete_button"), "Delete variants", icon = icon("trash-can")),
-         tags$br()
+         fluidRow(
+           column(3,actionButton(ns("delete_button"),"Delete variants", icon = icon("trash-can"))))
          ),
-       
+
        # div(
          # style = "height: 38px;font-size: 16px;",
          dropdown(ns("igv_dropdownButton"), label = "IGV", status = "primary", icon = icon("play"), right = TRUE, size = "md",#width = 230, 
@@ -141,17 +146,17 @@ server <- function(id, selected_samples, shared_data) {
     selected_variants <- reactiveVal(data.frame(patient = character(),var_name = character(), Gene_symbol = character()))
 
     
-    # Call generate_columnsDef to generate colDef setting for reactable
-    column_defs <- reactive({
-      req(data())
-      req(selected_columns())
-      generate_columnsDef(names(data()), selected_columns(), "somatic", map_list)
-    })
+    # # Call generate_columnsDef to generate colDef setting for reactable
+    # column_defs <- reactive({
+    #   req(data())
+    #   req(selected_columns())
+    #   generate_columnsDef(names(data()), selected_columns(), "somatic", map_list)
+    # })
     
     
     filtered_data <- reactive({
       req(data())
-      dt <- data()
+      dt <- copy(data())
 
       if (!is.null(selected_tumor_depth())) {
         dt <- dt[selected_tumor_depth() <= tumor_depth, ]
@@ -169,14 +174,79 @@ server <- function(id, selected_samples, shared_data) {
       return(dt)
     })
 
-    
+    # # Render DT datatable with conditional selection and highlighting
+    # output$somatic_var_call_tab2 <- renderDT({
+    #   req(filtered_data())
+    #   # req(column_defs())  # pokud používáš pro definice sloupců
+    #   
+    #   message("Rendering DT datatable for germline")
+    #   filtered_df <- as.data.frame(filtered_data())  # tvoje data pro hlavní tabulku
+    #   pathogenic_variants <- selected_variants()     # seznam patogenních variant
+    #   # 
+    #   #       # Vytvořím logický vektor pro zvýraznění řádků
+    #   #       highlight_rows <- filtered_df$var_name %in% pathogenic_variants$var_name &
+    #   #         filtered_df$Gene_symbol %in% pathogenic_variants$Gene_symbol
+    #   
+    #   # Vytvoření DT tabulky
+    #   datatable(
+    #     filtered_df,
+    #     options = list(
+    #       columnDefs = list(list(className = 'dt-center',targets = which(colnames(filtered_df) == "gene_region")),
+    #                         list(className = 'dt-center',targets = which(colnames(filtered_df) == "Gene_symbol")),
+    #                         list(className = 'dt-center',targets = which(colnames(filtered_df) == "tumor_variant_freq")),
+    #                         list(className = 'dt-center',targets = which(colnames(filtered_df) == "tumor_depth")),
+    #                         list(targets = which(colnames(filtered_df) == "all_full_annot_name"),
+    #                           render = JS(
+    #                             "function(data, type, row, meta) {",
+    #                             "return type === 'display' && data.length > 20 ?",
+    #                             "'<span title=\"' + data + '\">' + data.substr(0, 20) + '...</span>' : data;",
+    #                             "}")),
+    #                         list(targets = which(colnames(filtered_df) == "Consequence"),
+    #                              render = JS(
+    #                                "function(data, type, row, meta) {",
+    #                                "return type === 'display' && data.length > 30 ?",
+    #                                "'<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;",
+    #                                "}"))
+    #                         # list(className = 'dt-center', targets = "_all") # zarovnání na střed
+    #   
+    #   ),
+    #       pageLength = 10,
+    #       lengthMenu =c(10, 20, 50, 100),
+    #       order = list(list(which(colnames(filtered_df) == "CGC_Somatic"), 'desc'),
+    #                    list(which(colnames(filtered_df) == "fOne"), 'desc')),
+    #       dom = 'lBrtip', #l (length menu),f (search box),r (processing display, často se vynechává),t (tabulka),i (info summary),p (paginace)
+    #       scrollX = TRUE,
+    #       autoWidth = TRUE,
+    #       order = list(list(0, 'asc')),  # uprav dle potřeby
+    #       # Ztenčení okrajů a hover efekt
+    #       stripeClasses = c('stripe', 'hover')
+    # 
+    #           # initComplete = JS( ## color of the table`s header
+    #       #   "function(settings, json) {",
+    #       #   "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+    #       #   "}")
+    #       
+    #     ),
+    #   rownames = FALSE,
+    #   class = "stripe hover compact cell-border")
+    #     
+    #   # ) %>%. ## formátovaná pro vybrané řádky jako pathogenic variants
+    #   #   formatStyle(
+    #   #     columns = names(filtered_df),
+    #   #     target = 'row',
+    #   #     backgroundColor = styleEqual(c(TRUE, FALSE), c('#B5E3B6', NA)),
+    #   #     fontWeight = styleEqual(c(TRUE, FALSE), c('bold', NA)),
+    #   #     condition = highlight_rows
+    #   #   )
+    # })
+
     output$somatic_var_call_tab <- renderReactable({
       req(filtered_data())
       req(column_defs())
       message("🟢 Rendering Reactable for somatic")
-      filtered_data <- filtered_data() 
+      filtered_data <- filtered_data()
       pathogenic_variants <- selected_variants() # seznam variant, které byly označeny jako patogenní
-    
+
       reactable(
         as.data.frame(filtered_data),
         columns = column_defs(),
@@ -269,7 +339,8 @@ server <- function(id, selected_samples, shared_data) {
           as.data.frame(variants),
           columns = list(
             var_name = colDef(name = "Variant name"),
-            Gene_symbol = colDef(name = "Gene name")),
+            Gene_symbol = colDef(name = "Gene name"),
+            Consequence = colDef(minWidth=160)),
           selection = "multiple", onClick = "select")
       }
     })
@@ -450,6 +521,7 @@ filterTab_server <- function(id,colnames_list) {
   
 filterTab_ui <- function(id, data, default_columns, mapped_checkbox_names){
   ns <- NS(id)
+  
   filenames <- get_inputs("per_sample_file")
   file_paths <- filenames$var_call.somatic[1]
   patient_names <- substr(basename(file_paths), 1, 6)

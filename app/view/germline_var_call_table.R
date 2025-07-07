@@ -1,12 +1,10 @@
 # app/view/germline_var_call_table.R
 
 #########################################################################################################
-## pozn. reactable.extras je opravdu rychlejší, ale nefungují nějaké reactable parametry jako např. 
-## showPageSizeOptions, pageSizeOptions a defaultPageSize
-## Také nefunguje balík jako reactablefmtr, což je velká škoda. 
+## to co zpomaluje skript nejvíc je:
+## 1. css styly u řádků Clinvar_sig, CGC_Germline, TruSight_genes a fOne (doba vzroste z 3s na 27s)
+## 2. fce input_data - načítání dat a jejich úprava (doba trvání cca 8.5s)
 #########################################################################################################
-
-# dt <- openxlsx::read.xlsx("../AK1860krev.germ_variants.xlsx")
 
 box::use(
   shiny[moduleServer,NS,h2,h3,tagList,div,tabsetPanel,tabPanel,observeEvent,fluidPage,fluidRow, reactive,icon,textInput,isTruthy,verbatimTextOutput,
@@ -21,8 +19,12 @@ box::use(
   shinyWidgets[prettyCheckbox,prettyCheckboxGroup,updatePrettyCheckboxGroup,searchInput,pickerInput, dropdown,actionBttn,pickerOptions,dropdownButton],
   shinyalert[shinyalert,useShinyalert],
   shinyjs[useShinyjs,hide,show],
-  data.table[data.table,as.data.table,uniqueN],
+  data.table[data.table,as.data.table,uniqueN,copy,rbindlist,fread],
   stats[setNames],
+  DT[renderDT,datatable,formatStyle,styleEqual,DTOutput],
+  magrittr[`%>%`],
+  # waiter[useWaitress,Waitress]
+
   # reactablefmtr
 )
 
@@ -49,6 +51,7 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
+    # useWaitress(),
     fluidRow(
       div(style = "width: 100%; text-align: right;",
         dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
@@ -56,17 +59,20 @@ ui <- function(id) {
                        selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
                        downloadButton(ns("Table_download"),"Download")),
         uiOutput(ns("filterTab")))),
+    # use_spinner(DTOutput(ns("germline_var_call_tab"))),
+    # tags$br(),
     use_spinner(reactableOutput(ns("germline_var_call_tab"))),
     tags$br(),
+
     div(style = "display: flex; justify-content: space-between; align-items: top; width: 100%;",
       div(
         actionButton(ns("selectPathogenic_button"), "Select variants as possibly pathogenic", status = "info"),
         tags$br(),
         fluidRow(
-          column(5,reactableOutput(ns("selectPathogenic_tab")))),
+          column(12,reactableOutput(ns("selectPathogenic_tab")))),
         tags$br(),
         fluidRow(
-          column(1,actionButton(ns("delete_button"), "Delete variants", icon = icon("trash-can"))))
+          column(3,actionButton(ns("delete_button"), "Delete variants", icon = icon("trash-can"))))
       ),
       dropdown(ns("igv_dropdownButton"), label = "IGV", status = "primary", icon = icon("play"), right = TRUE, size = "md",#width = 230, 
                pickerInput(ns("idpick"), "Select patients for IGV:", choices = sample_list_germ(), options = pickerOptions(actionsBox = FALSE, size = 4, maxOptions = 4, dropupAuto = FALSE, maxOptionsText = "Select max. 4 patients"),multiple = TRUE),
@@ -83,10 +89,14 @@ server <- function(id, selected_samples, shared_data) {
     ns <- session$ns
     # Call loading function to load data
     data <- reactive({
-      message("Loading input data for germline")
-      input_data(selected_samples)
+      start <- Sys.time()
+      x <- input_data(selected_samples)
+      end <- Sys.time()
+      message("⏱️ reactive data: ", round(difftime(end, start, units = "secs"), 3), " sec")
+      x
     })
     
+
     # observe({
     #     req(data())
     #     overview_dt <- data.table(
@@ -106,7 +116,11 @@ server <- function(id, selected_samples, shared_data) {
     output$filterTab <- renderUI({
       req(data())
       req(map_list)
-      filterTab_ui(ns("filterTab_dropdown"),data(), colnames_list$default_columns, mapped_checkbox_names)
+      start <- Sys.time()
+      x <- filterTab_ui(ns("filterTab_dropdown"),data(), colnames_list$default_columns, mapped_checkbox_names)
+      end <- Sys.time()
+      message("⏱️ render UI filterTab: ", round(difftime(end, start, units = "secs"), 3), " sec")
+     return(x)
     })
     
     
@@ -120,46 +134,60 @@ server <- function(id, selected_samples, shared_data) {
     selected_columns <- reactiveVal(colnames_list$default_columns)
     selected_variants <- reactiveVal(data.frame(patient = character(),var_name = character(), Gene_symbol = character()))
 
-    
+
     column_defs <- reactive({
-      req(data())
       req(selected_columns())
-      generate_columnsDef(names(data()), selected_columns(), "germline", map_list)
+      start <- Sys.time()
+      x <- generate_columnsDef(names(data()), selected_columns(), "germline", map_list)
+      end <- Sys.time()
+      message("⏱️ reactive column_defs: ", round(difftime(end, start, units = "secs"), 3), " sec")
+      x
     })
     
-    filtered_data <- reactive({
-      req(data())
-      dt <- data()
 
-      if (!is.null(selected_coverage_depth())) {
-        dt <- dt[selected_coverage_depth() <= coverage_depth, ]
+    filtered_data <- reactive({
+      start <- Sys.time()
+      dt <- data()
+      selected_coverage_depth <- selected_coverage_depth()
+      selected_gnomAD_min <- selected_gnomAD_min()
+      selected_gene_region <- selected_gene_region()
+      selected_clinvar_sig <- selected_clinvar_sig()
+      selected_consequence <- selected_consequence()
+      
+      if (!is.null(selected_coverage_depth)) {
+        dt <- dt[selected_coverage_depth <= coverage_depth, ]
       }
-      if (!is.null(selected_gnomAD_min())) {
-        dt <- dt[gnomAD_NFE <= selected_gnomAD_min()]
+      if (!is.null(selected_gnomAD_min)) {
+        dt <- dt[gnomAD_NFE <= selected_gnomAD_min]
       }
-      if (!is.null(selected_gene_region()) && length(selected_gene_region()) > 0) {
-        dt <- dt[gene_region %in% selected_gene_region(), ]
+      if (!is.null(selected_gene_region) && length(selected_gene_region) > 0) {
+        dt <- dt[gene_region %in% selected_gene_region, ]
       }
-      if (!is.null(selected_clinvar_sig()) && length(selected_clinvar_sig()) > 0) {
-        dt <- create_clinvar_filter(dt, selected_clinvar_sig())
+      if (!is.null(selected_clinvar_sig) && length(selected_clinvar_sig) > 0) {
+        dt <- create_clinvar_filter(dt, selected_clinvar_sig)
       }
-      if (!is.null(selected_consequence()) && length(selected_consequence()) > 0) {
-        dt <- create_consequence_filter(dt, selected_consequence())
+      if (!is.null(selected_consequence) && length(selected_consequence) > 0) {
+        dt <- create_consequence_filter(dt, selected_consequence)
       }
+      end <- Sys.time()
+      message("⏱️ reactive filtered_data: ", round(difftime(end, start, units = "secs"), 3), " sec")
       return(dt)
     })
 
     
-    # Render reactable with conditional selection
+    ##  Render reactable with conditional selection
     output$germline_var_call_tab <- renderReactable({
+      # waitress <- Waitress$new(paste0("#", ns("germline_var_call_tab")), theme = "overlay-percent", infinite = TRUE)
+      # waitress$start()
       req(filtered_data())
       req(column_defs())
-      message("Rendering Reactable for germline")
+      start <- Sys.time()
+      # message("Rendering Reactable for germline")
       filtered_data <- filtered_data() # tvoje data pro hlavní tabulku
       pathogenic_variants <- selected_variants() # seznam variant, které byly označeny jako patogenní
-      
-      
-      reactable(
+
+
+      tbl <- reactable(
         as.data.frame(filtered_data),
         columns = column_defs(),
         resizable = TRUE,
@@ -172,16 +200,20 @@ server <- function(id, selected_samples, shared_data) {
         outlined = TRUE,
         defaultColDef = colDef(align = "center", sortNALast = TRUE),
         defaultSorted = list("CGC_Germline" = "desc", "trusight_genes" = "desc", "fOne" = "desc"),
-        rowStyle = function(index) {
-          gene_in_row <- filtered_data$Gene_symbol[index]
-          var_in_row <- filtered_data$var_name[index]
-          if (var_in_row %in% pathogenic_variants$var_name &           # Pokud je aktuální řádek v seznamu patogenních variant, zvýrazníme ho
-              gene_in_row %in% pathogenic_variants$Gene_symbol) {
-            list(backgroundColor = "#B5E3B6",fontWeight = "bold")
-          } else {
-            NULL
-          }
-        },
+        rowStyle = if (nrow(pathogenic_variants) > 0) {
+            function(index) {
+              gene_in_row <- filtered_data$Gene_symbol[index]
+              var_in_row <- filtered_data$var_name[index]
+                  if (var_in_row %in% pathogenic_variants$var_name &           # Pokud je aktuální řádek v seznamu patogenních variant, zvýrazníme ho
+                      gene_in_row %in% pathogenic_variants$Gene_symbol) {
+                    list(backgroundColor = "#B5E3B6",fontWeight = "bold")
+                  } else {
+                    NULL
+                  }
+              }
+            } else {
+                NULL
+          },
         # columnGroups = list(
         #   colGroup(name = "Databases", columns = c("gnomAD_NFE", "clinvar_sig", "snpDB", "CGC_Germline", "trusight_genes", "fOne")),
         #   colGroup(name = "Annotation", columns = c("Consequence", "HGVSc", "HGVSp", "all_full_annot_name"))
@@ -193,20 +225,83 @@ server <- function(id, selected_samples, shared_data) {
                             rowInfo.toggleRowSelected();}}"),
         class = "germline-table"
       )
+      end <- Sys.time()
+      message("⏱️ renderReactable duration: ", round(difftime(end, start, units = "secs"), 3), " sec")
+      # waitress$close()
+      tbl
+
     })
-    
-    # Sledování vybraného řádku a varianty
-    selected_variant <- reactive({
-      selected_row <- getReactableState("germline_var_call_tab", "selected")
-      req(selected_row)
-      
-        filtered_data()[selected_row, c("var_name","Gene_symbol")]  # Získání varianty z vybraného řádku
-        message("data germline tab: ", filtered_data()[selected_row, c("var_name","Gene_symbol")])
-        # var <- filtered_data()[selected_row, c("var_name","Gene_symbol")]  # Získání varianty z vybraného řádku
-        # var$remove <- NA
-    
-    })
-    
+    # # 
+    # # Render DT datatable with conditional selection and highlighting
+    # output$germline_var_call_tab <- renderDT({
+    #   req(filtered_data())
+    #   # req(column_defs())  # pokud používáš pro definice sloupců
+    #   
+    #   message("Rendering DT datatable for germline")
+    #   filtered_df <- as.data.frame(filtered_data())  # tvoje data pro hlavní tabulku
+    #   pathogenic_variants <- selected_variants()     # seznam patogenních variant
+    #   # 
+    #   #       # Vytvořím logický vektor pro zvýraznění řádků
+    #   #       highlight_rows <- filtered_df$var_name %in% pathogenic_variants$var_name &
+    #   #         filtered_df$Gene_symbol %in% pathogenic_variants$Gene_symbol
+    #   start <- Sys.time()
+    #   # Vytvoření DT tabulky
+    #   tbl <- datatable(
+    #     filtered_df,
+    #     options = list(
+    #       # columnDefs = list(list(className = 'dt-center',targets = which(colnames(filtered_df) == "gene_region")),
+    #       #                   list(className = 'dt-center',targets = which(colnames(filtered_df) == "Gene_symbol")),
+    #       #                   list(className = 'dt-center',targets = which(colnames(filtered_df) == "variant_freq")),
+    #       #                   list(className = 'dt-center',targets = which(colnames(filtered_df) == "coverage_depth")),
+    #       #                   list(targets = which(colnames(filtered_df) == "all_full_annot_name"),
+    #       #                        render = JS(
+    #       #                          "function(data, type, row, meta) {",
+    #       #                          "return type === 'display' && data.length > 20 ?",
+    #       #                          "'<span title=\"' + data + '\">' + data.substr(0, 20) + '...</span>' : data;",
+    #       #                          "}")),
+    #       #                   list(targets = which(colnames(filtered_df) == "Consequence"),
+    #       #                        render = JS(
+    #       #                          "function(data, type, row, meta) {",
+    #       #                          "return type === 'display' && data.length > 30 ?",
+    #       #                          "'<span title=\"' + data + '\">' + data.substr(0, 30) + '...</span>' : data;",
+    #       #                          "}"))
+    #       #                   # list(className = 'dt-center', targets = "_all") # zarovnání na střed
+    #       #                   
+    #       # ),
+    #       pageLength = 10,
+    #       lengthMenu =c(10, 20, 50, 100),
+    #       # order = list(list(which(colnames(filtered_df) == "CGC_Germline"), 'desc'),
+    #       #              list(which(colnames(filtered_df) == "fOne"), 'desc')),
+    #       dom = 'lBrtip', #l (length menu),f (search box),r (processing display, často se vynechává),t (tabulka),i (info summary),p (paginace)
+    #       scrollX = TRUE,
+    #       autoWidth = TRUE,
+    #       order = list(list(0, 'asc'))  # uprav dle potřeby
+    #       # Ztenčení okrajů a hover efekt
+    #       
+    #       # initComplete = JS( ## color of the table`s header
+    #       #   "function(settings, json) {",
+    #       #   "$(this.api().table().header()).css({'background-color': '#000', 'color': '#fff'});",
+    #       #   "}")
+    #       
+    #     ),
+    #     rownames = FALSE,
+    #     class = "stripe hover condensed")
+    #   
+    #   end <- Sys.time()
+    #   message("⏱️ renderReactable duration: ", round(difftime(end, start, units = "secs"), 3), " sec")
+    #   
+    #   tbl
+    #   
+    #   # ) %>%. ## formátovaná pro vybrané řádky jako pathogenic variants
+    #   #   formatStyle(
+    #   #     columns = names(filtered_df),
+    #   #     target = 'row',
+    #   #     backgroundColor = styleEqual(c(TRUE, FALSE), c('#B5E3B6', NA)),
+    #   #     fontWeight = styleEqual(c(TRUE, FALSE), c('bold', NA)),
+    #   #     condition = highlight_rows
+    #   #   )
+    # })
+  
     # Akce po kliknutí na tlačítko pro přidání varianty
     observeEvent(input$selectPathogenic_button, {
       selected_rows <- getReactableState("germline_var_call_tab", "selected")
@@ -253,28 +348,24 @@ server <- function(id, selected_samples, shared_data) {
     })
     
 
-
-    output$selectPathogenic_tab <- renderReactable({
-      variants <- selected_variants()
-      if (nrow(variants) == 0) {
-        return(NULL)
-      }
-      
-      reactable(
-        variants,
-        columns = list(
-          var_name = colDef(name = "Variant name"),
-          Gene_symbol = colDef(name = "Gene name")
-          # remove = colDef(
-          #   name = "",
-          #   cell = function(value, index) {
-          #     # actionButton(session$ns("delete"), label = "", class = "btn btn-danger btn-sm", icon = icon("remove"))
-          #     # actionButton(session$ns(paste0("remove_", index)), label = "", class = "btn btn-danger btn-sm", icon = icon("remove"))
-          #   })
-        ),
-        selection = "multiple", onClick = "select"
-      )
+    observeEvent(input$selectPathogenic_button,{
+      output$selectPathogenic_tab <- renderReactable({
+        variants <- selected_variants()
+        if (nrow(variants) == 0) {
+          return(NULL)
+        }
+        
+        reactable(
+          variants,
+          columns = list(
+            var_name = colDef(name = "Variant name"),
+            Gene_symbol = colDef(name = "Gene name"),
+            Consequence = colDef(minWidth=160)),
+          selection = "multiple", onClick = "select"
+        )
+      })
     })
+
     
     observeEvent(input$delete_button, {
       rows <- getReactableState("selectPathogenic_tab", "selected")

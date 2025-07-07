@@ -97,11 +97,10 @@ prepare_fusion_genes_table <- function(data,selected_samples){
   dt[,position1 := paste0(chrom1,":",pos1)]
   dt[,position2 := paste0(chrom2,":",pos2)]
   dt[,c("chrom1","pos1","chrom2","pos2") := NULL]
-  default_selection <- c("gene1","gene2","arriba.called","starfus.called","arriba.confidence","overall_support","IGV","Visual_Check","Notes","position1","strand1","position2","strand2",
-                         "arriba.site1","arriba.site2","starfus.splice_type","DB_count","DB_list")
+  default_columns <- colFilter("fusion")$default_columns
   
-  dt[, `:=`(IGV = "", Visual_Check = "", Notes = "")]
-  setcolorder(dt, default_selection)
+  dt[, `:=`(Visual_Check = "", Notes = "")]
+  setcolorder(dt, default_columns)
   message(paste0("Fusion genes, pacient ",unique(dt$sample)," (prepare_table script)"))
   return(dt)
 }
@@ -190,6 +189,7 @@ prepare_germline_table <- function(dt){
 #' @export
 prepare_expression_table <- function(combined_dt,expr_flag){
   tissue_order <- unique(combined_dt$tissue)
+  default_columns <- colFilter("expression")$default_columns
   
   log2FC_cols <- paste0("log2FC_", tissue_order)
   p_value_cols <- paste0("p_value_", tissue_order)
@@ -201,7 +201,8 @@ prepare_expression_table <- function(combined_dt,expr_flag){
                      value.var = c("log2FC", "p_value", "p_adj"))
     wide_dt[, mean_log2FC := rowMeans(.SD, na.rm = TRUE), .SDcols = patterns("^log2FC_")]
     # Column ordering
-    column_order <- c("sample", "feature_name", "geneid", "pathway", "mean_log2FC",as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
+    
+    column_order <- c(default_columns,as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
     wide_dt <- wide_dt[, column_order, with = FALSE]
     
     # tissue_cols <- unlist(lapply(unique(combined_dt$tissue), function(tissue) {
@@ -216,9 +217,10 @@ prepare_expression_table <- function(combined_dt,expr_flag){
                      value.var = c("log2FC", "p_value", "p_adj"))
     wide_dt[, mean_log2FC := rowMeans(.SD, na.rm = TRUE), .SDcols = patterns("^log2FC_")]
     
-    column_order <- c("sample","feature_name","geneid","refseq_id","type","gene_definition","all_kegg_gene_names","pathway", "num_of_paths","mean_log2FC",as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
+    # column_order <- c("sample","feature_name","geneid","refseq_id","type","gene_definition","all_kegg_gene_names","pathway", "num_of_paths","mean_log2FC",as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
+    # wide_dt <- wide_dt[, column_order, with = FALSE]
+    column_order <- c(default_columns,as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
     wide_dt <- wide_dt[, column_order, with = FALSE]
-
     
     # Převod pouze číselných sloupců na scientific zápis
     # Použití scientific formátu a zajištění, že NA zůstane NA
@@ -260,7 +262,7 @@ set_pathway_colors <- function(){
 }
 
 #' @export
-colFilter <- function(flag,expr_flag){
+colFilter <- function(flag,expr_flag = NULL){
   filenames <- get_inputs("per_sample_file")
   # message(paste("Getting columns for flag:", flag))
   if (flag == "somatic"){
@@ -279,8 +281,8 @@ colFilter <- function(flag,expr_flag){
       all_column_var <- names(read.xlsx(filenames$fusions[1], rows = 1))
       filtered_all_column_var <- setdiff(all_column_var, c("chrom1", "chrom2", "pos1", "pos2"))
       
-      all_column_names <- c(filtered_all_column_var,"IGV","Visual_Check","Notes","position1","position2")
-      default_selection <- c("gene1","gene2","arriba.called","starfus.called","arriba.confidence","overall_support","IGV","Visual_Check","Notes","position1","strand1","position2","strand2",
+      all_column_names <- c(filtered_all_column_var,"Visual_Check","Notes","position1","position2")
+      default_selection <- c("gene1","gene2","arriba.called","starfus.called","arriba.confidence","overall_support","Visual_Check","Notes","position1","strand1","position2","strand2",
                              "arriba.site1","arriba.site2","starfus.splice_type","DB_count","DB_list")
     } else {
       stop("Fusion file not found: ", filenames$fusions[1])
@@ -289,16 +291,11 @@ colFilter <- function(flag,expr_flag){
 
     if (file.exists(filenames$expression.files[grep("multiRow", filenames$expression.files)][1])) {
       # Načtení pouze názvů sloupců
-      # column_var <- names(fread(filenames$expression.files[grep("multiRow", filenames$expression.files)][1], nrows = 0))
-
       tissue <- unique(gsub("^.*/|_all_genes_multiRow\\.tsv$", "", filenames$expression.files[grep("multiRow", filenames$expression.files)]))
-      if (expr_flag == "all_genes"){
-        keep_columns <- c("feature_name", "geneid", "pathway")
-        hide_columns <- c("refseq_id", "type", "all_kegg_gene_names", "gene_definition", "num_of_paths")
-      } else {
-        keep_columns <- c("feature_name", "geneid", "pathway", "mean_log2FC")
-        hide_columns <- NULL
-      }
+      all_column_var <- names(fread(filenames$expression.files[grep("multiRow", filenames$expression.files)][1], nrows = 0))
+
+      filtered_all_column_var <- setdiff(all_column_var, c("log2FC","p_value","p_adj","sample","all_kegg_paths_name","counts_tpm_round","fc","size","mu","lower_than_p","higher_than_p"))
+      default_selection_var <- c("sample", "feature_name", "geneid", "pathway", "mean_log2FC")
       
       # Generování dynamických sloupců pro každou tkáň
       log2FC_cols <- paste0("log2FC_", tissue)
@@ -306,8 +303,8 @@ colFilter <- function(flag,expr_flag){
       p_adj_cols <- paste0("p_adj_", tissue)
       
       # Kombinace do finálního pořadí sloupců
-      all_column_names <- c(keep_columns,hide_columns, as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
-      default_selection <- c(keep_columns, as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
+      all_column_names <- c(filtered_all_column_var, as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
+      default_selection <- c(default_selection_var, as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
       
 
     } else {

@@ -2,23 +2,26 @@
 
 box::use(
   shiny[moduleServer,NS,h3,tagList,div,textInput,renderPrint,reactive,observe,observeEvent,icon,mainPanel,titlePanel,isolate,
-        uiOutput,renderUI,HTML,req,reactiveVal,column,fluidRow,showModal,modalDialog,modalButton],
+        uiOutput,renderUI,HTML,req,reactiveVal,column,fluidRow,showModal,modalDialog,modalButton,selectInput,downloadButton],
   reactable,
   reactable[reactable,colDef,reactableOutput,renderReactable,JS,getReactableState],
-  htmltools[tags,p],
-  bs4Dash[actionButton,bs4Card],
+  htmltools[tags, p,span,HTML],
+  bs4Dash[actionButton,bs4Card,box],
   shinyjs[useShinyjs,runjs,hide,show],
   reactablefmtr[pill_buttons,icon_assign],
   data.table[fifelse,setcolorder],
   shinyalert[shinyalert,useShinyalert],
-  data.table[data.table,uniqueN],
-  shinyWidgets[pickerInput, dropdown,actionBttn,pickerOptions]
+  data.table[data.table,uniqueN,as.data.table,copy],
+  shinyWidgets[pickerInput, dropdownButton,prettyCheckboxGroup,updatePrettyCheckboxGroup,actionBttn,pickerOptions,dropdown],
+  stats[setNames],
 )
 box::use(
   app/logic/load_data[get_inputs,load_data],
   app/logic/prepare_table[prepare_fusion_genes_table,prepare_arriba_images], 
   app/logic/waiters[use_spinner],
   app/logic/patients_list[sample_list_fuze],
+  app/logic/reactable_helpers[create_clinvar_filter,create_consequence_filter],
+  app/logic/filter_columns[getColFilterValues,map_checkbox_names,colnames_map_list,generate_columnsDef]
 )
 
 # Load and process data table
@@ -40,7 +43,15 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
-    use_spinner(reactable$reactableOutput(ns("fusion_genes_tab"))),
+    fluidRow(
+      div(style = "width: 100%; text-align: right;",
+          dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
+                         selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
+                         selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
+                         downloadButton(ns("Table_download"),"Download")),
+          uiOutput(ns("filterTab")))),
+    use_spinner(reactableOutput(ns("fusion_genes_tab"))),
+    tags$br(),
     div(style = "display: flex; justify-content: space-between; align-items: top; width: 100%;",
       div(
         tags$br(),
@@ -64,8 +75,9 @@ ui <- function(id) {
 }
 
 #' @export
-server <- function(id, selected_samples, selected_columns, column_mapping, shared_data) {
+server <- function(id, selected_samples, shared_data) {
   moduleServer(id, function(input, output, session) {
+    ns <- session$ns
     # prepare_arriba_images(selected_samples)
     
   # Call loading function to load data
@@ -83,17 +95,57 @@ server <- function(id, selected_samples, selected_columns, column_mapping, share
       shared_data$fusion_overview[[ selected_samples ]] <- overview_dt
     })
 
+    colnames_list <- getColFilterValues("fusion") # gives list of all_columns and default_columns
+    map_list <- colnames_map_list("fusion",session = session) # gives list of all columns with their column definitions
+    mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     
+    
+    output$filterTab <- renderUI({
+      req(dt())
+      req(map_list)
+      filterTab_ui(ns("filterTab_dropdown"),dt(), colnames_list$default_columns, mapped_checkbox_names)
+    })
+    
+    filter_state <- filterTab_server("filterTab_dropdown",colnames_list)
+    
+    
+    ############
+    # selected_tumor_depth <- reactiveVal(NULL)
+    # selected_gnomAD_min  <- reactiveVal(NULL)
+    # selected_gene_region <- reactiveVal(NULL)
+    # selected_clinvar_sig <- reactiveVal(NULL)
+    # selected_consequence <- reactiveVal(NULL)
+    selected_columns <- reactiveVal(colnames_list$default_columns)
+    selected_fusions <- reactiveVal(data.frame(gene1 = character(), gene2 = character()))
     
   # Call generate_columnsDef to generate colDef setting for reactable
     column_defs <- reactive({
-      message("Generating colDef for fusion")
+      req(dt())
       req(selected_columns())
-      generate_columnsDef(names(dt()), selected_columns(), "fusion", column_mapping, session)
+      generate_columnsDef(names(dt()), selected_columns(), "fusion", map_list)
     })
     
-    # # Reactive value to store selected rows
-    selected_fusions <- reactiveVal(data.frame(gene1 = character(), gene2 = character()))
+
+    # filtered_data <- reactive({
+    #   req(dt())
+    #   data <- copy(dt())
+    #   
+    #   if (!is.null(selected_tumor_depth())) {
+    #     data <- data[selected_tumor_depth() <= tumor_depth, ]
+    #   }
+    #   if (!is.null(selected_gnomAD_min())) {
+    #     data <- data[gnomAD_NFE <= selected_gnomAD_min()]
+    #   }
+    #   if (!is.null(selected_gene_region()) && length(selected_gene_region()) > 0) {
+    #     data <- data[gene_region %in% selected_gene_region(), ]
+    #   }
+    #   if (!is.null(selected_consequence()) && length(selected_consequence()) > 0) {
+    #     data <- create_consequence_filter(data, selected_consequence())
+    #   }
+    #   
+    #   return(data)
+    # })
+    
     
     output$fusion_genes_tab <- renderReactable({
       pathogenic_fusions <- selected_fusions() # seznam fúzí, které byly označeny jako patogenní
@@ -291,7 +343,14 @@ server <- function(id, selected_samples, selected_columns, column_mapping, share
     hide("confirm_btn")
     hide("delete_button")
 
-    
+    observeEvent(filter_state$confirm(), {
+      message("🟢 Confirm button was clicked")
+      # selected_tumor_depth(filter_state$tumor_depth())
+      # selected_gnomAD_min(filter_state$gnomAD_min())
+      # selected_gene_region(filter_state$gene_region())
+      # selected_consequence(filter_state$consequence())
+      selected_columns(filter_state$selected_columns())
+    })
     
     #############
     ## run IGV ##
@@ -337,6 +396,101 @@ server <- function(id, selected_samples, selected_columns, column_mapping, share
 
   })
 }
+
+
+
+filterTab_server <- function(id,colnames_list) {
+  moduleServer(id, function(input, output, session) {
+    
+    # observe({
+    #   if(isTruthy(is.na(input$tumor_depth))) updateNumericInput(session, "tumor_depth", value = 10)
+    # })
+    # observe({
+    #   if(isTruthy(is.na(input$gnomAD_min))) updateNumericInput(session, "gnomAD_min", value = 0.01)
+    # })
+    
+    observeEvent(input$show_all, {
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
+    })
+    
+    observeEvent(input$show_default, {
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
+    })
+    
+    return(list(
+      confirm = reactive(input$confirm_btn),
+      # tumor_depth = reactive(input$tumor_depth),
+      # gnomAD_min = reactive(input$gnomAD_min),
+      # gene_regions = reactive(input$gene_regions),
+      # consequence = reactive(input$consequence),
+      selected_columns = reactive(input$colFilter_checkBox)
+    ))
+  })
+}
+
+
+
+filterTab_ui <- function(id, data, default_columns, mapped_checkbox_names){
+  ns <- NS(id)
+  filenames <- get_inputs("per_sample_file")
+  file_paths <- filenames$fusions[1]
+  patient_names <- substr(basename(file_paths), 1, 6)
+  # consequence_split <- unique(unlist(unique(data$consequence_trimws)))
+  # consequence_list <- sort(unique(ifelse(is.na(consequence_split) | consequence_split == "", "missing_value", consequence_split)))
+  # 
+  # 
+  
+  
+  
+  
+  tagList(
+    tags$head(tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"),
+              tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
+                    .checkbox label {font-weight: normal !important;}
+                    .checkbox-group .checkbox {margin-bottom: 0px !important;}
+                    .my-blue-btn {background-color: #007bff;color: white;border: none;}
+                    .dropdown-menu .bootstrap-select .dropdown-toggle {border: 1px solid #ced4da !important; background-color: #fff !important;
+                      color: #495057 !important; height: 38px !important; font-size: 16px !important; border-radius: 4px !important;
+                      box-shadow: none !important;}
+                    .sw-dropdown-content {border: 1px solid #ced4da !important; border-radius: 4px !important; box-shadow: none !important;
+                      background-color: white !important;}
+                    .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
+                    .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
+                    #app-fusion_genes_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
+                    "))
+    ),
+    dropdownButton(
+      label = NULL,
+      right = TRUE,
+      # width = "480px",
+      icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
+      fluidRow(style = "display: flex; align-items: stretch;",
+               column(12,
+                      box(width = 12,title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
+                          div(class = "two-col-checkbox-group",
+                              prettyCheckboxGroup(
+                                inputId = ns("colFilter_checkBox"),
+                                label = NULL,
+                                choices = mapped_checkbox_names[order(mapped_checkbox_names)],
+                                selected = default_columns,
+                                icon = icon("check"),
+                                status = "primary",
+                                outline = FALSE
+                              )
+                          ),
+                          div(style = "display: flex; gap: 10px; width: 100%;",
+                              actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
+                              actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))
+                      )
+               )
+      ),
+      tags$br(),
+      div(style = "display: flex; justify-content: center; margin-top: 10px;",
+          actionBttn(ns("confirm_btn"),"Apply changes",style = "stretch",color = "success",size = "md",individual = TRUE,value = 0))
+    )
+  )
+}
+
 
 
 ###### build_igv_tracks selected_bams ######: list(name = "DZ1601tumor", file = character(0))list(name = "DZ1601normal", file = "./230426_MOII_e117_krve/mapped/DZ1601krev.bam")list(name = "MR1507tumor", file = character(0))list(name = "MR1507normal", file = "./230426_MOII_e117_krve/mapped/MR1507krev.bam")

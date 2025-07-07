@@ -2,7 +2,7 @@
 
 box::use(
   shiny[moduleServer, NS, tagList, fluidRow, fluidPage, column, tabPanel, reactive, req, observe, div, observeEvent, reactiveVal, icon, splitLayout, h4, bindEvent,
-        updateSelectInput, selectInput, numericInput, actionButton, renderPlot, plotOutput, uiOutput, renderUI, verbatimTextOutput, renderPrint, reactiveValues, isolate],
+        updateSelectInput, selectInput, numericInput, actionButton, renderPlot, plotOutput, uiOutput, renderUI, verbatimTextOutput, renderPrint, reactiveValues, isolate,downloadButton],
   reactable,
   bs4Dash[box],
   reactable[colDef, reactableOutput, renderReactable, reactable, getReactableState, colGroup, JS],
@@ -10,7 +10,7 @@ box::use(
   plotly[plotlyOutput, renderPlotly, toWebGL],
   reactablefmtr[pill_buttons, data_bars],
   utils[head],
-  shinyWidgets[radioGroupButtons, checkboxGroupButtons, updateCheckboxGroupButtons, dropdown, dropdownButton, actionBttn, awesomeCheckboxGroup, pickerInput],
+  shinyWidgets[radioGroupButtons, checkboxGroupButtons, prettyCheckboxGroup, updatePrettyCheckboxGroup, updateCheckboxGroupButtons, dropdown, dropdownButton, actionBttn, awesomeCheckboxGroup, pickerInput],
   data.table[rbindlist, dcast.data.table, as.data.table, melt.data.table, copy],
   grDevices[colorRampPalette],
   pheatmap[pheatmap],
@@ -25,7 +25,8 @@ box::use(
   app/logic/plots[prepare_barPlot_data, create_barPlot, prepare_volcano, volcanoPlot, ggvolcanoPlot, classify_volcano_genes],
   app/logic/waiters[use_spinner],
   app/logic/load_data[get_inputs, load_data],
-  app/logic/reactable_helpers[ custom_colGroup_setting],
+  app/logic/reactable_helpers[custom_colGroup_setting],
+  app/logic/filter_columns[getColFilterValues,map_checkbox_names,colnames_map_list,generate_columnsDef],
   app/logic/prepare_table[prepare_expression_table, set_pathway_colors, get_tissue_list],
   app/logic/networkGraph_helper[get_pathway_list]
 )
@@ -46,55 +47,64 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
+    # fluidRow(
+    #   div(style = "width: 100%; text-align: right;",
+    # # div(class = "filter-button-wrapper",
+    #     uiOutput(ns("filterTab"))
+    #     )),
     fluidRow(
       div(style = "width: 100%; text-align: right;",
-    # div(class = "filter-button-wrapper",
-        uiOutput(ns("filterTab"))
-        )),
+          dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
+                         selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
+                         selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
+                         downloadButton(ns("Table_download"),"Download")),
+          uiOutput(ns("filterTab")))),
       use_spinner(reactableOutput(ns("expression_table"))),
-    # ),
-    
-    # div(
-    #   tags$br(),
-    #   actionButton(ns("selectDeregulated_button"), "Select deregulated genes for report", status = "info"),
-    #   tags$br(),
-    #   reactableOutput(ns("selectDeregulated_tab")),
-    #   tags$br(),
-    #   actionButton(ns("delete_button"), "Delete genes", icon = icon("trash-can")),
-    #   tags$br()
-    # )
     div(
       tags$br(),
       actionButton(ns("selectDeregulated_button"), "Select deregulated genes for report", status = "info"),
       tags$br(),
       fluidRow(
-        column(12,reactableOutput(ns("selectDeregulated_tab")))),
+        column(8,reactableOutput(ns("selectDeregulated_tab")))),
       tags$br(),
       fluidRow(
         column(3,actionButton(ns("delete_button"),"Delete genes", icon = icon("trash-can"))))
-    )
-    # plot_ui(ns("plot"))
+    ),
+    tags$br(),
+    plot_ui(ns("plot"))
+    
   )
 }
 
 
-server <- function(id,  patient, dataset_type, # "genes_of_interest" nebo "all_genes"
-                   selected_columns, column_mapping, all_colnames, expression_var) {
+server <- function(id,  patient, expr_tag, expression_var) {
   
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
-    # UI filter tab
+    # Načtení dat
+    data <- reactive({
+      input_data(patient, expr_tag)
+    })
+
+    colnames_list <- getColFilterValues("expression",expr_tag) # gives list of all_columns and default_columns
+    # message("####### colnames_list: ",colnames_list)
+    map_list <- colnames_map_list("expression",expr_tag, colnames_list$all_columns) # gives list of all columns with their column definitions
+    # message("####### map_list: ",map_list)
+    mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
+    # message("#######  mapped_checkbox_names: ", mapped_checkbox_names)
+    
     output$filterTab <- renderUI({
-      req(all_colnames)
-      filterTab_ui(ns("filterTab_dropdown"), dataset_type, column_mapping$dropdown_btn, all_colnames$all_columns, all_colnames$default_setting)
+      req(map_list)
+      # message("####### map_list: ", map_list)
+      filterTab_ui(ns("filterTab_dropdown"),expr_tag,colnames_list$default_columns, mapped_checkbox_names)
     })
     
-    filter_state <- filterTab_server("filterTab_dropdown")
+    filter_state <- filterTab_server("filterTab_dropdown",colnames_list)
     
     # Reaktivní hodnoty filtrů
     selected_tissues_final <- reactiveVal(get_tissue_list())
-    selected_pathway_final <- reactiveVal(get_pathway_list(dataset_type))
+    selected_pathway_final <- reactiveVal(get_pathway_list(expr_tag))
     log2fc_bigger1_final <- reactiveVal(NULL)
     log2fc_smaller1_final <- reactiveVal(NULL)
     pval_final <- reactiveVal(NULL)
@@ -103,14 +113,10 @@ server <- function(id,  patient, dataset_type, # "genes_of_interest" nebo "all_g
     log2fc_smaller1_btn_final <- reactiveVal(FALSE)
     pval_btn_final <- reactiveVal(FALSE)
     padj_btn_final <- reactiveVal(FALSE)
-    
-    # # Reactive value to store selected rows.
+    selected_columns <- reactiveVal(colnames_list$default_columns)
     selected_genes <- reactiveVal(data.frame(patient = character(), feature_name = character(), geneid = character()))
     
-    # Načtení dat
-    data <- reactive({
-      input_data(patient, dataset_type)
-    })
+
       
     # Filtrace dat
     filtered_data <- reactive({
@@ -121,7 +127,7 @@ server <- function(id,  patient, dataset_type, # "genes_of_interest" nebo "all_g
       
       # --- Pathways filtr ---
       pathways_selected <- selected_pathway_final()
-      if (!is.null(pathways_selected) && length(pathways_selected) > 0 && length(pathways_selected) < length(get_pathway_list(dataset_type))) {
+      if (!is.null(pathways_selected) && length(pathways_selected) > 0 && length(pathways_selected) < length(get_pathway_list(expr_tag))) {
         pattern <- paste(pathways_selected, collapse = "|")
         df <- df[grepl(pattern, pathway)]
       }
@@ -160,19 +166,26 @@ server <- function(id,  patient, dataset_type, # "genes_of_interest" nebo "all_g
       df_filtered <- df[, c(base_cols, valid_cols), with = FALSE]
       return(df_filtered)
     })
-    
-    # Generování columns pro reactable
+
+    # # Generování columns pro reactable
+    # column_defs <- reactive({
+    #   req(data())
+    #   req(selected_columns())
+    #   message("▶ column_defs recomputed")
+    #   generate_columnsDef(names(data()), selected_columns(), "expression", column_mapping$table, session)
+    # })
+    # Call generate_columnsDef to generate colDef setting for reactable
     column_defs <- reactive({
       req(data())
       req(selected_columns())
-      message("▶ column_defs recomputed")
-      generate_columnsDef(names(data()), selected_columns(), "expression", column_mapping$table, session)
+      generate_columnsDef(names(data()), selected_columns(), "expression", map_list)
     })
+    
     
     output$expression_table <- renderReactable({
       req(filtered_data())
       req(column_defs())
-      message("▶ Rendering reactable for expressions: ",dataset_type)
+      message("▶ Rendering reactable for expressions: ",expr_tag)
       filtered_data <- filtered_data() 
       deregulated_genes <- selected_genes() # seznam variant, které byly označeny jako patogenní
       
@@ -320,6 +333,7 @@ server <- function(id,  patient, dataset_type, # "genes_of_interest" nebo "all_g
     observeEvent(filter_state$confirm(), {
       selected_tissues_final(filter_state$selected_tissue())
       selected_pathway_final(filter_state$selected_pathway())
+      selected_columns(filter_state$selected_columns())
       
       log2fc_bigger1_final(filter_state$log2fc_bigger1_tissue())
       log2fc_smaller1_final(filter_state$log2fc_smaller1_tissue())
@@ -333,13 +347,21 @@ server <- function(id,  patient, dataset_type, # "genes_of_interest" nebo "all_g
     })
     
     
-    plot_server("plot", patient, data, dataset_type) 
+    plot_server("plot", patient, data, expr_tag) 
   })
 }
 
 
-filterTab_server <- function(id) {
+filterTab_server <- function(id,colnames_list) {
   moduleServer(id, function(input, output, session) {
+    
+    observeEvent(input$show_all, {
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
+    })
+    
+    observeEvent(input$show_default, {
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
+    })
     
     observe({
       updateCheckboxGroupButtons(session, "log2fc_bigger1_btn", selected = if (length(input$log2fc_bigger1_tissue) > 0) "log2FC > 1" else character(0))
@@ -361,6 +383,7 @@ filterTab_server <- function(id) {
       confirm = reactive(input$confirm_btn),
       selected_tissue = reactive(input$select_tissue),
       selected_pathway = reactive(input$filter_pathway),
+      selected_columns = reactive(input$colFilter_checkBox),
       
       log2fc_bigger1_tissue = reactive(input$log2fc_bigger1_tissue),
       log2fc_smaller1_tissue = reactive(input$log2fc_smaller1_tissue),
@@ -378,9 +401,24 @@ filterTab_server <- function(id) {
 
 
 
-filterTab_ui <- function(id,expr_tag,columnName_map,column_list,default_setting){
+filterTab_ui <- function(id,expr_tag,default_columns, mapped_checkbox_names){
   ns <- NS(id)
+
   tagList(
+    tags$head(tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"),
+              tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
+                    .checkbox label {font-weight: normal !important;}
+                    .checkbox-group .checkbox {margin-bottom: 0px !important;}
+                    .my-blue-btn {background-color: #007bff;color: white;border: none;}
+                    .dropdown-menu .bootstrap-select .dropdown-toggle {border: 1px solid #ced4da !important; background-color: #fff !important;
+                      color: #495057 !important; height: 38px !important; font-size: 16px !important; border-radius: 4px !important;
+                      box-shadow: none !important;}
+                    .sw-dropdown-content {border: 1px solid #ced4da !important; border-radius: 4px !important; box-shadow: none !important;
+                      background-color: white !important;}
+                    .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
+                    .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
+                    #app-somatic_var_call_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
+                    "))),
     dropdownButton(
       label = NULL,
       right = TRUE,
@@ -418,9 +456,28 @@ filterTab_ui <- function(id,expr_tag,columnName_map,column_list,default_setting)
                                      pickerInput(ns("filter_pathway"), "Filter pathways", 
                                                  choices = get_pathway_list(expr_tag), multiple = TRUE, 
                                                  options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))),
-                                 awesomeCheckboxGroup(ns("filter_column"),"Columns selection:", 
-                                                      choices  = c("Gene name","Gene ID","Pathway","log2FC","p-value","p-adj"),
-                                                      selected = c("Gene name","Gene ID","Pathway","log2FC","p-value","p-adj"))
+                                 # awesomeCheckboxGroup(ns("filter_column"),"Columns selection:", 
+                                 #                      choices  = c("Gene name","Gene ID","Pathway","log2FC","p-value","p-adj"),
+                                 #                      selected = c("Gene name","Gene ID","Pathway","log2FC","p-value","p-adj"))
+                                 
+                                 # column(4,
+                                 #        box(width = 12,title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
+                                            div(class = "two-col-checkbox-group",
+                                                prettyCheckboxGroup(
+                                                  inputId = ns("colFilter_checkBox"),
+                                                  label = NULL,
+                                                  choices = mapped_checkbox_names[order(mapped_checkbox_names)],
+                                                  selected = default_columns,
+                                                  icon = icon("check"),
+                                                  status = "primary",
+                                                  outline = FALSE
+                                                ),
+                                            ),
+                                            div(style = "display: flex; gap: 10px; width: 100%;",
+                                                actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
+                                                actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))
+                                 #        )
+                                 # )
                              )
                       )
              ),

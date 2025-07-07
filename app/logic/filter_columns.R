@@ -1,5 +1,7 @@
 box::use(
-  htmltools[div,tags],
+  shiny[icon,textInput],
+  bs4Dash[actionButton],
+  htmltools[div,tags,tagList],
   reactable,
   reactable[colDef,JS,colGroup],
   stats[setNames], #na.omit,
@@ -7,8 +9,9 @@ box::use(
 )
 
 box::use(
-  app/logic/prepare_table[colFilter]
+  app/logic/prepare_table[colFilter,get_tissue_list]
 )
+
 
 #' @export
 map_checkbox_names <- function(map_list){
@@ -88,37 +91,54 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
 }
 
 #' @export
-colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL){
+colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL,session=NULL){
   if (tag == "fusion"){
     map_list <- list(
-      gene1 = "Gene 1",
-      gene2 = "Gene 2",
-      arriba.called = "Arriba called",
-      starfus.called = "StarFus called",
-      arriba.confidence = "Arriba confidence",
-      overall_support = "Overall support",
-      IGV = "IGV",
-      Visual_Check = "Visual check",
-      Notes = "Notes",
-      position1 = "Position 1",
-      position2 = "Position 2",
-      strand1 = "Strand 1",
-      strand2 = "Strand 2",
-      arriba.site1 = "Arriba site 1",
-      arriba.site2 = "Arriba site 2",
-      starfus.splice_type = "StarFus splice type",
-      DB_count = "DB count",
-      DB_list = "DB list",
-      arriba.split_reads = "Arriba split reads",
-      arriba.discordant_mates	= "Arriba discordant mates",
-      arriba.break_coverage	= "Arriba break coverage",
-      arriba.break2_coverage = "Arriba break coverage 2",
-      starfus.split_reads = "StarFus split reads",
-      starfus.discordant_mates = "StarFus discordant mates",
-      starfus.counter_fusion1 = "StarFus counter fusion 1",
-      starfus.counter_fusion2 = "StarFus counter fusion 2",
-      arriba.break_seq = "Arriba break sequence",
-      starfus.break_seq = "StarFus break sequence")
+      gene1 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 1"),
+      gene2 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 2"),
+      arriba.called = colDef(width = 110,name="Arriba called",
+                             cell = function(value) {
+                               div(class = paste0("tag called-", tolower(value)),value)}),
+      starfus.called = colDef(width = 110,name="StarFusion called",
+                              cell = function(value) {
+                                div(class = paste0("tag called-", tolower(value)),value)}),
+      arriba.confidence = colDef(width = 140,filterable = TRUE,name="Arriba confidence",
+                                 #filterInput = selectFilter("tbl-fusion")
+                                 cell = function(value) {
+                                   if (is.na(value)) {
+                                     return(NULL)  # Do not render anything for NA values
+                                   }
+                                   div(class = paste0("tag confidence-", tolower(value)),value)}),
+      overall_support = colDef(width = 100,name="Overall support"),
+      Visual_Check = colDef(width = 110,name="Visual check",
+                            cell = function(value, index) {
+                              tagList(
+                                actionButton(paste0(session$ns("yesButton_"), index), icon("check"), class = "btn btn-primary btn-md", onclick = sprintf("event.stopPropagation();")),
+                                actionButton(paste0(session$ns("noButton_"), index), icon("close"), class = "btn btn-primary btn-md", onclick = sprintf("event.stopPropagation();")))}),
+      Notes = colDef(minWidth = 120,name="Notes",
+                     cell = function(value, index) {
+                       textInput(session$ns(paste0("notesTable_", index)), label = NULL)}),
+      position1 = colDef(minWidth = 150,name="Position 1"),
+      position2 = colDef(minWidth = 150,name="Position 2"),
+      strand1 = colDef(width = 100,name="Strand 1"),
+      strand2 = colDef(width = 100,name="Strand 2"),
+      arriba.site1 = colDef(minWidth = 120,filterable = TRUE,name="Arriba site 1"),
+      arriba.site2 = colDef(minWidth = 120,filterable = TRUE,name="Arriba site 2"),
+      starfus.splice_type = colDef(minWidth = 140,name="StarFus splice type"),
+      DB_count = colDef(maxWidth = 100,name="DB count"),
+      DB_list = colDef(minWidth = 100,name="DB list"),
+      arriba.split_reads = colDef(width = 110,name="Arriba split reads"),
+      arriba.discordant_mates = colDef(width = 160,name="Arriba discordant mates"),
+      arriba.break_coverage = colDef(width = 120,name="Arriba break coverage"),
+      arriba.break2_coverage = colDef(width = 120,name="Arriba break coverage 2"),
+      starfus.split_reads = colDef(width = 120,name="StarFusion split reads"),
+      starfus.discordant_mates = colDef(width = 160,name="StarFus discordant mates"),
+      starfus.counter_fusion1 = colDef(width = 150,name="StarFusion counter fusion 1"),
+      starfus.counter_fusion2 = colDef(width = 150,name="StarFusion counter fusion 2"),
+      arriba.break_seq = colDef(minWidth = 120,name="Arriba break sequence"),
+      starfus.break_seq = colDef(minWidth = 130,name="StarFusion break sequence")
+    )
+
   } else if (tag == "somatic"){
     map_list <- list(
       var_name = colDef(sticky='left', minWidth=140,filterable = TRUE, name = 'Variant name'),
@@ -182,18 +202,39 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL){
       gene_region = colDef(filterable = TRUE, minWidth=110, name="Gene region"),
       gnomAD_NFE = colDef(minWidth = 140,maxWidth = 150,filterable = TRUE,name = "GnomAD NFE"),
       clinvar_sig = colDef(minWidth = 180,filterable = TRUE, name = "ClinVar significance",
-                           cell = function(value) {
-                             if (is.na(value)) {
-                               return(NULL)  # Do not render anything for NA values
-                             }
-                             # div(class = paste0("clinvar-tag clinvar-", tolower(value)),value)}
-                             tags$div(
-                               lapply(strsplit(value, "/")[[1]], function(v) {
-                                 v_trimmed <- trimws(v)
-                                 class_name <- paste0("clinvar-tag clinvar-", tolower(gsub(" ", "_", v_trimmed)))
-                                 tags$span(class = class_name, v_trimmed)
-                               })
-                             )}
+                           html = TRUE,
+                           cell = JS("
+                              function(rowInfo) {
+                                if (rowInfo.value == null || rowInfo.value == '' || rowInfo.value == 'NA') {
+                                  return '';  // Do not render anything for NA/null values
+                                }
+                                
+                                // Split by '/' and process each part
+                                var parts = rowInfo.value.split('/');
+                                var spans = '';
+                                
+                                for (var i = 0; i < parts.length; i++) {
+                                  var v_trimmed = parts[i].trim();
+                                  var class_name = 'clinvar-tag clinvar-' + v_trimmed.toLowerCase().replace(/ /g, '_');
+                                  spans += '<span class=\"' + class_name + '\">' + v_trimmed + '</span>';
+                                }
+                                
+                                return '<div>' + spans + '</div>';
+                              }
+                            ")
+
+                           # cell = function(value) {
+                           #   if (is.na(value)) {
+                           #     return(NULL)  # Do not render anything for NA values
+                           #   }
+                           #   # div(class = paste0("clinvar-tag clinvar-", tolower(value)),value)}
+                           #   tags$div(
+                           #     lapply(strsplit(value, "/")[[1]], function(v) {
+                           #       v_trimmed <- trimws(v)
+                           #       class_name <- paste0("clinvar-tag clinvar-", tolower(gsub(" ", "_", v_trimmed)))
+                           #       tags$span(class = class_name, v_trimmed)
+                           #     })
+                           #   )}
       ),
       Consequence = colDef(minWidth = 170,filterable = TRUE,name = "Consequence"),
       HGVSp = colDef(minWidth=120,maxWidth=250,name="HGVSp"),
@@ -209,23 +250,39 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL){
                      #     ))}
       ),
       CGC_Germline = colDef(width = 130,name="CGC Germline",
-                            cell = function(value) {
-                              if (is.na(value)) {
-                                return(NULL)  # Do not render anything for NA values
-                              }
-                              div(class = paste0("db-", tolower(value)),value)}),
-      trusight_genes = colDef(width = 140,name="TruSight genes",
-                              cell = function(value) {
-                                if (is.na(value)) {
-                                  return(NULL)  # Do not render anything for NA values
+                            html = TRUE,
+                            cell = JS("
+                                function(rowInfo) {
+                                  if (rowInfo.value == 'yes') {
+                                    var cls = 'db-' + rowInfo.value.toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                  }
+                                  return rowInfo.value
                                 }
-                                div(class = paste0("db-", tolower(value)),value)}),
+                               ")
+                            ),
+      trusight_genes = colDef(width = 140,name="TruSight genes",
+                              html = TRUE,
+                              cell = JS("
+                                function(rowInfo) {
+                                  if (rowInfo.value == 'yes') {
+                                    var cls = 'db-' + rowInfo.value.toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                  }
+                                  return rowInfo.value
+                                }
+                               ")),
       fOne = colDef(width = 100, name = "fOne",
-                    cell = function(value) {
-                      if (is.na(value)) {
-                        return(NULL)  # Do not render anything for NA values
-                      }
-                      div(class = paste0("db-", tolower(value)),value)}),
+                        html = TRUE,
+                        cell = JS("
+                                function(rowInfo) {
+                                  if (rowInfo.value == 'yes') {
+                                    var cls = 'db-' + rowInfo.value.toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                  }
+                                  return rowInfo.value
+                                }
+                               ")),
       occurance_in_cohort = colDef(width = 170,name = "Occurence in cohort"),
       in_samples = colDef(minWidth = 120,name = "In samples"),
       alarm = colDef(minWidth = 120,name="Alarm"),
@@ -259,65 +316,164 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL){
       )
   } else if (tag == "expression"){
     
-    dropdown_btn <- list()
-    table <- list()
-    tissue_list <- get_tissue_list()
-    
-    rename_column <- function(col, tissue_list) {
-      for (tissue in tissue_list) {
-        if (grepl(tissue, col)) {
-          prefix <- gsub(paste0("_", tissue), "", col)  # Odstraníme tkáň z názvu
-          tissue <- gsub("_", " ", tissue)  # Nahrazení podtržítka mezerou pro čitelnost
-          
-          # Vrátíme přejmenovaný sloupec jen pokud je relevantní
-          if (prefix %in% c("log2FC", "p_value", "p_adj")) {
-            return(paste(tissue, ifelse(prefix == "log2FC", "log2FC",
-                                        ifelse(prefix == "p_value", "p-value", "p-adj"))))
+      if (expr_flag == "all_genes") {
+        static_columns <- list(
+          feature_name = colDef(name = "Gene name", sticky = "left", minWidth = 140, filterable = TRUE),
+          geneid = colDef(name = "Gene ID", minWidth = 110, filterable = TRUE),
+          refseq_id = colDef(name = "RefSeq ID", minWidth = 110),
+          type = colDef(name = "Type", minWidth = 100),
+          gene_definition = colDef(name = "Gene definition", minWidth = 200),
+          all_kegg_gene_names = colDef(name = "KEGG gene names", minWidth = 180),
+          pathway = colDef(name = "Pathway", minWidth = 150),
+          num_of_paths = colDef(name = "Pathway (n)", minWidth = 100),
+          mean_log2FC = colDef(name = "Mean log2FC", minWidth = 120)
+        )
+      } else {
+        static_columns <- list(
+          feature_name = colDef(name = "Gene name", sticky = "left", minWidth = 140, filterable = TRUE),
+          geneid = colDef(name = "Gene ID", minWidth = 110, filterable = TRUE),
+          pathway = colDef(name = "Pathway", minWidth = 150),
+          mean_log2FC = colDef(name = "Mean log2FC", minWidth = 120)
+        )
+      }
+      
+      # 2️⃣ Dynamické sloupce podle tkání a typů
+      dynamic_columns <- list()
+      tissue_list <- get_tissue_list()
+      num_columns <- length(all_columns)
+      log2fc_indices <- which(grepl("^log2FC_", all_columns))
+      
+      for (i in seq_along(all_columns)) {
+        col <- all_columns[i]
+        border_style <- NULL
+        display_name <- NULL
+        
+        for (tissue in tissue_list) {
+          if (grepl(tissue, col)) {
+            prefix <- gsub(paste0("_", tissue), "", col)
+            tissue_clean <- gsub("_", " ", tissue)
+            
+            display_name <- switch(
+              prefix,
+              "log2FC" = paste(tissue_clean, "log2FC"),
+              "p_value" = paste(tissue_clean, "p-value"),
+              "p_adj" = paste(tissue_clean, "p-adj"),
+              NULL
+            )
+            break
           }
         }
+        
+        # Pokud není sloupec tkáňový, ponech prázdné display_name
+        if (is.null(display_name)) {
+          display_name <- col
+        }
+        
+        # Nastavení stylů pro log2FC / p_value / p_adj
+        if (grepl("^log2FC_", col)) {
+          if (i == log2fc_indices[1]) {
+            border_style <- "2px solid black"
+          }
+          dynamic_columns[[col]] <- colDef(
+            name = display_name,
+            minWidth = 100,
+            style = JS(sprintf("function(rowInfo, colInfo) {
+            var value = rowInfo.values[colInfo.id];
+            var color = value > 1 ? '#FFE9E9' : (value < -1 ? '#E6F7FF' : '#FFFFFF');
+            return { backgroundColor: color, borderLeft: '%s' };
+          }", ifelse(is.null(border_style), "", border_style)))
+          )
+        } else if (grepl("^p_value_", col)) {
+          dynamic_columns[[col]] <- colDef(
+            name = display_name,
+            minWidth = 100,
+            style = JS("function(rowInfo, colInfo) {
+            var value = rowInfo.values[colInfo.id];
+            var color = (value <= 0.05) ? '#FFEFDE' : '#FFFFFF';
+            return { backgroundColor: color };
+          }")
+          )
+        } else if (grepl("^p_adj_", col)) {
+          dynamic_columns[[col]] <- colDef(
+            name = display_name,
+            minWidth = 100,
+            style = JS("function(rowInfo, colInfo) {
+            var value = rowInfo.values[colInfo.id];
+            var color = (value <= 0.05) ? '#E7FAEF' : '#FFFFFF';
+            return { backgroundColor: color, borderRight: '1px dashed rgba(0,0,0,0.3)' };
+          }")
+          )
+        }
       }
-      return(NULL)  # Pokud se sloupec nemá přejmenovat, vrátíme NULL
-    }
+      
+      # 3️⃣ Sloučení do map_list
+      map_list <- c(static_columns, dynamic_columns)
     
-    if (expr_flag == "all_genes"){
-      static_columns <- list(
-        feature_name = "Gene name",
-        geneid = "Gene ID",
-        refseq_id = "RefSeq ID",
-        type = "Type",
-        gene_definition = "Gene definition",
-        all_kegg_gene_names = "KEGG gene names",
-        pathway = "Pathway",
-        num_of_paths = "Pathway (n)",
-        mean_log2FC = "Mean log2FC")
-    } else {
-      static_columns <- list(
-        feature_name = "Gene name",
-        geneid = "Gene ID",
-        pathway = "Pathway",
-        mean_log2FC = "Mean log2FC")
-    }
+    # dropdown_btn <- list()
+    # table <- list()
+    # tissue_list <- get_tissue_list()
+    # 
+    # rename_column <- function(col, tissue_list) {
+    #   for (tissue in tissue_list) {
+    #     if (grepl(tissue, col)) {
+    #       prefix <- gsub(paste0("_", tissue), "", col)  # Odstraníme tkáň z názvu
+    #       tissue <- gsub("_", " ", tissue)  # Nahrazení podtržítka mezerou pro čitelnost
+    #       
+    #       # Vrátíme přejmenovaný sloupec jen pokud je relevantní
+    #       if (prefix %in% c("log2FC", "p_value", "p_adj")) {
+    #         return(paste(tissue, ifelse(prefix == "log2FC", "log2FC",
+    #                                     ifelse(prefix == "p_value", "p-value", "p-adj"))))
+    #       }
+    #     }
+    #   }
+    #   return(NULL)  # Pokud se sloupec nemá přejmenovat, vrátíme NULL
+    # }
+    # 
+    # if (expr_flag == "all_genes"){
+    #   static_columns <- list(
+    #     feature_name = "Gene name",
+    #     geneid = "Gene ID",
+    #     refseq_id = "RefSeq ID",
+    #     type = "Type",
+    #     gene_definition = "Gene definition",
+    #     all_kegg_gene_names = "KEGG gene names",
+    #     pathway = "Pathway",
+    #     num_of_paths = "Pathway (n)",
+    #     mean_log2FC = "Mean log2FC")
+    # } else {
+    #   static_columns <- list(
+    #     feature_name = "Gene name",
+    #     geneid = "Gene ID",
+    #     pathway = "Pathway",
+    #     mean_log2FC = "Mean log2FC")
+    # }
+    # 
+    # for (col in all_columns) {
+    #   new_name <- rename_column(col, tissue_list)
+    #   if (!is.null(new_name)) {  # Přidáme jen pokud má smysl
+    #     dropdown_btn[[col]] <- new_name
+    #   }
+    # }
+    # 
+    # for (col in all_columns) {
+    #   if (grepl("^log2FC_", col)) {
+    #     table[[col]] <- "log2FC"
+    #   } else if (grepl("^p_value_", col)) {
+    #     table[[col]] <- "p-value"
+    #   } else if (grepl("^p_adj_", col)) {
+    #     table[[col]] <- "p-adj"
+    #   }
+    # }
+    # 
+    # dropdown_btn <- append(static_columns,dropdown_btn)
+    # table <- c(static_columns,table)
+    # map_list <- list(dropdown_btn = dropdown_btn, table = table)
+    # 
     
-    for (col in all_columns) {
-      new_name <- rename_column(col, tissue_list)
-      if (!is.null(new_name)) {  # Přidáme jen pokud má smysl
-        dropdown_btn[[col]] <- new_name
-      }
-    }
     
-    for (col in all_columns) {
-      if (grepl("^log2FC_", col)) {
-        table[[col]] <- "log2FC"
-      } else if (grepl("^p_value_", col)) {
-        table[[col]] <- "p-value"
-      } else if (grepl("^p_adj_", col)) {
-        table[[col]] <- "p-adj"
-      }
-    }
+    ##########
     
-    dropdown_btn <- append(static_columns,dropdown_btn)
-    table <- c(static_columns,table)
-    map_list <- list(dropdown_btn = dropdown_btn, table = table)
+    
   } else {
     print("NOT germline, expression or fusion")
   }
