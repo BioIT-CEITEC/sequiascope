@@ -96,19 +96,28 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL,session=
     map_list <- list(
       gene1 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 1"),
       gene2 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 2"),
-      arriba.called = colDef(width = 110,name="Arriba called",
-                             cell = function(value) {
-                               div(class = paste0("tag called-", tolower(value)),value)}),
-      starfus.called = colDef(width = 110,name="StarFusion called",
-                              cell = function(value) {
-                                div(class = paste0("tag called-", tolower(value)),value)}),
-      arriba.confidence = colDef(width = 140,filterable = TRUE,name="Arriba confidence",
-                                 #filterInput = selectFilter("tbl-fusion")
-                                 cell = function(value) {
-                                   if (is.na(value)) {
-                                     return(NULL)  # Do not render anything for NA values
+      arriba.called = colDef(width = 110,name="Arriba called", html = TRUE,
+                             cell = JS("function(rowInfo) {
+                                  if (rowInfo.value == true || rowInfo.value == false) {
+                                    var cls = 'tag called-' + String(rowInfo.value).toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                  }
+                                  return rowInfo.value }")),
+      starfus.called = colDef(width = 110,name="StarFusion called", html = TRUE,
+                              cell = JS("function(rowInfo) {
+                                   if (rowInfo.value == true || rowInfo.value == false) {
+                                    var cls = 'tag called-' + String(rowInfo.value).toLowerCase()
+                                    console.log(cls)
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
                                    }
-                                   div(class = paste0("tag confidence-", tolower(value)),value)}),
+                                  return rowInfo.value }")),
+      arriba.confidence = colDef(width = 140,filterable = TRUE,name="Arriba confidence", html = TRUE,
+                              cell = JS("function(rowInfo) {
+                                   if (rowInfo.value == null || rowInfo.value == '' || rowInfo.value == 'NA') {
+                                        return '';
+                                     }
+                                    var cls = 'tag confidence-' + rowInfo.value.toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>' }")),
       overall_support = colDef(width = 100,name="Overall support"),
       Visual_Check = colDef(width = 110,name="Visual check",
                             cell = function(value, index) {
@@ -164,18 +173,20 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL,session=
       clinvar_DBN = colDef(show=TRUE,name="ClinVar DBN",filterable = TRUE,minWidth=110),
       `md-anderson` = colDef(name="MD Anderson",minWidth=110),
       trusight_genes = colDef(name="TruSight genes",minWidth=130),
-      CGC_Somatic = colDef(name="CGC Somatic",minWidth=120,
-                           cell = function(value) {
-                             if (is.na(value)) {
-                               return(NULL)  # Do not render anything for NA values
-                             }
-                             div(class = paste0("db-", tolower(value)),value)}),
-      fOne = colDef(width = 100, name = "fOne",
-                    cell = function(value) {
-                      if (is.na(value)) {
-                        return(NULL)  # Do not render anything for NA values
-                      }
-                      div(class = paste0("db-", tolower(value)),value)}),
+      CGC_Somatic = colDef(name="CGC Somatic",minWidth=120, html = TRUE,
+                           cell = JS("function(rowInfo) {
+                                  if (rowInfo.value == 'yes') {
+                                    var cls = 'db-' + rowInfo.value.toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                  }
+                                  return rowInfo.value }")),
+      fOne = colDef(width = 100, name = "fOne", html = TRUE,
+                    cell = JS("function(rowInfo) {
+                                  if (rowInfo.value == 'yes') {
+                                    var cls = 'db-' + rowInfo.value.toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                  }
+                                  return rowInfo.value }")),
       CGC_Tumour_Somatic = colDef(name="CGC Tumour",minWidth=110),
       PolyPhen = colDef(name="PolyPhen",minWidth=190),
       SIFT = colDef(name="SIFT",minWidth=180),
@@ -201,10 +212,8 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL,session=
       coverage_depth = colDef(maxWidth = 100,filterable = TRUE, name = "Coverage depth"),
       gene_region = colDef(filterable = TRUE, minWidth=110, name="Gene region"),
       gnomAD_NFE = colDef(minWidth = 140,maxWidth = 150,filterable = TRUE,name = "GnomAD NFE"),
-      clinvar_sig = colDef(minWidth = 180,filterable = TRUE, name = "ClinVar significance",
-                           html = TRUE,
-                           cell = JS("
-                              function(rowInfo) {
+      clinvar_sig = colDef(minWidth = 180,filterable = TRUE, name = "ClinVar significance", html = TRUE,
+                           cell = JS("function(rowInfo) {
                                 if (rowInfo.value == null || rowInfo.value == '' || rowInfo.value == 'NA') {
                                   return '';  // Do not render anything for NA/null values
                                 }
@@ -218,24 +227,7 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL,session=
                                   var class_name = 'clinvar-tag clinvar-' + v_trimmed.toLowerCase().replace(/ /g, '_');
                                   spans += '<span class=\"' + class_name + '\">' + v_trimmed + '</span>';
                                 }
-                                
-                                return '<div>' + spans + '</div>';
-                              }
-                            ")
-
-                           # cell = function(value) {
-                           #   if (is.na(value)) {
-                           #     return(NULL)  # Do not render anything for NA values
-                           #   }
-                           #   # div(class = paste0("clinvar-tag clinvar-", tolower(value)),value)}
-                           #   tags$div(
-                           #     lapply(strsplit(value, "/")[[1]], function(v) {
-                           #       v_trimmed <- trimws(v)
-                           #       class_name <- paste0("clinvar-tag clinvar-", tolower(gsub(" ", "_", v_trimmed)))
-                           #       tags$span(class = class_name, v_trimmed)
-                           #     })
-                           #   )}
-      ),
+                                return '<div>' + spans + '</div>'; }")),
       Consequence = colDef(minWidth = 170,filterable = TRUE,name = "Consequence"),
       HGVSp = colDef(minWidth=120,maxWidth=250,name="HGVSp"),
       HGVSc = colDef(minWidth=120,maxWidth=250,name="HGVSc"),
@@ -249,40 +241,28 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL,session=
                      #     style = "margin-left: 6px; color: #007bff; text-decoration: none;"
                      #     ))}
       ),
-      CGC_Germline = colDef(width = 130,name="CGC Germline",
-                            html = TRUE,
-                            cell = JS("
-                                function(rowInfo) {
+      CGC_Germline = colDef(width = 130,name="CGC Germline", html = TRUE,
+                            cell = JS("function(rowInfo) {
                                   if (rowInfo.value == 'yes') {
                                     var cls = 'db-' + rowInfo.value.toLowerCase()
                                     return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
                                   }
-                                  return rowInfo.value
-                                }
-                               ")
-                            ),
+                                  return rowInfo.value }")),
       trusight_genes = colDef(width = 140,name="TruSight genes",
                               html = TRUE,
-                              cell = JS("
-                                function(rowInfo) {
+                              cell = JS("function(rowInfo) {
                                   if (rowInfo.value == 'yes') {
                                     var cls = 'db-' + rowInfo.value.toLowerCase()
                                     return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
                                   }
-                                  return rowInfo.value
-                                }
-                               ")),
-      fOne = colDef(width = 100, name = "fOne",
-                        html = TRUE,
-                        cell = JS("
-                                function(rowInfo) {
+                                  return rowInfo.value }")),
+      fOne = colDef(width = 100, name = "fOne", html = TRUE,
+                        cell = JS("function(rowInfo) {
                                   if (rowInfo.value == 'yes') {
                                     var cls = 'db-' + rowInfo.value.toLowerCase()
                                     return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
                                   }
-                                  return rowInfo.value
-                                }
-                               ")),
+                                  return rowInfo.value }")),
       occurance_in_cohort = colDef(width = 170,name = "Occurence in cohort"),
       in_samples = colDef(minWidth = 120,name = "In samples"),
       alarm = colDef(minWidth = 120,name="Alarm"),

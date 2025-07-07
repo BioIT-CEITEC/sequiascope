@@ -85,9 +85,10 @@ ui <- function(id){
   dashboardPage(
     header = dashboardHeader(
       nav = navbarMenu(
+        navbarTab("Fusion genes", tabName = ns("fusion_genes")),
         navbarTab("Variant calling", tabName = ns("variant_calling")),
         navbarTab("Summary", tabName = ns("summary")),
-        navbarTab("Fusion genes", tabName = ns("fusion_genes")),
+
 
         navbarTab("Expression profile", tabName = ns("expression_profile")),
         navbarTab("Network graph", tabName = ns("network_graph")),
