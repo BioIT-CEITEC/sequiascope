@@ -5,7 +5,7 @@ box::use(
         icon,div,tabPanel,moduleServer,downloadHandler,observe, observeEvent,reactive,renderUI,updateSliderInput,updateNumericInput,req,
         reactiveVal,showModal,modalDialog,modalButton,isTruthy],
   reactable[colDef,reactableOutput,renderReactable,reactable,getReactableState,JS],
-  bs4Dash[box,tabsetPanel,updateTabItems],
+  bs4Dash[box,tabsetPanel,updateTabItems,updateNavbarTabs],
   htmltools[tags, span,HTML],
   shinyWidgets[pickerInput, dropdownButton,prettyCheckboxGroup,updatePrettyCheckboxGroup,actionBttn,pickerOptions,dropdown],
   networkD3[sankeyNetwork,renderSankeyNetwork,sankeyNetworkOutput],
@@ -280,17 +280,45 @@ server <- function(id, selected_samples, shared_data) {
     observeEvent(input$delete_button, {
       rows <- getReactableState("selectPathogenic_tab", "selected")
       req(rows)
+      
       current_variants <- selected_variants()
       updated_variants <- current_variants[-rows, ]
       selected_variants(updated_variants)
-      shared_data$somatic_var(updated_variants)
-      session$sendCustomMessage("resetReactableSelection",selected_variants())
       
-      if (nrow(selected_variants()) == 0) {
+      global_data <- shared_data$somatic_var()
+      # if (!is.null(global_data) && is.data.table(global_data) && "sample" %in% colnames(global_data)) {
+      if (!is.null(global_data) && is.data.table(global_data)) {
+        global_data <- global_data[sample != selected_samples]
+      } else {
+        global_data <- data.table(
+          sample = character(),
+          var_name = character(),
+          Gene_symbol = character(),
+          tumor_variant_freq = character(),
+          tumor_depth = character(),
+          Consequence = character(),
+          HGVSc = character(),
+          HGVSp = character(),
+          variant_type = character(),
+          Feature = character(),
+          gnomAD_NFE = character()
+        )
+      }
+      
+      if (nrow(updated_variants) > 0) {
+        updated_global_data <- rbind(global_data, as.data.table(updated_variants))
+      } else {
+        updated_global_data <- global_data
+      }
+      
+      shared_data$somatic_var(updated_global_data)
+      session$sendCustomMessage("resetReactableSelection", updated_variants)
+      
+      if (nrow(updated_variants) == 0) {
         hide("delete_button")
       }
     })
-
+    
     # Při stisku tlačítka pro výběr
     observeEvent(input$selectPathogenic_button, {
       if (nrow(selected_variants()) == 0) {
@@ -415,32 +443,32 @@ server <- function(id, selected_samples, shared_data) {
         shared_data$somatic_bam(bam_list)
         message("✔ Assigned somatic_bam: ", paste(sapply(bam_list, `[[`, "file"), collapse = ", "))
         
-        shinyjs::runjs("document.querySelector('[data-value=\"app-hidden_igv\"]').click();")
+        updateNavbarTabs(session$userData$parent_session, "navbarMenu", "app-hidden_igv")
       }
     })
     
     ###########################
     ## get / restore session ##
     ###########################
-# 
-#     session_handlers <- create_session_handlers(
-#       selected_inputs = list(
-#         gnomAD_min = selected_gnomAD_min,
-#         tumor_depth = selected_tumor_depth,
-#         gene_regions = selected_gene_region,
-#         consequence = selected_consequence,
-#         selected_cols = selected_columns,
-#         selected_vars = selected_variants
-#       ),
-#       filter_state = filter_state
-#     )
-#     
-#     return(list(
-#       get_session_data = session_handlers$get_session_data,
-#       restore_session_data = session_handlers$restore_session_data,
-#       filter_state = filter_state
-#     ))
-    
+
+    session_handlers <- create_session_handlers(
+      selected_inputs = list(
+        gnomAD_min = selected_gnomAD_min,
+        tumor_depth = selected_tumor_depth,
+        gene_regions = selected_gene_region,
+        consequence = selected_consequence,
+        selected_cols = selected_columns,
+        selected_vars = selected_variants
+      ),
+      filter_state = filter_state
+    )
+
+    return(list(
+      get_session_data = session_handlers$get_session_data,
+      restore_session_data = session_handlers$restore_session_data,
+      filter_state = filter_state
+    ))
+
   })
 }
 
@@ -463,21 +491,21 @@ filterTab_server <- function(id,colnames_list) {
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
     })
     
-    # restore_ui_inputs <- function(data) {
-    #   if (!is.null(data$gnomAD_min)) updateNumericInput(session, "gnomAD_min", value = safe_extract(data$gnomAD_min))
-    #   if (!is.null(data$tumor_depth)) updateNumericInput(session, "tumor_depth", value = safe_extract(data$tumor_depth))
-    #   if (!is.null(data$gene_regions)) updatePrettyCheckboxGroup(session, "gene_regions", selected = safe_extract(data$gene_regions))
-    #   if (!is.null(data$consequence)) updatePrettyCheckboxGroup(session, "consequence", selected = safe_extract(data$consequence))
-    #   if (!is.null(data$selected_cols)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(data$selected_cols))
-    # }
+    restore_ui_inputs <- function(data) {
+      if (!is.null(data$gnomAD_min)) updateNumericInput(session, "gnomAD_min", value = safe_extract(data$gnomAD_min))
+      if (!is.null(data$tumor_depth)) updateNumericInput(session, "tumor_depth", value = safe_extract(data$tumor_depth))
+      if (!is.null(data$gene_regions)) updatePrettyCheckboxGroup(session, "gene_regions", selected = safe_extract(data$gene_regions))
+      if (!is.null(data$consequence)) updatePrettyCheckboxGroup(session, "consequence", selected = safe_extract(data$consequence))
+      if (!is.null(data$selected_cols)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(data$selected_cols))
+    }
     return(list(
       confirm = reactive(input$confirm_btn),
       tumor_depth = reactive(input$tumor_depth),
       gnomAD_min = reactive(input$gnomAD_min),
       gene_regions = reactive(input$gene_regions),
       consequence = reactive(input$consequence),
-      selected_columns = reactive(input$colFilter_checkBox)
-      # restore_ui_inputs = restore_ui_inputs
+      selected_columns = reactive(input$colFilter_checkBox),
+      restore_ui_inputs = restore_ui_inputs
     ))
   })
 }

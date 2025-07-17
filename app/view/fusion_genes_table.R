@@ -295,24 +295,46 @@ server <- function(id, selected_samples, shared_data, load_session_btn) {
         selection = "multiple", onClick = "select"
       )
     })
-    
+
     observeEvent(input$delete_button, {
       rows <- getReactableState("selectFusion_tab", "selected")
       req(rows)
+      
       current_variants <- selected_fusions()
       updated_variants <- current_variants[-rows, ]
-      
       selected_fusions(updated_variants)
-      shared_data$fusion_var(updated_variants)
       
-      session$sendCustomMessage("resetReactableSelection",selected_fusions())
+      global_data <- shared_data$fusion_var()
+      if (!is.null(global_data) && is.data.table(global_data)) {
+        global_data <- global_data[sample != selected_samples]
+      } else {
+        global_data <- data.table(
+          sample = character(),
+          gene1 = character(),
+          gene2 = character(),
+          overall_support = integer(),
+          position1 = character(),
+          position2 = character(),
+          arriba.confidence = character(),
+          arriba.site1 = character(),
+          arriba.site2 = character()
+        )
+      }
       
-      if (nrow(selected_fusions()) == 0) {
+      if (nrow(updated_variants) > 0) {
+        updated_global_data <- rbind(global_data, as.data.table(updated_variants))
+      } else {
+        updated_global_data <- global_data
+      }
+      
+      shared_data$fusion_var(updated_global_data)
+      session$sendCustomMessage("resetReactableSelection", updated_variants)
+      
+      if (nrow(updated_variants) == 0) {
         hide("delete_button")
       }
     })
     
-
     fusion_selected <- reactiveVal(FALSE)
     
     # Při stisku tlačítka pro výběr fúze
@@ -398,7 +420,7 @@ server <- function(id, selected_samples, shared_data, load_session_btn) {
         shared_data$fusion_bam(bam_list)
         message("✔ Assigned fusion_bam: ", paste(sapply(bam_list, `[[`, "file"), collapse = ", "))
         
-        shinyjs::runjs("document.querySelector('[data-value=\"app-hidden_igv\"]').click();")
+        updateNavbarTabs(session$userData$parent_session, "navbarMenu", "app-hidden_igv")
       }
     })
 

@@ -73,7 +73,7 @@ ui <- function(id) {
   )
 }
 
-
+### its on purpose that its just expression_var instead of shared_data$expression_var
 server <- function(id,  patient, expr_tag, expression_var) {
   
   moduleServer(id, function(input, output, session) {
@@ -85,15 +85,11 @@ server <- function(id,  patient, expr_tag, expression_var) {
     })
 
     colnames_list <- getColFilterValues("expression",expr_tag) # gives list of all_columns and default_columns
-    # message("####### colnames_list: ",colnames_list)
     map_list <- colnames_map_list("expression",expr_tag, colnames_list$all_columns) # gives list of all columns with their column definitions
-    # message("####### map_list: ",map_list)
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
-    # message("#######  mapped_checkbox_names: ", mapped_checkbox_names)
     
     output$filterTab <- renderUI({
       req(map_list)
-      # message("####### map_list: ", map_list)
       filterTab_ui(ns("filterTab_dropdown"),expr_tag,colnames_list$default_columns, mapped_checkbox_names)
     })
     
@@ -273,18 +269,42 @@ server <- function(id,  patient, expr_tag, expression_var) {
           selection = "multiple", onClick = "select")
       }
     })
-    
-    
+
     observeEvent(input$delete_button, {
       rows <- getReactableState("selectDeregulated_tab", "selected")
       req(rows)
+      
       current_variants <- selected_genes()
       updated_variants <- current_variants[-rows, ]
       selected_genes(updated_variants)
-      expression_var(updated_variants)
-      session$sendCustomMessage("resetReactableSelection",selected_genes())
-
-      if (nrow(selected_genes()) == 0) {
+      
+      global_data <- expression_var()
+      if (!is.null(global_data) && is.data.table(global_data)) {
+        global_data <- global_data[sample != patient]
+      } else {
+        global_data <- data.table(
+          sample = character(),
+          gene1 = character(),
+          gene2 = character(),
+          overall_support = integer(),
+          position1 = character(),
+          position2 = character(),
+          arriba.confidence = character(),
+          arriba.site1 = character(),
+          arriba.site2 = character()
+        )
+      }
+      
+      if (nrow(updated_variants) > 0) {
+        updated_global_data <- rbind(global_data, as.data.table(updated_variants))
+      } else {
+        updated_global_data <- global_data
+      }
+      
+      expression_var(updated_global_data)
+      session$sendCustomMessage("resetReactableSelection", updated_variants)
+      
+      if (nrow(updated_variants) == 0) {
         hide("delete_button")
       }
     })

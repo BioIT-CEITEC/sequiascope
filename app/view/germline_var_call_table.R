@@ -293,21 +293,48 @@ server <- function(id, selected_samples, shared_data) {
       )
     })
 
-    
     observeEvent(input$delete_button, {
       rows <- getReactableState("selectPathogenic_tab", "selected")
       req(rows)
+      
       current_variants <- selected_variants()
       updated_variants <- current_variants[-rows, ]
       selected_variants(updated_variants)
-      shared_data$germline_var(updated_variants)
-      session$sendCustomMessage("resetReactableSelection",selected_variants())
       
-      if (nrow(selected_variants()) == 0) {
+      global_data <- shared_data$germline_var()
+      if (!is.null(global_data) && is.data.table(global_data)) {
+        global_data <- global_data[sample != selected_samples]
+      } else {
+        global_data <- data.table(
+          sample = character(),
+          var_name = character(),
+          Gene_symbol = character(),
+          variant_freq= character(),
+          coverage_depth = character(),
+          Consequence = character(),
+          HGVSc = character(),
+          HGVSp = character(),
+          variant_type = character(),
+          Feature = character(),
+          clinvar_sig = character(),
+          gnomAD_NFE = character()
+        )
+      }
+      
+      if (nrow(updated_variants) > 0) {
+        updated_global_data <- rbind(global_data, as.data.table(updated_variants))
+      } else {
+        updated_global_data <- global_data
+      }
+      
+      shared_data$germline_var(updated_global_data)
+      session$sendCustomMessage("resetReactableSelection", updated_variants)
+      
+      if (nrow(updated_variants) == 0) {
         hide("delete_button")
       }
     })
-
+    
     # Při stisku tlačítka pro výběr varianty
     observeEvent(input$selectPathogenic_button, {
       if (nrow(selected_variants()) == 0) {
@@ -388,7 +415,7 @@ server <- function(id, selected_samples, shared_data) {
         shared_data$germline_bam(bam_list)
         message("✔ Assigned germline_bam: ",paste(sapply(bam_list, `[[`, "file"), collapse = ", "))
         
-        shinyjs::runjs("document.querySelector('[data-value=\"app-hidden_igv\"]').click();")
+        updateNavbarTabs(session$userData$parent_session, "navbarMenu", "app-hidden_igv")
       }
     })
     

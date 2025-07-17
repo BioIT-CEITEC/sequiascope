@@ -16,14 +16,8 @@ create_session_handlers <- function(selected_inputs, filter_state) {
   get_session_data <- reactive({
     lapply(selected_inputs, function(x) x())
   })
-  # names(get_session_data()) <- names(selected_inputs)
   
   restore_session_data <- function(data) {
-    
-    safe_extract <- function(x) {
-      if (is.list(x) && length(x) == 0) return(NULL)
-      else return(x)
-    }
     
     for (nm in names(data)) {
       if (!is.null(data[[nm]]) && nm %in% names(selected_inputs)) {

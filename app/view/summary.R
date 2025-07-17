@@ -85,7 +85,7 @@ ui <- function(id){
   )
 }
 
-server <- function(id, patient, shared_data){
+server <- function(id, patient, shared_data){ #,active_tab
   moduleServer(id, function(input, output, session){
     
 
@@ -175,186 +175,192 @@ server <- function(id, patient, shared_data){
       }
     })
 
-
-    
-    observe({
-      message("Shared_data somatic variants: ", paste(shared_data$somatic_var(),collapse = ", "))
-      })
     #################################################
     ### Selected variant or fusion data + buttons ###
     #################################################
 
     noNA_text <- function(x) ifelse(is.na(x) | x == "", "-", x)
 
-    output$somatic_boxes <- renderUI({
-      som_vars <- as.data.table(shared_data$somatic_var())
-
-      if (is.null(som_vars) || nrow(som_vars) == 0) {
-        tags$div("No somatic variants selected")
-      } else {
-        som_vars <- som_vars[grepl(patient, sample)]
-
-        if (nrow(som_vars) == 0) {
-          return(tags$div("No somatic variants selected"))
+    # observe({
+    #   req(active_tab() == "app-summary" || shared_data$session_loaded())
+    # observeEvent(shared_data$somatic_var(), {
+      output$somatic_boxes <- renderUI({
+        som_vars <- as.data.table(shared_data$somatic_var())
+  
+        if (is.null(som_vars) || nrow(som_vars) == 0) {
+          tags$div("No somatic variants selected")
         } else {
-          boxes <- lapply(1:nrow(som_vars), function(i) {
-            variant <- som_vars[i, ]
+          som_vars <- som_vars[grepl(patient, sample)]
+  
+          if (nrow(som_vars) == 0) {
+            return(tags$div("No somatic variants selected"))
+          } else {
+            boxes <- lapply(1:nrow(som_vars), function(i) {
+              variant <- som_vars[i, ]
+              var_name_split <- unlist(strsplit(variant$var_name, "_"))
+              allele_change <- unlist(strsplit(var_name_split[3],"/"))
+              
+              div(class = "somatic-box",
+                  box(solidHeader = TRUE, collapsed = TRUE, width = 12,
+                      title = HTML(sprintf(
+                          '<span style="font-size:16px; font-weight:bold;">%s</span>
+                           <span style="display:inline-block; vertical-align:middle; margin:0 8px; border-left:1px solid #ccc; height:18px;"></span>
+                           <span style="font-size:14px; font-weight:normal;">%s</span>',
+                          noNA_text(variant$Gene_symbol),
+                          noNA_text(variant$Consequence))),
+                    fluidRow(
+                      column(3,
+                             tags$p(strong("Variant info: ")),
+                             tags$p(sprintf("Position: %s", sprintf("chr%s:%s", var_name_split[1], var_name_split[2]))),
+                             fluidRow(
+                               column(2, tags$p(sprintf("Ref: %s", allele_change[1]))),
+                               column(2, tags$p(sprintf("Alt: %s", allele_change[2]))))),
+                      column(3,
+                             fluidRow(
+                               column(6,
+                                      tags$p(""),
+                                      tags$p(sprintf("HGVSc: %s", variant$HGVSc)),
+                                      tags$p(sprintf("HGVSp: %s", variant$HGVSp)),
+                                      tags$p(sprintf("Variant type: %s", variant$variant_type))))),
+                      column(3,
+                             tags$p(strong("Frequency: ")),
+                             tags$p(sprintf("Allelic: %s", variant$tumor_variant_freq)),
+                             tags$p(sprintf("GnomAD: %s", variant$gnomAD_NFE))),
+                      column(3)
+                      )))})
+            tagList(boxes)
+          }
+        }
+      })
+    # })
+    
+    # observeEvent(shared_data$germline_var(), {
+      output$germline_boxes <- renderUI({
+        germ_vars <- as.data.table(shared_data$germline_var())
+  
+        if (is.null(germ_vars) || nrow(germ_vars) == 0) {
+          tags$div("No germline variants selected")
+        } else {
+          germ_vars <- germ_vars[grepl(patient, sample)]
+  
+        if (nrow(germ_vars) == 0) {
+          return(tags$div("No germline variants selected"))
+        } else {
+          boxes <- lapply(1:nrow(germ_vars), function(i) {
+            variant <- germ_vars[i, ]
             var_name_split <- unlist(strsplit(variant$var_name, "_"))
             allele_change <- unlist(strsplit(var_name_split[3],"/"))
-            
-            div(class = "somatic-box",
+            div(class = "germline-box",
+                box(solidHeader = TRUE, collapsed = TRUE, width = 12,
+                    title = HTML(sprintf(
+                      '<span style="font-size:16px; font-weight:bold;"> %s </span>
+                       <span style="display:inline-block; vertical-align:middle; margin:0 8px; border-left:1px solid #ccc; height:18px;"></span>
+                       <span style="font-size:14px; font-weight:normal;"> %s </span>
+                       <span style="display:inline-block; vertical-align:middle; margin:0 8px; border-left:1px solid #ccc; height:18px;"></span>
+                       <span style="font-size:14px; font-weight:normal;"> %s </span>',
+                       noNA_text(variant$Gene_symbol),
+                       noNA_text(variant$Consequence),
+                      noNA_text(variant$clinvar_sig)
+                    )),
+                    fluidRow(
+                      column(3,
+                             tags$p(strong("Variant info: ")),
+                             tags$p(sprintf("Position: %s", sprintf("chr%s:%s", var_name_split[1], var_name_split[2]))),
+                             fluidRow(
+                               column(2, tags$p(sprintf("Ref: %s", allele_change[1]))),
+                               column(2, tags$p(sprintf("Alt: %s", allele_change[2]))))),
+                      column(3,
+                             fluidRow(
+                               column(6,
+                                      tags$p(),
+                                      tags$p(sprintf("HGVSc: %s", variant$HGVSc)),
+                                      tags$p(sprintf("HGVSp: %s", variant$HGVSp)),
+                                      tags$p(sprintf("Variant type: %s", variant$variant_type))))),
+                      column(3,
+                             tags$p(strong("Frequency: ")),
+                             tags$p(sprintf("Allelic: %s", variant$variant_freq)),
+                             tags$p(sprintf("GnomAD: %s", variant$gnomAD_NFE))),
+                      column(3)
+                )))})
+          tagList(boxes) # Vrátíme seznam boxů jako tagList
+          }
+        }
+      })
+    # })
+
+    # observeEvent(shared_data$fusion_var(), {
+      output$fusion_boxes <- renderUI({
+        fusion_vars <- as.data.table(shared_data$fusion_var())
+  
+        if (is.null(fusion_vars) || nrow(fusion_vars) == 0) {
+          tags$div("No fusion genes selected")
+        } else {
+          fusion_vars <- fusion_vars[grepl(patient, sample)]
+  
+        if (nrow(fusion_vars) == 0) {
+          return(tags$div("No fusion genes selected"))
+        } else {
+          boxes <- lapply(1:nrow(fusion_vars), function(i) {
+            fusion <- fusion_vars[i, ]
+            div(class = "fusion-box",
                 box(solidHeader = TRUE, collapsed = TRUE, width = 12,
                     title = HTML(sprintf(
                         '<span style="font-size:16px; font-weight:bold;">%s</span>
                          <span style="display:inline-block; vertical-align:middle; margin:0 8px; border-left:1px solid #ccc; height:18px;"></span>
                          <span style="font-size:14px; font-weight:normal;">%s</span>',
-                        noNA_text(variant$Gene_symbol),
-                        noNA_text(variant$Consequence))),
-                  fluidRow(
-                    column(3,
-                           tags$p(strong("Variant info: ")),
-                           tags$p(sprintf("Position: %s", sprintf("chr%s:%s", var_name_split[1], var_name_split[2]))),
-                           fluidRow(
-                             column(2, tags$p(sprintf("Ref: %s", allele_change[1]))),
-                             column(2, tags$p(sprintf("Alt: %s", allele_change[2]))))),
-                    column(3,
-                           fluidRow(
-                             column(6,
-                                    tags$p(""),
-                                    tags$p(sprintf("HGVSc: %s", variant$HGVSc)),
-                                    tags$p(sprintf("HGVSp: %s", variant$HGVSp)),
-                                    tags$p(sprintf("Variant type: %s", variant$variant_type))))),
-                    column(3,
-                           tags$p(strong("Frequency: ")),
-                           tags$p(sprintf("Allelic: %s", variant$tumor_variant_freq)),
-                           tags$p(sprintf("GnomAD: %s", variant$gnomAD_NFE))),
-                    column(3)
+                         paste0(fusion$gene1," - ", fusion$gene2),
+                         noNA_text(fusion$arriba.confidence))),
+                    fluidRow(
+                      column(3,
+                             tags$p(strong(sprintf("%s: ", fusion$gene1))),
+                             tags$p(sprintf("ID: %s", "ENS")),
+                             tags$p(sprintf("Position: %s", fusion$position1)),
+                             tags$p(sprintf("Arriba site: %s", fusion$arriba.site1))),
+                      column(3,
+                             tags$p(strong(sprintf("%s: ", fusion$gene2))),
+                             tags$p(sprintf("ID: %s", "ENS")),
+                             tags$p(sprintf("Position: %s", fusion$position2)),
+                             tags$p(sprintf("Arriba site: %s", fusion$arriba.site2))),
+                      column(3,
+                             tags$p(),
+                             tags$p(sprintf("Frame: %s", "inframe or out-of-frame")),
+                             tags$p(sprintf("Coverage: %s", fusion$overall_support))),
+                      column(3)
                     )))})
           tagList(boxes)
+         }
         }
-      }
-    })
-
-    output$germline_boxes <- renderUI({
-      germ_vars <- as.data.table(shared_data$germline_var())
-
-      if (is.null(germ_vars) || nrow(germ_vars) == 0) {
-        tags$div("No germline variants selected")
-      } else {
-        germ_vars <- germ_vars[grepl(patient, sample)]
-
-      if (nrow(germ_vars) == 0) {
-        return(tags$div("No germline variants selected"))
-      } else {
-        boxes <- lapply(1:nrow(germ_vars), function(i) {
-          variant <- germ_vars[i, ]
-          var_name_split <- unlist(strsplit(variant$var_name, "_"))
-          allele_change <- unlist(strsplit(var_name_split[3],"/"))
-          div(class = "germline-box",
-              box(solidHeader = TRUE, collapsed = TRUE, width = 12,
-                  title = HTML(sprintf(
-                    '<span style="font-size:16px; font-weight:bold;"> %s </span>
-                     <span style="display:inline-block; vertical-align:middle; margin:0 8px; border-left:1px solid #ccc; height:18px;"></span>
-                     <span style="font-size:14px; font-weight:normal;"> %s </span>
-                     <span style="display:inline-block; vertical-align:middle; margin:0 8px; border-left:1px solid #ccc; height:18px;"></span>
-                     <span style="font-size:14px; font-weight:normal;"> %s </span>',
-                     noNA_text(variant$Gene_symbol),
-                     noNA_text(variant$Consequence),
-                    noNA_text(variant$clinvar_sig)
-                  )),
-                  fluidRow(
-                    column(3,
-                           tags$p(strong("Variant info: ")),
-                           tags$p(sprintf("Position: %s", sprintf("chr%s:%s", var_name_split[1], var_name_split[2]))),
-                           fluidRow(
-                             column(2, tags$p(sprintf("Ref: %s", allele_change[1]))),
-                             column(2, tags$p(sprintf("Alt: %s", allele_change[2]))))),
-                    column(3,
-                           fluidRow(
-                             column(6,
-                                    tags$p(),
-                                    tags$p(sprintf("HGVSc: %s", variant$HGVSc)),
-                                    tags$p(sprintf("HGVSp: %s", variant$HGVSp)),
-                                    tags$p(sprintf("Variant type: %s", variant$variant_type))))),
-                    column(3,
-                           tags$p(strong("Frequency: ")),
-                           tags$p(sprintf("Allelic: %s", variant$variant_freq)),
-                           tags$p(sprintf("GnomAD: %s", variant$gnomAD_NFE))),
-                    column(3)
-              )))})
-        tagList(boxes) # Vrátíme seznam boxů jako tagList
-        }
-      }
-    })
-
-    output$fusion_boxes <- renderUI({
-      fusion_vars <- as.data.table(shared_data$fusion_var())
-
-      if (is.null(fusion_vars) || nrow(fusion_vars) == 0) {
-        tags$div("No fusion genes selected")
-      } else {
-        fusion_vars <- fusion_vars[grepl(patient, sample)]
-
-      if (nrow(fusion_vars) == 0) {
-        return(tags$div("No fusion genes selected"))
-      } else {
-        boxes <- lapply(1:nrow(fusion_vars), function(i) {
-          fusion <- fusion_vars[i, ]
-          div(class = "fusion-box",
-              box(solidHeader = TRUE, collapsed = TRUE, width = 12,
-                  title = HTML(sprintf(
-                      '<span style="font-size:16px; font-weight:bold;">%s</span>
-                       <span style="display:inline-block; vertical-align:middle; margin:0 8px; border-left:1px solid #ccc; height:18px;"></span>
-                       <span style="font-size:14px; font-weight:normal;">%s</span>',
-                       paste0(fusion$gene1," - ", fusion$gene2),
-                       noNA_text(fusion$arriba.confidence))),
-                  fluidRow(
-                    column(3,
-                           tags$p(strong(sprintf("%s: ", fusion$gene1))),
-                           tags$p(sprintf("ID: %s", "ENS")),
-                           tags$p(sprintf("Position: %s", fusion$position1)),
-                           tags$p(sprintf("Arriba site: %s", fusion$arriba.site1))),
-                    column(3,
-                           tags$p(strong(sprintf("%s: ", fusion$gene2))),
-                           tags$p(sprintf("ID: %s", "ENS")),
-                           tags$p(sprintf("Position: %s", fusion$position2)),
-                           tags$p(sprintf("Arriba site: %s", fusion$arriba.site2))),
-                    column(3,
-                           tags$p(),
-                           tags$p(sprintf("Frame: %s", "inframe or out-of-frame")),
-                           tags$p(sprintf("Coverage: %s", fusion$overall_support))),
-                    column(3)
-                  )))})
-        tagList(boxes)
-       }
-      }
-    })
-    
-    output$expression_box <- renderUI({
-      exp_goi <- as.data.table(shared_data$expression_goi_var())
-      exp_all <- as.data.table(shared_data$expression_all_var())
-      deregulated_genes <- unique(rbind(exp_goi, exp_all, use.names = TRUE, fill = TRUE))
-
-      
-      if (is.null(deregulated_genes) || nrow(deregulated_genes) == 0) {
-        tags$div("None of the deregulated genes will be reported.")
-      } else {
-        deregulated_genes <- deregulated_genes[grepl(patient, sample)]
+      })
+    # })
+    # observeEvent(list(shared_data$expression_all_var(), shared_data$expression_goi_var()), {
+      output$expression_box <- renderUI({
+        exp_goi <- as.data.table(shared_data$expression_goi_var())
+        exp_all <- as.data.table(shared_data$expression_all_var())
+        deregulated_genes <- unique(rbind(exp_goi, exp_all, use.names = TRUE, fill = TRUE))
+  
         
-        if (nrow(deregulated_genes) == 0) {
-          return(tags$div("No deregulated genes have been selected"))
+        if (is.null(deregulated_genes) || nrow(deregulated_genes) == 0) {
+          tags$div("None of the deregulated genes will be reported.")
         } else {
-          div(class = "expression-box",
-              box(solidHeader = TRUE,  collapsible = FALSE,  width = 12,
-                  title = HTML(sprintf('<span style="font-size:16px; font-weight:normal;">In total, </span>
-                                        <span style="font-size:16px; font-weight:bold;">%s</span>
-                                        <span style="font-size:16px; font-weight:normal;"> deregulated genes have been selected for report.</span>',
-                                        uniqueN(deregulated_genes$geneid)))
-                  ))
+          deregulated_genes <- deregulated_genes[grepl(patient, sample)]
+          
+          if (nrow(deregulated_genes) == 0) {
+            return(tags$div("No deregulated genes have been selected"))
+          } else {
+            div(class = "expression-box",
+                box(solidHeader = TRUE,  collapsible = FALSE,  width = 12,
+                    title = HTML(sprintf('<span style="font-size:16px; font-weight:normal;">In total, </span>
+                                          <span style="font-size:16px; font-weight:bold;">%s</span>
+                                          <span style="font-size:16px; font-weight:normal;"> deregulated genes have been selected for report.</span>',
+                                          uniqueN(deregulated_genes$geneid)))
+                    ))
+          }
         }
-      }
-    })
-    
+      })
+    # })
+      
+    # })
+  
   })
 }
 
