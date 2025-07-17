@@ -339,7 +339,7 @@ server <- function(id, selected_samples, shared_data, load_session_btn) {
     
     # Při stisku tlačítka pro výběr fúze
     observeEvent(input$selectFusion_button, {
-      if (nrow(selected_fusions()) == 0) {
+      if (is.null(selected_fusions()) || nrow(selected_fusions()) == 0) {
         # Pokud nejsou vybrány žádné řádky, zůstaň u původního stavu
         fusion_selected(FALSE)
         hide("delete_button")
@@ -391,12 +391,12 @@ server <- function(id, selected_samples, shared_data, load_session_btn) {
       bam_empty <- is.null(shared_data$fusion_bam) || length(shared_data$fusion_bam) == 0
       
       if (selected_empty || bam_empty) {
-        showModal(modalDialog(
-          title = "Missing input",
-          "You have not selected fusions or patients for visualization. Please return to the Fusion gene detection tab and define them.",
-          easyClose = TRUE,
-          footer = modalButton("OK")
-        ))
+        shinyalert(
+          title = "No gene fusion or patient selected",
+          text = "Please select at least one gene fusion and one patient before inspecting them in IGV.",
+          type = "warning",
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
         
       } else {
         shared_data$navigation_context("fusion")   # odkud otevíráme IGV

@@ -311,7 +311,7 @@ server <- function(id,  patient, expr_tag, expression_var) {
     
     # Při stisku tlačítka pro výběr
     observeEvent(input$selectDeregulated_button, {
-      if (nrow(selected_genes()) == 0) {
+      if (is.null(selected_genes()) || nrow(selected_genes()) == 0) {
         # Pokud nejsou vybrány žádné řádky, zůstaň u původního stavu
         # variant_selected(FALSE)
         hide("delete_button")

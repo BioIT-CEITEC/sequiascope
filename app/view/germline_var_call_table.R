@@ -337,7 +337,7 @@ server <- function(id, selected_samples, shared_data) {
     
     # Při stisku tlačítka pro výběr varianty
     observeEvent(input$selectPathogenic_button, {
-      if (nrow(selected_variants()) == 0) {
+      if (is.null(selected_variants()) || nrow(selected_variants()) == 0) {
         # Pokud nejsou vybrány žádné řádky, zůstaň u původního stavu
         # variant_selected(FALSE)
         hide("delete_button")
@@ -396,12 +396,12 @@ server <- function(id, selected_samples, shared_data) {
       bam_empty <- is.null(shared_data$germline_bam) || length(shared_data$germline_bam) == 0
       
       if (selected_empty || bam_empty) {
-        showModal(modalDialog(
-          title = "Missing input",
-          "You have not selected variants or patients for visualization. Please return to the Germline variant calling tab and define them.",
-          easyClose = TRUE,
-          footer = modalButton("OK")
-        ))
+        shinyalert(
+          title = "No variant or patient selected",
+          text = "Please select at least one variant and one patient before inspecting them in IGV.",
+          type = "warning",
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
         
       } else {
         shared_data$navigation_context("germline")   # odkud otevíráme IGV

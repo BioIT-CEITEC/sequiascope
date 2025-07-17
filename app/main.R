@@ -47,6 +47,7 @@ box::use(
   # microbenchmark[microbenchmark],
   # parallel[detectCores],
   data.table[data.table],
+  shinyalert[shinyalert],
   # openxlsx[read.xlsx]
 )
 
@@ -316,7 +317,22 @@ server <- function(id) {
     ###################################
 
     observeEvent(input$save_session_btn, {
-      save_session(file = "session_data.json", patient_modules = all_modules)
+      shinyalert(
+        title = "Confirm Save",
+        text = "Do you really want to save/overwrite the session?",
+        type = "warning",
+        showCancelButton = TRUE,
+        confirmButtonText = "Yes, save it",
+        cancelButtonText = "Cancel",
+        callbackR = function(x) {
+          if (isTRUE(x)) {
+            save_session(file = "session_data.json", all_modules)
+            showNotification("Session successfully saved.", type = "message")
+          } else {
+            showNotification("Saving session was canceled.", type = "default")
+          }
+        }
+      )
     })
     # session$onSessionEnded(function() { ## when session ends, save it automatically
     #   save_session(file = "session_data.json", patient_modules = all_modules)
@@ -333,16 +349,30 @@ server <- function(id) {
 
 
     observeEvent(input$load_session_btn, {
-      print("Load_session_btn was clicked. Setting all load_btn values as TRUE.")
-      load_btn$somatic = TRUE
-      load_btn$germline = TRUE
-      load_btn$fusion = TRUE
-      load_btn$expression_goi = TRUE
-      load_btn$expression_all = TRUE
-      load_btn$summary = TRUE
-      
-      # Přepnout do SUMMARY tab
-      updateNavbarTabs(session, "navbarMenu", "app-summary")
+      shinyalert(
+        title = "Confirm Load",
+        text = "Do you really want to load the session? This will overwrite current selections.",
+        type = "warning",
+        showCancelButton = TRUE,
+        confirmButtonText = "Yes, load it",
+        cancelButtonText = "Cancel",
+        callbackR = function(x) {
+          if (isTRUE(x)) {
+            print("Load_session_btn was clicked. Setting all load_btn values as TRUE.")
+            load_btn$somatic = TRUE
+            load_btn$germline = TRUE
+            load_btn$fusion = TRUE
+            load_btn$expression_goi = TRUE
+            load_btn$expression_all = TRUE
+            load_btn$summary = TRUE
+
+            updateNavbarTabs(session, "navbarMenu", "app-summary") 
+            showNotification("Session successfully saved.", type = "message")
+          } else {
+            showNotification("Saving session was canceled.", type = "default")
+          }
+        }
+      )
     })
     
 

@@ -321,9 +321,7 @@ server <- function(id, selected_samples, shared_data) {
     
     # Při stisku tlačítka pro výběr
     observeEvent(input$selectPathogenic_button, {
-      if (nrow(selected_variants()) == 0) {
-        # Pokud nejsou vybrány žádné řádky, zůstaň u původního stavu
-        # variant_selected(FALSE)
+      if (is.null(selected_variants()) || nrow(selected_variants()) == 0 ) {
         hide("delete_button")
         
         shinyalert(
@@ -340,24 +338,18 @@ server <- function(id, selected_samples, shared_data) {
               #                selected = "fusion_genes")
             }})
       } else {
-        # Pokud jsou nějaké řádky vybrány, nastav fusion_selected na TRUE
-        # variant_selected(TRUE)
-        
-        # Zobraz tlačítka pomocí shinyjs
         show("delete_button")
       }
     })
     
     observe({
       variants <- selected_variants()
-      
       if (!is.null(variants) && nrow(variants) > 0) {
         show("delete_button")
       } else {
         hide("delete_button")
       }
     })
-
     
     
     observeEvent(filter_state$confirm(), {
@@ -410,12 +402,12 @@ server <- function(id, selected_samples, shared_data) {
       bam_empty <- is.null(shared_data$somatic_bam) || length(shared_data$somatic_bam) == 0
       
       if (selected_empty || bam_empty) {
-        showModal(modalDialog(
-          title = "Missing input",
-          "You have not selected variants or patients for visualization. Please return to the Somatic variant calling tab and define them.",
-          easyClose = TRUE,
-          footer = modalButton("OK")
-        ))
+        shinyalert(
+          title = "No variant or patient selected",
+          text = "Please select at least one variant and one patient before inspecting them in IGV.",
+          type = "warning",
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
         
       } else {
         shared_data$navigation_context("somatic")   # odkud otevíráme IGV
