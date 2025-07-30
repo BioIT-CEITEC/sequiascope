@@ -130,13 +130,13 @@ colnames_map_list <- function(tag, expr_flag = NULL, all_columns = NULL, session
                                                     return `
                                                       <div class='fusion-radio-group' data-row='${rowIndex}'>
                                                         <label class='fusion-radio-label'>
-                                                          <input type='radio' name='${inputId}_${rowIndex}' value='yes' ${value === 'yes' ? 'checked' : ''} 
-                                                            onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"yes\"}, {priority: \"event\"})'>
+                                                          <input type='radio' name='${inputId}_${rowIndex}' value='yes' ${value === 'yes' ? 'checked' : ''}
+                                                          onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"yes\"}, {priority: \"event\"})'>
                                                           <span class='fusion-radio-btn'><i class='fa fa-check'></i></span>
                                                         </label>
                                                         <label class='fusion-radio-label'>
-                                                          <input type='radio' name='${inputId}_${rowIndex}' value='no' ${value === 'no' ? 'checked' : ''} 
-                                                            onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"no\"}, {priority: \"event\"})'>
+                                                          <input type='radio' name='${inputId}_${rowIndex}' value='no' ${value === 'no' ? 'checked' : ''}
+                                                           onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"no\"}, {priority: \"event\"})'>
                                                           <span class='fusion-radio-btn'><i class='fa fa-times'></i></span>
                                                         </label>
                                                       </div>

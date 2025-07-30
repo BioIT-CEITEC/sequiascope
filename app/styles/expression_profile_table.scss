@@ -71,6 +71,22 @@
   width: 100%;
 }
 
+.my-filter-btn {
+  border-radius: 0;
+  padding: 0;
+  float: right;
+  text-align: left !important;
+  padding-top: 8px;
+}
+
+.my-filter-btn .fa-filter {
+  font-size: 16px;
+}
+.my-filter-btn::before {
+  font-size: 10px;
+  margin-left: 5px;
+}
+
 /*
 .card .card-header .filter-btn-possition {
   padding-bottom: 0px;

@@ -50,15 +50,14 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
+
     fluidRow(
       div(style = "width: 100%; text-align: right;",
          dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
            selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
            selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
            downloadButton(ns("Table_download"),"Download")),
-         # uiOutput(ns("filterTab"))
          filterTab_ui(ns("filterTab_dropdown"))
-         
          )),
      use_spinner(reactableOutput(ns("somatic_var_call_tab"))),
      tags$br(),
@@ -127,17 +126,8 @@ server <- function(id, selected_samples, shared_data, restore_flag) {
     colnames_list <- getColFilterValues("somatic") # gives list of all_columns and default_columns
     map_list <- colnames_map_list("somatic") # gives list of all columns with their column definitions
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
-    
-
-    # output$filterTab <- renderUI({
-    #   req(data())
-    #   req(map_list)
-    #   filterTab_ui(ns("filterTab_dropdown"),data(), colnames_list$default_columns, mapped_checkbox_names)
-    # })
-
-
-    
-    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data())
+  
+    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names)
     
     ############
     
@@ -468,27 +458,32 @@ server <- function(id, selected_samples, shared_data, restore_flag) {
   })
 }
 
-filterTab_server <- function(id, colnames_list, data) {
+filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names) {
   moduleServer(id, function(input, output, session) {
-    
+
     observe({
-      req(data)
       consequence_split <- unique(unlist(unique(data$consequence_trimws)))
       consequence_list <- sort(unique(ifelse(is.na(consequence_split) | consequence_split == "", "missing_value", consequence_split)))
+
+      updatePrettyCheckboxGroup(session, "gene_regions", choices = unique(data$gene_region), selected = c("exon", "intron"),
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      updatePrettyCheckboxGroup(session, "consequence", choices = consequence_list, selected = setdiff(consequence_list, "synonymous variant"),
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
       
-      updatePrettyCheckboxGroup(session, "gene_regions", choices = unique(data$gene_region), selected = c("exon", "intron"))
-      updatePrettyCheckboxGroup(session, "consequence", choices = consequence_list, selected = setdiff(consequence_list, "synonymous variant"))
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = colnames_list$all_columns, selected = colnames_list$default_columns)
+      if(isTruthy(is.na(input$coverage_depth))) updateNumericInput(session, "coverage_depth", value = 10)
+      if(isTruthy(is.na(input$gnomAD_min))) updateNumericInput(session, "gnomAD_min", value = 0.01)
     })
-    
+
     observeEvent(input$show_all, {
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
     })
-    
+
     observeEvent(input$show_default, {
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
     })
-    
+
     restore_ui_inputs <- function(data) {
       if (!is.null(data$gnomAD_min)) updateNumericInput(session, "gnomAD_min", value = safe_extract(data$gnomAD_min))
       if (!is.null(data$tumor_depth)) updateNumericInput(session, "tumor_depth", value = safe_extract(data$tumor_depth))
@@ -512,42 +507,44 @@ filterTab_server <- function(id, colnames_list, data) {
 
 filterTab_ui <- function(id) {
   ns <- NS(id)
-  
+
   tagList(
-      tags$head(tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"),
-        tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
-                      .checkbox label {font-weight: normal !important;}
-                      .checkbox-group .checkbox {margin-bottom: 0px !important;}
-                      .my-blue-btn {background-color: #007bff;color: white;border: none;}
-                      .dropdown-menu .bootstrap-select .dropdown-toggle {border: 1px solid #ced4da !important; background-color: #fff !important;
-                        color: #495057 !important; height: 38px !important; font-size: 16px !important; border-radius: 4px !important;
-                        box-shadow: none !important;}
-                      .sw-dropdown-content {border: 1px solid #ced4da !important; border-radius: 4px !important; box-shadow: none !important;
-                        background-color: white !important;}
-                      .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
-                      .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
-                      #app-somatic_var_call_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
-                      "))
+    tags$head(
+        # tags$style(HTML("
+        #               .checkbox label {font-weight: normal !important;}
+        #               .checkbox-group .checkbox {margin-bottom: 0px !important;}
+        #               .my-blue-btn {background-color: #007bff;color: white;border: none;}
+        #               .dropdown-menu .bootstrap-select .dropdown-toggle {border: 1px solid #ced4da !important; background-color: #fff !important;
+        #                 color: #495057 !important; height: 38px !important; font-size: 16px !important; border-radius: 4px !important;
+        #                 box-shadow: none !important;}
+        #               .sw-dropdown-content {border: 1px solid #ced4da !important; border-radius: 4px !important; box-shadow: none !important;
+        #                 background-color: white !important;}
+        #                .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
+        #               #app-somatic_var_call_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
+        #               "))
+      tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
+                       .dropdown-toggle::after {display: none !important;}
+                       .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
     ),
     dropdownButton(
       label = NULL,
       right = TRUE,
       icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
       fluidRow(style = "display: flex; align-items: stretch;",
-        column(8,
+        column(7,
                box(width = 12, title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",
                    fluidRow(
                      column(6, numericInput(ns("tumor_depth"), tags$strong("Tumor coverage min"), value = 10, min = 0)),
                      column(6, numericInput(ns("gnomAD_min"), tags$strong("gnomAD NFE min"), value = 0.01, min = 0, max = 1))
                    ),
                    div(class = "two-col-checkbox-group", style = "margin-bottom: 15px;",
-                       prettyCheckboxGroup(ns("gene_regions"), label = tags$strong("Gene region"), choices = character(0), icon = icon("check"),status = "primary",outline = FALSE)),
+                       prettyCheckboxGroup(ns("gene_regions"), label = tags$strong("Gene region"), choices = character(0))),
                    div(class = "two-col-checkbox-group",
-                       prettyCheckboxGroup(ns("consequence"), label = tags$strong("Consequence"), choices = character(0), icon = icon("check"),status = "primary",outline = FALSE)))),
-        column(4,
+                       prettyCheckboxGroup(ns("consequence"), label = tags$strong("Consequence"), choices = character(0))))),
+        column(5,
                box(width = 12, title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
                    div(class = "two-col-checkbox-group",
-                     prettyCheckboxGroup(ns("colFilter_checkBox"), label = NULL, choices = character(0),icon = icon("check"), status = "primary", outline = FALSE)),
+                     prettyCheckboxGroup(ns("colFilter_checkBox"), label = NULL, choices = character(0))),
                    div(style = "display: flex; gap: 10px; width: 100%;",
                        actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
                        actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))))

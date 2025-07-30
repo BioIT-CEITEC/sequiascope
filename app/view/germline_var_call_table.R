@@ -59,7 +59,7 @@ ui <- function(id) {
                        selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                        selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
                        downloadButton(ns("Table_download"),"Download")),
-        uiOutput(ns("filterTab")))),
+        filterTab_ui(ns("filterTab_dropdown")))),
     use_spinner(reactableOutput(ns("germline_var_call_tab"))),
     # reactableOutput(ns("germline_var_call_tab")),
     tags$br(),
@@ -111,20 +111,10 @@ server <- function(id, selected_samples, shared_data) {
     map_list <- colnames_map_list("germline") # gives list of all columns with their column definitions
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     
-    
-  
-    output$filterTab <- renderUI({
-      req(data())
-      req(map_list)
-      start <- Sys.time()
-      x <- filterTab_ui(ns("filterTab_dropdown"),data(), colnames_list$default_columns, mapped_checkbox_names)
-      end <- Sys.time()
-      message("⏱️ render UI filterTab: ", round(difftime(end, start, units = "secs"), 3), " sec")
-     return(x)
-    })
-    
-    
-    filter_state <- filterTab_server("filterTab_dropdown",colnames_list)
+    start <- Sys.time()
+    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names)
+    end <- Sys.time()
+    message("⏱️ render UI filterTab: ", round(difftime(end, start, units = "secs"), 3), " sec")
     
     selected_coverage_depth <- reactiveVal(NULL)
     selected_gnomAD_min  <- reactiveVal(NULL)
@@ -449,16 +439,26 @@ server <- function(id, selected_samples, shared_data) {
 
 
 
-filterTab_server <- function(id,colnames_list) {
+filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names) {
   moduleServer(id, function(input, output, session) {
-    
     observe({
+      clinvar_split <- unique(unlist(unique(data$clinvar_trimws)))
+      clinvar_list <- sort(unique(ifelse(is.na(clinvar_split) | clinvar_split == "", "missing value", clinvar_split)))
+      consequence_split <- unique(unlist(unique(data$consequence_trimws)))
+      consequence_list <- sort(unique(ifelse(is.na(consequence_split) | consequence_split == "", "missing_value", consequence_split)))
+      
+      updatePrettyCheckboxGroup(session, "gene_regions", choices = unique(data$gene_region), selected = c("exon", "intron"),
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      updatePrettyCheckboxGroup(session, "clinvar_sig", choices = clinvar_list, selected = setdiff(clinvar_list, "synonymous variant"),
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      updatePrettyCheckboxGroup(session, "consequence", choices = consequence_list, selected = setdiff(consequence_list, "synonymous variant"),
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      
       if(isTruthy(is.na(input$coverage_depth))) updateNumericInput(session, "coverage_depth", value = 10)
-    })
-    observe({
       if(isTruthy(is.na(input$gnomAD_min))) updateNumericInput(session, "gnomAD_min", value = 0.01)
     })
-    
     
     observeEvent(input$show_all, {
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
@@ -491,32 +491,12 @@ filterTab_server <- function(id,colnames_list) {
 }
 
 
-filterTab_ui <- function(id,data, default_columns, mapped_checkbox_names){
+filterTab_ui <- function(id){
   ns <- NS(id)
-  
-  filenames <- get_inputs("per_sample_file")
-  file_paths <- filenames$var_call.germline[1]
-  patient_names <- substr(basename(file_paths), 1, 6)
-  consequence_split <- unique(unlist(unique(data$consequence_trimws)))
-  consequence_list <- sort(unique(ifelse(is.na(consequence_split) | consequence_split == "", "missing value", consequence_split)))
-  clinvar_split <- unique(unlist(unique(data$clinvar_trimws)))
-  clinvar_list <- sort(unique(ifelse(is.na(clinvar_split) | clinvar_split == "", "missing value", clinvar_split)))
-  
   tagList(
-    tags$head(tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"),
-              tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
-                    .checkbox label {font-weight: normal !important;}
-                    .checkbox-group .checkbox {margin-bottom: 0px !important;}
-                    .my-blue-btn {background-color: #007bff;color: white;border: none;}
-                    .dropdown-menu .bootstrap-select .dropdown-toggle {border: 1px solid #ced4da !important; background-color: #fff !important;
-                      color: #495057 !important; height: 38px !important; font-size: 16px !important; border-radius: 4px !important;
-                      box-shadow: none !important;}
-                    .sw-dropdown-content {border: 1px solid #ced4da !important; border-radius: 4px !important; box-shadow: none !important;
-                      background-color: white !important;}
-                    .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
-                    .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
-                    #app-germline_var_call_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
-                    "))
+    tags$head(tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
+                               .dropdown-toggle::after {display: none !important;}
+                               .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
     ),
     dropdownButton(
       label = NULL,
@@ -528,37 +508,23 @@ filterTab_ui <- function(id,data, default_columns, mapped_checkbox_names){
                column(8,
                       box(width = 12,title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",
                           fluidRow(
-                            column(6, numericInput(ns("coverage_depth"), tags$strong("Coverage min"), value = 10, min = 0, max = 1000)),
+                            column(6, numericInput(ns("tumor_depth"), tags$strong("Tumor coverage min"), value = 10, min = 0)),
                             column(6, numericInput(ns("gnomAD_min"), tags$strong("gnomAD NFE min"), value = 0.01, min = 0, max = 1))
                           ),
                           div(class = "card-body two-col-checkbox-group",
                             div(
                               div(class = "two-col-checkbox-group", style = "margin-bottom: 15px;",
-                                  prettyCheckboxGroup(ns("gene_regions"), label = tags$strong("Gene region"), icon = icon("check"), status = "primary", outline = FALSE,
-                                                      choices = unique(data$gene_region),selected = c("exon","intron"))),#unique(data$gene_region)
+                                  prettyCheckboxGroup(ns("gene_regions"), label = tags$strong("Gene region"), choices = character(0))),
                               div(class = "two-col-checkbox-group",
-                                  prettyCheckboxGroup(ns("clinvar_sig"),label = tags$strong("ClinVar significance"),icon = icon("check"),status = "primary",outline = FALSE,
-                                                      selected = unique(clinvar_list),
-                                                      choices = setNames(clinvar_list, clinvar_list)))),
+                                  prettyCheckboxGroup(ns("clinvar_sig"),label = tags$strong("ClinVar significance"),choices = character(0)))),
                             div(class = "two-col-checkbox-group",
-                                prettyCheckboxGroup(ns("consequence"),label = tags$strong("Consequence"),icon = icon("check"),status = "primary",outline = FALSE,
-                                                    selected = setdiff(consequence_list, "synonymous variant"),
-                                                    choices = setNames(consequence_list, consequence_list)))
+                                prettyCheckboxGroup(ns("consequence"),label = tags$strong("Consequence"),choices = character(0)))
                       ))
                ),
                column(4,
                       box(width = 12,title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
                           div(class = "two-col-checkbox-group",
-                              prettyCheckboxGroup(
-                                inputId = ns("colFilter_checkBox"),
-                                label = NULL,
-                                choices = mapped_checkbox_names[order(mapped_checkbox_names)],
-                                selected = default_columns,
-                                icon = icon("check"),
-                                status = "primary",
-                                outline = FALSE
-                              )
-                          ),
+                              prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL,choices = character(0))),
                           div(style = "display: flex; gap: 10px; width: 100%;",
                               actionButton(inputId = ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
                               actionButton(inputId = ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))

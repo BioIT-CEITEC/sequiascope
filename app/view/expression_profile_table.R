@@ -49,13 +49,14 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
+    tags$head(tags$style(HTML(".btn-default.hover,.btn-default:active,.btn-default:hover {background-color: #fff; box-shadow: 0 5px 11px 0 rgba(0, 0, 0, 0.18), 0 4px 15px 0 rgba(0, 0, 0, 0.15); transition: box-shadow .4s ease-out;}"))),
     fluidRow(
       div(style = "width: 100%; text-align: right;",
           dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
                          selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                          selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
                          downloadButton(ns("Table_download"),"Download")),
-          uiOutput(ns("filterTab")))),
+          filterTab_ui(ns("filterTab_dropdown")))),
       use_spinner(reactableOutput(ns("expression_table"))),
     div(
       tags$br(),
@@ -87,13 +88,8 @@ server <- function(id,  patient, expr_tag, expression_var) {
     colnames_list <- getColFilterValues("expression",expr_tag) # gives list of all_columns and default_columns
     map_list <- colnames_map_list("expression",expr_tag, colnames_list$all_columns) # gives list of all columns with their column definitions
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
-    
-    output$filterTab <- renderUI({
-      req(map_list)
-      filterTab_ui(ns("filterTab_dropdown"),expr_tag,colnames_list$default_columns, mapped_checkbox_names)
-    })
-    
-    filter_state <- filterTab_server("filterTab_dropdown",colnames_list)
+
+    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names,expr_tag)
     
     # Reaktivní hodnoty filtrů
     selected_tissues_final <- reactiveVal(get_tissue_list())
@@ -404,17 +400,18 @@ server <- function(id,  patient, expr_tag, expression_var) {
 }
 
 
-filterTab_server <- function(id,colnames_list) {
+filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names,expr_tag) {
   moduleServer(id, function(input, output, session) {
-    
-    observeEvent(input$show_all, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
+
+    observe({
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
+                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      updatePickerInput(session, "filter_pathway",
+                  choices = get_pathway_list(expr_tag), selected = character(0),
+options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)
+      )
     })
-    
-    observeEvent(input$show_default, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
-    })
-    
+  
     observe({
       updateCheckboxGroupButtons(session, "log2fc_bigger1_btn", selected = if (length(input$log2fc_bigger1_tissue) > 0) "log2FC > 1" else character(0))
     }) %>% bindEvent(input$log2fc_bigger1_tissue)
@@ -430,6 +427,17 @@ filterTab_server <- function(id,colnames_list) {
     observe({
       updateCheckboxGroupButtons(session, "padj_btn", selected = if (length(input$padj_tissue) > 0) "p-adj < 0.05" else character(0))
     }) %>% bindEvent(input$padj_tissue)
+    
+    
+    
+    observeEvent(input$show_all, {
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
+    })
+    
+    observeEvent(input$show_default, {
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
+    })
+
     
     restore_ui_inputs <- function(data) {
       if (!is.null(data$selected_tissue)) updateCheckboxGroupButtons(session, "select_tissue", selected = safe_extract(data$selected_tissue))
@@ -472,78 +480,62 @@ filterTab_server <- function(id,colnames_list) {
 
 
 
-filterTab_ui <- function(id,expr_tag,default_columns, mapped_checkbox_names){
+filterTab_ui <- function(id){
   ns <- NS(id)
-
+  
+  
   tagList(
-    tags$head(tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css"),
-              tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
-                    .checkbox label {font-weight: normal !important;}
-                    .checkbox-group .checkbox {margin-bottom: 0px !important;}
-                    .my-blue-btn {background-color: #007bff;color: white;border: none;}
-                    .dropdown-menu .bootstrap-select .dropdown-toggle {border: 1px solid #ced4da !important; background-color: #fff !important;
-                      color: #495057 !important; height: 38px !important; font-size: 16px !important; border-radius: 4px !important;
-                      box-shadow: none !important;}
-                    .sw-dropdown-content {border: 1px solid #ced4da !important; border-radius: 4px !important; box-shadow: none !important;
-                      background-color: white !important;}
-                    .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
-                    .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
-                    #app-somatic_var_call_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
-                    "))),
-    dropdownButton(
+    tags$head(tags$style(HTML(".sw-dropdown .action-button {background-color: transparent; border: none; margin-top: -1px;}
+                               .dropdown-toggle::after {display: none !important;}
+                               .dropdown {position: relative; z-index: 2000;}
+                               .bttn-material-circle {box-shadow: 0 0 0 0;}"))),
+    dropdown(
+      style = "material-circle",
       label = NULL,
       right = TRUE,
+      class = "my-filter-btn",
+      size = "md",
       # width = "480px",
       icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
-             fluidRow(style = "width: 45rem;",
-                      column(6,
-                             div(style = "display: flex; flex-direction: column; flex-wrap: wrap; align-items: baseline; width: 100% !important; border-right: 1px solid #e0e0e0;",
-                                 div(class = "filterTab-select-tissue",
-                                     checkboxGroupButtons(ns("select_tissue"),"Select tissues:",choices = get_tissue_list(),selected = get_tissue_list(),individual = TRUE)),
-                                 tags$span("Table filter:", style = "font-size: 1rem; font-weight: bold; isplay: inline-block; margin-bottom: .5rem;"),
-                                 div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                                     div(style = "width: 100%",
-                                         checkboxGroupButtons(ns("log2fc_bigger1_btn"),choices = "log2FC > 1",selected = "",individual = TRUE)),
-                                     div(class = "filter_pathway",
-                                         pickerInput(ns("log2fc_bigger1_tissue"),choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))),
-                                 div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                                     checkboxGroupButtons(ns("log2fc_smaller1_btn"),choices = "log2FC < -1",selected = "",individual = TRUE),
-                                     div(class = "filter_pathway",
-                                         pickerInput(ns("log2fc_smaller1_tissue"), choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))),
-                                 div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                                     checkboxGroupButtons(ns("pval_btn"),choices = "p-value < 0.05",selected = "",individual = TRUE),
-                                     div(class = "filter_pathway",
-                                         pickerInput(ns("pval_tissue"), choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))),
-                                 div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                                     checkboxGroupButtons(ns("padj_btn"),choices = "p-adj < 0.05",selected = "",individual = TRUE),
-                                     div(class = "filter_pathway",
-                                         pickerInput(ns("padj_tissue"), choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))))
-                             )
-                      ),
-                      column(6,
-                             div(style = "flex: 1; min-width: 300px;",
-                                 div(class = "filter_pathway",
-                                     pickerInput(ns("filter_pathway"), "Filter pathways", 
-                                                 choices = get_pathway_list(expr_tag), multiple = TRUE, 
-                                                 options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))),
-                                            div(class = "two-col-checkbox-group",
-                                                prettyCheckboxGroup(
-                                                  inputId = ns("colFilter_checkBox"),
-                                                  label = NULL,
-                                                  choices = mapped_checkbox_names[order(mapped_checkbox_names)],
-                                                  selected = default_columns,
-                                                  icon = icon("check"),
-                                                  status = "primary",
-                                                  outline = FALSE),),
-                                            div(style = "display: flex; gap: 10px; width: 100%;",
-                                                actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
-                                                actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))
-                             )
-                      )
-             ),
-             div(style = "display: flex; justify-content: center; margin-top: 10px;",
-                 # actionButton(ns("confirm_btn"),"Confirm changes"))
-                 actionBttn(ns("confirm_btn"),"Confirm changes",style = "stretch",color = "success",size = "sm",individual = TRUE,value = 0))
+      fluidRow(style = "display: flex; align-items: stretch;",
+         column(6,
+            box(width = 12, title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",
+                fluidRow(#class = "filterTab-select-tissue",
+                        checkboxGroupButtons(ns("select_tissue"),"Tissues:",choices = get_tissue_list(),selected = get_tissue_list(),individual = TRUE)),
+                fluidRow(#class = "filter_pathway",
+                    pickerInput(ns("filter_pathway"), "Pathways",choices = character(0), multiple = TRUE,
+                                options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))),
+                    tags$span("Tissue values:", style = "font-size: 1rem; font-weight: bold; isplay: inline-block; margin-bottom: .5rem;"),
+                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
+                        # div(style = "width: 100%",
+                        checkboxGroupButtons(ns("log2fc_bigger1_btn"),choices = "log2FC > 1",selected = "",individual = TRUE),
+                        div(class = "filter_pathway",
+                            pickerInput(ns("log2fc_bigger1_tissue"),choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)
+                                        ))),
+                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
+                        checkboxGroupButtons(ns("log2fc_smaller1_btn"),choices = "log2FC < -1",selected = "",individual = TRUE),
+                        div(class = "filter_pathway",
+                            pickerInput(ns("log2fc_smaller1_tissue"), choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))),
+                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
+                        checkboxGroupButtons(ns("pval_btn"),choices = "p-value < 0.05",selected = "",individual = TRUE),
+                        div(class = "filter_pathway",
+                            pickerInput(ns("pval_tissue"), choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))),
+                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
+                        checkboxGroupButtons(ns("padj_btn"),choices = "p-adj < 0.05",selected = "",individual = TRUE),
+                        div(class = "filter_pathway",
+                            pickerInput(ns("padj_tissue"), choices = get_tissue_list(), multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))))),
+         column(6,
+            box(width = 12, title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
+                div(style = "flex: 1; min-width: 300px;",
+                    div(class = "two-col-checkbox-group",
+                        prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL,choices = character(0))),
+                    div(style = "display: flex; gap: 10px; width: 100%;",
+                        actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
+                        actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))))
+      )),
+      div(style = "display: flex; justify-content: center;", 
+          actionBttn(ns("confirm_btn"), "Apply changes", style = "stretch", color = "success"))
+    # )
     )
   )
 }
