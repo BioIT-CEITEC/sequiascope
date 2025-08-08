@@ -103,7 +103,7 @@ ui <- function(id){
     body = dashboardBody(#style = "background-color: white;",
       tabItems(
         tabItem(tabName = ns("upload_data"),
-                fluidRow(
+                fluidPage(
                   upload_data$ui(ns("upload_data_table"))
                 )
         ),

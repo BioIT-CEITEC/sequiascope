@@ -74,7 +74,7 @@ ui <- function(id) {
         fluidRow(
           column(3,actionButton(ns("delete_button"), "Delete variants", icon = icon("trash-can"))))
       ),
-      dropdown(ns("igv_dropdownButton"), label = "IGV", status = "primary", icon = icon("play"), right = TRUE, size = "md",#width = 230, 
+      dropdown(label = "IGV", status = "primary", icon = icon("play"), right = TRUE, size = "md",#width = 230, 
                pickerInput(ns("idpick"), "Select patients for IGV:", choices = sample_list_germ(), options = pickerOptions(actionsBox = FALSE, size = 4, maxOptions = 4, dropupAuto = FALSE, maxOptionsText = "Select max. 4 patients"),multiple = TRUE),
                div(style = "display: flex; justify-content: center; margin-top: 10px;",
                    actionBttn(ns("go2igv_button"), label = "Go to IGV", style = "stretch", color = "primary", size = "sm", individual = TRUE)
