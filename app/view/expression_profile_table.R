@@ -18,7 +18,7 @@ box::use(
   magrittr[`%>%`],
   shinyalert[shinyalert,useShinyalert],
   shinyjs[useShinyjs,hide,show],
-  data.table[data.table,as.data.table,is.data.table]
+  data.table[data.table,as.data.table,is.data.table,uniqueN]
 )
 
 box::use(
@@ -102,6 +102,20 @@ server <- function(id, patient, shared_data, patient_files) {
     ns <- session$ns
 
     
+    observe({
+      req(tissue_list)
+      message("## tissue_list: ",tissue_list)
+      
+      if (!is.null(tissue_list)) {
+        overview_dt <- data.table(
+          tissues_N = uniqueN(tissue_list))
+      } else {
+
+      }
+      
+      shared_data$expression.overview[[ patient ]] <- overview_dt
+    })
+    
     # Příprava základních dat
     prepare_data <- reactive({
       data <- load_data(patient_files, "expression", patient)
@@ -148,7 +162,7 @@ server <- function(id, patient, shared_data, patient_files) {
       tissue_list = tissue_list,
       colnames_list = colnames_list,
       patient = patient,
-      expression_var = expression_all_var,  # nebo shared_data$expression_var
+      expression_var = shared_data$expression.variants.all,
       pathway_list = get_pathway_list("all_genes"),
       expr_tag = "all_genes",
       suffix = ""  # <-- TADY: bez přípony
@@ -164,7 +178,7 @@ server <- function(id, patient, shared_data, patient_files) {
         tissue_list = tissue_list,
         colnames_list = colnames_list,
         patient = patient,
-        expression_var = expression_goi_var,  # nebo shared_data$expression_var
+        expression_var = shared_data$expression.variants.goi,
         pathway_list = get_pathway_list("genes_of_interest",prepare_goi_dt()),
         expr_tag = "genes_of_interest",
         suffix = "_goi"  # <-- TADY: s příponou _goi

@@ -13,7 +13,7 @@ box::use(
   stats[setNames],
   shinyalert[shinyalert,useShinyalert],
   shinyjs[useShinyjs,hide,show],
-  data.table[fread,data.table,as.data.table,copy,is.data.table],
+  data.table[fread,data.table,as.data.table,copy,is.data.table,uniqueN],
   magrittr[`%>%`],
   jsonlite[read_json],
 )
@@ -100,6 +100,23 @@ ui <- function(id) {
 server <- function(id, selected_samples, shared_data, file) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+
+    observe({
+      req(data())
+      if (!is.null(file$TMB)) {
+        mutation_load <- load_data(file$TMB, "TMB", selected_samples)
+        overview_dt <- data.table(
+          for_review = uniqueN(data()[gnomAD_NFE <= 0.01 & tumor_depth > 10 & Consequence != "synonymous_variant" &
+                                        (gene_region == "exon" | gene_region == "splice"), unique(var_name)]),
+          TMB = unique(mutation_load$TMB))
+      } else {
+        overview_dt <- data.table(
+          for_review = uniqueN(data()[gnomAD_NFE <= 0.01 & tumor_depth > 10 & Consequence != "synonymous_variant" &
+                                        (gene_region == "exon" | gene_region == "splice"), unique(var_name)]))
+      }
+
+      shared_data$somatic.overview[[ selected_samples ]] <- overview_dt
+    })
     
     # Load and process data table
     prepare_data <- reactive({

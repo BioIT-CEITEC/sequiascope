@@ -138,6 +138,7 @@ prepare_fusion_genes_table <- function(sample, data, manifest_dt,all_colNames){
                      has_png = !is.na(png_path) & nzchar(png_path))]
 
     cols <- colFilter("fusion", all_colNames)
+    print(merge_dt)
     merge_dt[, `:=`(Visual_Check = "", Notes = "")]
     setcolorder(merge_dt, cols)
     

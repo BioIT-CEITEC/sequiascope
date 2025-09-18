@@ -58,21 +58,17 @@ box::use(
 
 box::use(
   app/view/upload_data,
-  # app/view/summary,
+  app/view/summary,
   app/view/fusion_genes_table,
   app/view/germline_var_call_table,
   app/view/somatic_var_call_table,
   app/view/expression_profile_table,
-  # app/logic/patients_list[patients_list,set_patient_to_sample],
 #   app/view/IGV,
 #   app/logic/igv_helper[start_static_server,stop_static_server],
-# #   app/logic/load_data[load_data,get_inputs],
 #   app/view/networkGraph_cytoscape,
-  # app/logic/load_data[get_inputs],
-  # app/view/create_report,
   # app/logic/session_utils[save_session],
   app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data, get_fusion_prerun_status],
-  app/logic/helper_main[get_patients,add_dataset_tabs],
+  app/logic/helper_main[get_patients,add_dataset_tabs, add_summary_panels],
 )
 
 #####################################################
@@ -161,25 +157,9 @@ ui <- function(id){
         ),
         tabItem(tabName = ns("summary"),
           fluidRow(
-            
             div(style = "display: flex; flex-wrap: wrap; width: 100%;",
-              # do.call(tagList, lapply(patients_list(), function(sample) {
-              #   bs4Card(
-              #     title = tagList(tags$head(tags$style(HTML(".card-title {float: none !important;}")),
-              #                               tags$style(HTML(".card-title { font-size: 20px; }"))),
-              #       span(sample),
-              #       div(style = "float: right; margin-left: auto;",
-              #           create_report$ui(ns(paste0("create_report_", sample)))
-              #         )
-              #     ), icon = icon("person"), collapsible = FALSE, width = 12, 
-              #     
-              #     summary$ui(ns(paste0("summary_table_", sample)))
-              #   )
-              # }))
-            )
-          )
-        ),
-
+                uiOutput(ns("summary_table")))
+        )),
         tabItem(tabName = ns("variant_calling"),
               tabBox(id = ns("variant_calling_tabs"), width = 12, collapsible = FALSE,
                      tabPanel("Somatic small variant calling",tabName = ns("somatic_var_call_panel"),value = "somatic",
@@ -218,18 +198,7 @@ ui <- function(id){
                     tags$style(HTML(".btn-group > .btn.active {background-color: skyblue; color: white;}
                                      .btn-mygrey {background-color: lightgray; color: black;}")),
                     div(class = "patient-tabs", style = "box-shadow: none !important;",
-                        tabsetPanel(id = ns("expression_tabset"))),
-
-                    # do.call(tabsetPanel, c(id = ns("expression_profile_patients"),
-                    #      lapply(names(set_patient_to_sample("expression")), function(patient) {
-                    #        tabPanel(title = patient,
-                    #           div(style = "margin-left: -7px;",
-                    #             tabBox(id = ns(paste0("expression_profile_tabs_", patient)), width = 12, collapsible = FALSE,
-                    #                    tabPanel("Genes of Interest", tabName = ns("genesOfinterest_panel"), value = "genesOfinterest",
-                    #                             expression_profile_table$ui(ns(paste0("genesOfinterest_tab_", patient)))),
-                    #                    tabPanel("All Genes",tabName = ns("allGenes_panel"), value = "allGenes",
-                    #                             expression_profile_table$ui(ns(paste0("allGenes_tab_", patient)))))
-                    #          ))})))
+                        tabsetPanel(id = ns("expression_tabset")))
                     ))),
         tabItem(h1("Gene Interactions Network"),tabName = ns("network_graph"),
                 bs4Card(width = 12,headerBorder = FALSE, collapsible = FALSE,
@@ -264,21 +233,21 @@ server <- function(id) {
     session$userData$parent_session <- session  # for going to different navbarMenu from other modules
     message("[future plan] ", paste(class(future::plan()), collapse = " / "))
 
-    
-    
     shared_data <- reactiveValues(
       somatic.variants = reactiveVal(NULL),
       somatic.patients  = reactiveVal(character(0)),
       somatic.bam = reactiveVal(NULL),
-      germline_var = reactiveVal(NULL),
+      somatic.overview = list(),
+      germline.variants = reactiveVal(NULL),
       germline.patients  = reactiveVal(character(0)),
       germline.bam = reactiveVal(NULL),
-      germline_overview = list(),
+      germline.overview = list(),
       fusion.variants = reactiveVal(NULL),
       fusion.bam = reactiveVal(NULL),
-      fusion_overview = list(),
-      expression_goi_var = reactiveVal(NULL), #genes of interest
-      expression_all_var = reactiveVal(NULL), # all genes
+      fusion.overview = list(),
+      expression.variants.goi = reactiveVal(NULL), #genes of interest
+      expression.variants.all = reactiveVal(NULL), # all genes
+      expression.overview = list(),
       session_loaded = reactiveVal(FALSE),
       navigation_context = reactiveVal(NULL),     # somatic or germline or fusion     # from where are we opening IGV
       
@@ -287,7 +256,6 @@ server <- function(id) {
       fusion_prerun_progress = reactiveVal(0),
       fusion_prerun_future = NULL  # pro sledování future objektu
     )
-      
     
     # Track which tab values were added per dataset (so we can remove/replace on reconfirm)
     added_tab_values <- reactiveValues(
@@ -301,12 +269,9 @@ server <- function(id) {
                                fusion = FALSE,
                                expression_goi = FALSE,
                                expression_all = FALSE,
-                               summary = FALSE
-    )
+                               summary = FALSE)
     
-    observe({
-      session$sendCustomMessage("initRadioSync", list())
-    })
+    observe({ session$sendCustomMessage("initRadioSync", list()) })
     
     #######################################################################################
     #### upload data module - lock all other tabs until data is uploaded and confirmed ####
@@ -327,64 +292,28 @@ server <- function(id) {
         message("Fusion prerun failed!")
       }
     })
-  # observeEvent(upload$confirmed_paths(), {
-  #   confirmed_paths <- upload$confirmed_paths()
-  #   patients_somatic <- get_patients(confirmed_paths, "somatic")
-  #   files_somatic <- get_files_by_patient(confirmed_paths, "somatic")
-  #   
-  #   # 1) optional: remove existing tabs if this can re-run
-  #   # (doporučení: udrž si v reaktivu vektor již přidaných 'values' a podle něj je removeTab)
-  #   # lapply(added_values(), function(val) removeTab(inputId = ns("somatic_tabset"), target = val))
-  #   # added_values(character(0))
-  #   
-  #   # 2) add tabs for each patient
-  #   message("patients_somatic: ",patients_somatic)
-  #   lapply(patients_somatic, function(patient_id) {
-  #     tab_value <- paste0("som_", patient_id)
-  #     appendTab(
-  #       inputId = "somatic_tabset",
-  #       tab = tabPanel(
-  #         title = patient_id,
-  #         value = tab_value,
-  #         somatic_var_call_table$ui(ns(paste0("somatic_tab_", patient_id)),patients_somatic)
-  #       ),
-  #       select = FALSE
-  #     )
-  #     
-  #     
-  #     # 3) start server for this patient immediately (or defer until first open)
-  #     patient_files <- files_somatic[[patient_id]]
-  #     if (is.null(patient_files)) patient_files <- list()
-  #     
-  #     somatic_var_call_table$server(paste0("somatic_tab_", patient_id), patient_id, shared_data, patient_files)
-  #     
-  #   })
-  #   
-  #   #########
-  #   updateNavbarTabs(session, "navbarMenu", selected = ns("variant_calling"))
-  #   
-  #   if (length(patients_somatic)) {
-  #     first_val <- paste0("som_", patients_somatic[[1]])
-  #     
-  #     # zajisti, že výběr proběhne až po přidání tabů do DOM
-  #     session$onFlushed(function() {
-  #       updateTabsetPanel(session, inputId = "somatic_tabset", selected = first_val)
-  #     }, once = TRUE)
-  #   }
-  #   
-
+  
     
     observeEvent(upload$confirmed_paths(), {
       confirmed_paths <- upload$confirmed_paths()   # make visible to helper above; or pass as arg
       
-      # # Somatic
-      # add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
-      # # Germline
-      # add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
-      # # Fusion
+      # ## Summary
+      mounted_summary <- reactiveValues(mounted = character(0))
+      
+      add_summary_panels(session, output, shared_data, "summary_table", summary, mounted_summary)
+      # ## Somatic
+      add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
+      ## Germline
+      add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
+      ## Fusion
       # add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
-      # Expression
+      ## Expression
       add_dataset_tabs(session, confirmed_paths, "expression", shared_data, added_tab_values, "expression_tabset", "expr_", expression_profile_table, reactive(input$load_session_btn))
+
+
+      
+      
+      
       # 
       # fusion_patients <- get_patients(confirmed_paths, "fusion")
       # patients_to_run <- fusion_patients_to_prerun(fusion_patients, "www")
@@ -473,7 +402,7 @@ server <- function(id) {
       # }
 
       # Optionally focus the whole Variant calling page
-      updateNavbarTabs(session, "navbarMenu", selected = ns("expression_profile"))
+      updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
     
 
 # ## run summary module

@@ -20,6 +20,10 @@ get_status_icon <- function(color, simple = FALSE, reason = "unknown") {
       simple = "One or more selected tissue files are missing",
       detailed = "Missing files"
     ),
+    "required_one_file" = list(
+      simple   = "Provide exactly one expression file",
+      detailed = "Multiple expression files found while no tissue was specified"
+    ),
     
     # Zelené stavy  
     "complete_pair_bam_bai" = list(
@@ -106,8 +110,135 @@ get_status_icon <- function(color, simple = FALSE, reason = "unknown") {
   }
 }
 
+evaluate_file_status <- function(files, patient, file_type, dataset_type, patterns = NULL) {
+  file_configs <- list(
+    variant_somatic = list(extensions = "\\.(vcf|tsv)$", keywords = "somatic", required = TRUE),
+    tumor_somatic   = list(extensions = "\\.(bam|bai)$", keywords = "somatic", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
+    normal_somatic  = list(extensions = "\\.(bam|bai)$", keywords = "somatic", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
+    TMB_somatic     = list(extensions = "mutation_loads\\.(tsv|xlsx|txt)$", keywords = "somatic", exclude = "report", required = FALSE),
+    
+    variant_germline = list(extensions = "\\.(vcf|tsv)$", keywords = "germline", required = TRUE),
+    normal_germline  = list(extensions = "\\.(bam|bai)$", keywords = "germline", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
+    
+    fusion_fusion    = list(extensions = "\\.(tsv|xlsx)$", keywords = "fusion", exclude = "arriba|STAR", required = TRUE),
+    tumor_fusion     = list(extensions = "\\.(bam|bai)$", keywords = "fusion", exclude = "Chimeric|transcriptome", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
+    chimeric_fusion  = list(extensions = "\\.(bam|bai)$", keywords = "fusion", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
+    arriba_fusion    = list(extensions = "\\.(pdf|tsv)$", keywords = "fusion", exclude = "discarded|STAR", required = FALSE, check_pair = TRUE, pair = "pdf_tsv"),
+    
+    expression_expression = list(extensions = "\\.(tsv|xlsx)$", keywords = "expression|RNAseq", exclude = "report|genes_of_interest", required = TRUE),
+    goi_expression        = list(extensions = "genes_of_interest\\.(tsv|xlsx)$", keywords = "expression|RNAseq", exclude = "report", required = FALSE)
+  )
+  
+  config_key <- paste(file_type, dataset_type, sep = "_")
+  config <- file_configs[[config_key]]
+  if (is.null(config)) return("red")
+  
+  pattern_list <- character(0)
+  if (!is.null(patterns)) {
+    if (length(patterns) == 1) {
+      pattern_list <- unique(trimws(unlist(strsplit(patterns, ","))))
+    } else {
+      pattern_list <- unique(trimws(as.character(patterns)))
+    }
+  }
+  base_keywords <- config$keywords
+  
+  if (config_key == "expression_expression") {
+    keyword_regex <- config$keywords
+  } else {
+    all_keywords <- c(config$keywords, pattern_list)
+    all_keywords <- all_keywords[nzchar(all_keywords)]
+    keyword_regex <- paste(all_keywords, collapse = "|")
+  }
+  
+  relevant_files <- if (config_key == "goi_expression") {
+    files[str_detect(files, regex(config$keywords, ignore_case = TRUE)) & !str_detect(files, config$exclude)]
+  } else if (config_key == "TMB_somatic") {
+    files[str_detect(files, regex(config$keywords, ignore_case = TRUE)) & !str_detect(files, config$exclude)]
+  } else {
+    files[str_detect(files, patient)]
+  }
+  
+  
+  matched <- relevant_files[
+    str_detect(relevant_files, config$extensions) &
+      str_detect(relevant_files, regex(keyword_regex, ignore_case = TRUE))]
+  
+  if (!is.null(config$exclude)) {
+    matched <- matched[!str_detect(matched, regex(config$exclude, ignore_case = TRUE))]
+  }
+  message("## relevant_files: ",relevant_files)
+  message("## matched1: ",matched)
+  tissues_matched <- character(0)
+  
+  # BAM/BAI pairing
+  if (!is.null(config$check_pair) && config$check_pair) {
+    if (length(matched) == 0) {
+      status <- if (config$required) "red" else "gray"
+      reason <- if (config$required) "required_missing" else "optional_missing"
+    } else {
+      pair_type <- if (!is.null(config$pair)) config$pair else "bam_bai"
+      pair_status <- check_pair(matched, patient, pair = pair_type)
+      
+      if (pair_status == "incomplete") {
+        status <- "orange"
+        reason <- if (pair_type == "pdf_tsv") "missing_pair_pdf_tsv" else "missing_pair_bam_bai"
+      } else if (pair_status == "complete") {
+        status <- "green"
+        reason <- if (pair_type == "pdf_tsv") "complete_pair_pdf_tsv" else "complete_pair_bam_bai"
+      } else {
+        status <- if (config$required) "red" else "gray"
+        reason <- if (config$required) "required_missing" else "optional_missing"
+      }
+    }
+  } else {
+    # For non-BAM files
+    if (length(matched) == 0) {
+      status <- if (config$required) "red" else "gray"
+      reason <- if (config$required) "required_missing" else "optional_missing"
+    } else if (length(matched) == 1) {
+      status <- "green"
+      reason <- "single_file_ok"
+      if (config_key == "expression_expression") {
+        tissues_matched <- "none"
+      }
+    } else if (config_key == "expression_expression" && (length(pattern_list) == 0 || all(!nzchar(pattern_list)))) {
+      # tissues nezadané a nalezeno >1 soubor -> RED + vypiš všechny
+      status <- "red"
+      reason <- "required_one_file"
+      tissues_matched <- rep("none", length(matched))
+    } else if (config_key != "expression_expression" && length(matched) > 1) {
+      status <- "orange"
+      reason <- "multiple_files"
+      
+    } else if (config_key == "expression_expression") {
+      # PŮVODNÍ mapování přes create_tissue_file_mapping (beze změn)
+      filtered <- create_tissue_file_mapping(
+        expression_files = matched,
+        tissues_str      = pattern_list
+      )
+      matched <- as.character(filtered$mapping)   # jen mapované soubory
+      status  <- filtered$status                  # "green" nebo "red" (extras neřeší)
+      reason  <- if (status == "green") "files_ok"
+      else if (status == "red") "required_missing_exp"
+      else "multiple_files_exp"
+      tissues_matched <- names(filtered$mapping)
+    } else {
+      status <- "gray"
+      reason <- "unknown"
+    }
+
+  }
+  return(list(
+    status = status,
+    files = matched,
+    reason = reason,
+    tissues = if (config_key == "expression_expression") tissues_matched else rep("none", length(matched))
+  ))
+}
+
 #' @export
-create_dataset_data <- function(dataset_type, files, goi_files, patients, path, tumor_pattern, normal_pattern, tissues) {
+create_dataset_data <- function(dataset_type, files, goi_files, TMB_files, patients, path, tumor_pattern, normal_pattern, tissues) {
   
   if (length(patients) == 0) return(NULL)
   
@@ -120,7 +251,8 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
       list(
         variant = evaluate_file_status(files, patient, "variant", "somatic"),
         tumor = evaluate_file_status(files, patient, "tumor", "somatic", tumor_pattern$somatic),
-        normal = evaluate_file_status(files, patient, "normal", "somatic", normal_pattern$somatic)
+        normal = evaluate_file_status(files, patient, "normal", "somatic", normal_pattern$somatic),
+        TMB = evaluate_file_status(TMB_files, patient, "TMB", "somatic")
       )
     } else if (dataset_type == "germline") {
       list(
@@ -135,10 +267,25 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
         arriba = evaluate_file_status(files, patient, "arriba", "fusion", tumor_pattern$arriba)
       )
     } else if (dataset_type == "expression") {
-      expression_result <- evaluate_file_status(files, patient, "expression", "expression", patterns = tissues)
-      goi_result <- evaluate_file_status(goi_files, patient, "goi", "expression")
+      expression_result = evaluate_file_status(files, patient, "expression", "expression", patterns = tissues)
+      goi_result = evaluate_file_status(goi_files, patient, "goi", "expression")
 
-      tissue_mapping <- setNames(expression_result$files, expression_result$tissues)
+      # tissue_mapping <- if (length(expression_result$tissues) > 0) {
+      #   setNames(expression_result$files, expression_result$tissues)
+      # } else {
+      #   expression_result$files
+      # }
+      
+      tissue_mapping <- if (length(expression_result$files) == length(expression_result$tissues) &&
+                            length(expression_result$files) > 0) {
+        setNames(expression_result$files, expression_result$tissues)
+      } else if (length(expression_result$files) > 0) {
+        setNames(expression_result$files, rep("none", length(expression_result$files))) # single-file without tissues -> named as "none"
+      } else {
+        character(0)
+      }
+      
+      message("### tissue_mapping: ", tissue_mapping)
       
       list(
         expression = list(
@@ -151,7 +298,7 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
       )
     }
   })
-
+  
   patient_data <- data.frame(
     patient = patients,
     stringsAsFactors = FALSE
@@ -161,10 +308,11 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
     patient_data$variant <- sapply(patient_results, function(x) get_status_icon(x$variant$status, simple = TRUE, reason = x$variant$reason))
     patient_data$tumor <- sapply(patient_results, function(x) get_status_icon(x$tumor$status, simple = TRUE, reason = x$tumor$reason))
     patient_data$normal <- sapply(patient_results, function(x) get_status_icon(x$normal$status, simple = TRUE, reason = x$normal$reason))
-    
+
+    patient_data$TMB <- sapply(patient_results, function(x) get_status_icon(x$TMB$status, simple = TRUE, reason = x$TMB$reason))
     patient_data$icon <- sapply(patient_results, function(x) {
-      all_statuses <- c(x$variant$status, x$tumor$status, x$normal$status)
-      all_reasons <- c(x$variant$reason, x$tumor$reason, x$normal$reason)
+      all_statuses <- c(x$variant$status, x$tumor$status, x$normal$status, x$TMB$status)
+      all_reasons <- c(x$variant$reason, x$tumor$reason, x$normal$reason, x$TMB$reason)
       
       has_multiple_files <- x$variant$reason == "multiple_files"
       
@@ -184,7 +332,7 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
     })
     
     patient_data$files <- sapply(patient_results, function(x) {
-      all_files <- unique(c(x$variant$files, x$tumor$files, x$normal$files))
+      all_files <- unique(c(x$variant$files, x$tumor$files, x$normal$files, x$TMB$files))
       if (length(all_files) == 0) "" else paste(str_replace(all_files,path,""), collapse = ",\n")
     })
   } else if (dataset_type == "germline") {
@@ -217,7 +365,8 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
       if (length(all_files) == 0) "" else paste(str_replace(all_files,path,""), collapse = ",\n")
     })
     
-  } else if (dataset_type == "fusion") {
+  } 
+  else if (dataset_type == "fusion") {
     patient_data$fusion <- sapply(patient_results, function(x) get_status_icon(x$fusion$status, simple = TRUE, reason = x$fusion$reason))
     patient_data$tumor <- sapply(patient_results, function(x) get_status_icon(x$tumor$status, simple = TRUE, reason = x$tumor$reason))
     patient_data$chimeric <- sapply(patient_results, function(x) get_status_icon(x$chimeric$status, simple = TRUE, reason = x$chimeric$reason))
@@ -249,10 +398,10 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
       if (length(all_files) == 0) "" else paste(str_replace(all_files,path,""), collapse = ",\n")
     })
     
-  } else if (dataset_type == "expression") {
+  } 
+  else if (dataset_type == "expression") {
     patient_data$expression <- sapply(patient_results, function(x) get_status_icon(x$expression$status, simple = TRUE, reason = x$expression$reason))
     patient_data$goi <- sapply(patient_results, function(x) get_status_icon(x$goi$status, simple = TRUE, reason = x$goi$reason))
-    
     patient_data$tissue <- sapply(patient_results, function(x) {
       if (length(x$expression$tissue_mapping) > 0) {
         paste(names(x$expression$tissue_mapping), collapse = "\n")
@@ -279,17 +428,23 @@ create_dataset_data <- function(dataset_type, files, goi_files, patients, path, 
     })
     
     patient_data$files <- sapply(patient_results, function(x) {
-      expression_files <- if (length(x$expression$tissue_mapping) > 0) as.vector(x$expression$tissue_mapping) else character(0)
+      # pokud existuje mapování tkání, použij ho; jinak rovnou vrácené soubory
+      expression_files <- if (length(x$expression$tissue_mapping) > 0) {
+        as.vector(x$expression$tissue_mapping)
+      } else {
+        x$expression$files
+      }
+
+      message("## x$expression$files: ",x$expression$files)
       goi_files <- x$goi$files
       all_files <- unique(c(expression_files, goi_files))
-      
       if (length(all_files) == 0) "" else paste(str_replace(all_files, path, ""), collapse = ",\n")
     })
+    
   }
 
   cols <- c("icon", setdiff(colnames(patient_data), "icon"))
   patient_data <- patient_data[, cols]
-
   output_data <- list(
     patient_tab  = patient_data,      
     raw_results  = patient_results,   
@@ -313,7 +468,8 @@ validate_datasets_status <- function(datasets_data) {
     orange_patients_list = list(),
     igv_issues = character(),
     arriba_issues = character(),
-    goi_issues = c()
+    goi_issues = c(),
+    TMB_issues = c()
   )
   
   for (dataset in names(datasets_data)) {
@@ -333,22 +489,27 @@ validate_datasets_status <- function(datasets_data) {
         validation_results$has_orange_status <- TRUE
         
         if (dataset %in% c("somatic", "germline", "fusion")) {
-          columns_to_check <- switch(dataset,
-                                     "somatic" = c("tumor", "normal"),
-                                     "germline" = c("normal"),
-                                     "fusion" = c("tumor", "chimeric", "arriba"))
-          for (col in columns_to_check) {
-            if (!col %in% colnames(data)) next
-            cell_html <- data[[col]][i]
-            if (!grepl("#fd7e14", cell_html)) next
-            
-            if (grepl("Missing BAM or BAI", cell_html, fixed = TRUE)) {
-              validation_results$igv_issues <- c(validation_results$igv_issues, patient)
-            } else if (grepl("Missing PDF or TSV", cell_html, fixed = TRUE)) {
-              validation_results$arriba_issues <- c(validation_results$arriba_issues, patient)
+          if (dataset == "somatic" && "TMB" %in% colnames(data) && grepl("#fd7e14", data$TMB[i])) {
+            validation_results$TMB_issues <- c(validation_results$TMB_issues, patient)
+          } else {
+            columns_to_check <- switch(dataset,
+                                       "somatic" = c("tumor", "normal"),
+                                       "germline" = c("normal"),
+                                       "fusion" = c("tumor", "chimeric", "arriba"))
+            for (col in columns_to_check) {
+              if (!col %in% colnames(data)) next
+              cell_html <- data[[col]][i]
+              if (!grepl("#fd7e14", cell_html)) next
+              
+              if (grepl("Missing BAM or BAI", cell_html, fixed = TRUE)) {
+                validation_results$igv_issues <- c(validation_results$igv_issues, patient)
+              } else if (grepl("Missing PDF or TSV", cell_html, fixed = TRUE)) {
+                validation_results$arriba_issues <- c(validation_results$arriba_issues, patient)
+              }
+              validation_results$orange_patients_list[[patient]] <- c(validation_results$orange_patients_list[[patient]], dataset)
             }
-            validation_results$orange_patients_list[[patient]] <- c(validation_results$orange_patients_list[[patient]], dataset)
           }
+    
         }
         if (dataset == "expression" && "goi" %in% colnames(data) && grepl("#fd7e14", data$goi[i])) {
           validation_results$goi_issues <- c(validation_results$goi_issues, patient)
@@ -412,126 +573,6 @@ check_pair <- function(files, patient, pair = c("bam_bai","pdf_tsv")) {
   )
 }
 
-evaluate_file_status <- function(files, patient, file_type, dataset_type, patterns = NULL) {
-  file_configs <- list(
-    variant_somatic = list(extensions = "\\.(vcf|tsv)$", keywords = "somatic", required = TRUE),
-    tumor_somatic   = list(extensions = "\\.(bam|bai)$", keywords = "somatic", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
-    normal_somatic  = list(extensions = "\\.(bam|bai)$", keywords = "somatic", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
-    
-    variant_germline = list(extensions = "\\.(vcf|tsv)$", keywords = "germline", required = TRUE),
-    normal_germline  = list(extensions = "\\.(bam|bai)$", keywords = "germline", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
-    
-    fusion_fusion    = list(extensions = "\\.(tsv|xlsx)$", keywords = "fusion", exclude = "arriba|STAR", required = TRUE),
-    tumor_fusion     = list(extensions = "\\.(bam|bai)$", keywords = "fusion", exclude = "Chimeric|transcriptome", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
-    chimeric_fusion  = list(extensions = "\\.(bam|bai)$", keywords = "fusion", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
-    arriba_fusion    = list(extensions = "\\.(pdf|tsv)$", keywords = "fusion", exclude = "discarded|STAR", required = FALSE, check_pair = TRUE, pair = "pdf_tsv"),
-    
-    expression_expression = list(extensions = "\\.(tsv|xlsx)$", keywords = "expression|RNAseq", exclude = "report|genes_of_interest", required = TRUE),
-    goi_expression        = list(extensions = "genes_of_interest\\.(tsv|xlsx)$", keywords = "expression|RNAseq", exclude = "report", required = FALSE)
-  )
-  
-  config_key <- paste(file_type, dataset_type, sep = "_")
-  config <- file_configs[[config_key]]
-  if (is.null(config)) return("red")
-  
-  pattern_list <- character(0)
-  if (!is.null(patterns)) {
-    if (length(patterns) == 1) {
-      pattern_list <- unique(trimws(unlist(strsplit(patterns, ","))))
-    } else {
-      pattern_list <- unique(trimws(as.character(patterns)))
-    }
-  }
-  
-  base_keywords <- config$keywords
-  
-  if (config_key == "expression_expression") {
-    keyword_regex <- config$keywords
-  } else {
-    all_keywords <- c(config$keywords, pattern_list)
-    all_keywords <- all_keywords[nzchar(all_keywords)]
-    keyword_regex <- paste(all_keywords, collapse = "|")
-  }
-  
-  relevant_files <- if (config_key == "goi_expression") {
-    files[basename(files) == "genes_of_interest.tsv" & str_detect(files, regex(config$keywords, ignore_case = TRUE)) & !str_detect(files, "report")]
-  } else {
-    files[str_detect(files, patient)]
-  }
-  
-  matched <- relevant_files[
-    str_detect(relevant_files, config$extensions) &
-      str_detect(relevant_files, regex(keyword_regex, ignore_case = TRUE))]
-  
-  if (!is.null(config$exclude)) {
-    matched <- matched[!str_detect(matched, regex(config$exclude, ignore_case = TRUE))]
-  }
-  
-  tissues_matched <- character(0)
-  
-  # BAM/BAI pairing
-  if (!is.null(config$check_pair) && config$check_pair) {
-    if (length(matched) == 0) {
-      status <- if (config$required) "red" else "gray"
-      reason <- if (config$required) "required_missing" else "optional_missing"
-    } else {
-      pair_type <- if (!is.null(config$pair)) config$pair else "bam_bai"
-      pair_status <- check_pair(matched, patient, pair = pair_type)
-      
-      if (pair_status == "incomplete") {
-        status <- "orange"
-        reason <- if (pair_type == "pdf_tsv") "missing_pair_pdf_tsv" else "missing_pair_bam_bai"
-      } else if (pair_status == "complete") {
-        status <- "green"
-        reason <- if (pair_type == "pdf_tsv") "complete_pair_pdf_tsv" else "complete_pair_bam_bai"
-      } else {
-        status <- if (config$required) "red" else "gray"
-        reason <- if (config$required) "required_missing" else "optional_missing"
-      }
-    }
-  } else {
-    # For non-BAM files
-    if (length(matched) == 0) {
-      status <- if (config$required) "red" else "gray"
-      reason <- if (config$required) "required_missing" else "optional_missing"
-    } else if (length(matched) == 1) {
-      status <- "green"
-      reason <- "single_file_ok"
-    } else if (config_key != "expression_expression" && length(matched) > 1) {
-      status <- "orange"
-      reason <- "multiple_files"
-    } else if (config_key == "expression_expression") {
-      # Use create_tissue_file_mapping instead of filter_expression_by_tissues
-      filtered <- create_tissue_file_mapping(
-        expression_files = matched,
-        tissues_str = pattern_list
-      )
-      
-      matched <- as.character(filtered$mapping)  # Extract the file paths (values)
-      status <- filtered$status
-      reason <- if (filtered$status == "green") "files_ok"
-      else if (filtered$status == "red") "required_missing_exp"
-      else "multiple_files_exp"
-      tissues_matched <- names(filtered$mapping)  # Use tissue names from mapping
-      cat("Mapping:", paste(names(filtered$mapping), filtered$mapping, sep = " -> "), "\n")
-
-    } else {
-      status <- "grey"
-      reason <- "unknown"
-    }
-  }
-  
-  return(list(
-    status = status,
-    files = matched,
-    reason = reason,
-    tissues = if (config_key == "expression_expression") {
-      tissues_matched
-    } else {
-      rep("none", length(matched))
-    }
-  ))
-}
 
 create_tissue_file_mapping <- function(expression_files, tissues_str) {
   if (is.null(tissues_str)) {
@@ -624,6 +665,7 @@ get_dataset_columns <- function(dataset_type) {
       variant = list(name = "Variant file", width = 80),
       tumor = list(name = "Tumor BAM file", width = 90),
       normal = list(name = "Normal BAM file", width = 90),
+      TMB = list(name = "Tumor mutation burden file", width = 130),
       files = list(name = "Detected files", minWidth = 300)
     ),
     germline = list(
@@ -665,7 +707,7 @@ create_reactable <- function(data, dataset_type) {
   for (col_name in names(columns_config)) {
     config <- columns_config[[col_name]]
     
-    if (col_name == "icon" || col_name %in% c("variant", "tumor", "normal", "fusion", "chimeric", "arriba","expression", "goi")) {
+    if (col_name == "icon" || col_name %in% c("variant", "tumor", "normal", "TMB","fusion", "chimeric", "arriba","expression", "goi")) {
       columns_def[[col_name]] <- colDef(
         name = config$name,
         width = config$width,

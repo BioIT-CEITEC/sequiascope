@@ -2,8 +2,10 @@
 
 box::use(
   data.table[fread,as.data.table,rbindlist,tstrsplit,setcolorder,setnames,fwrite],
-  openxlsx[read.xlsx,getSheetNames]
+  openxlsx[read.xlsx,getSheetNames],
+  tools[file_ext]
 )
+
 # sample <- "DZ1601"
 # input_files <- fusion_genes_filenames
 #' @export
@@ -71,6 +73,26 @@ load_data <- function(input_files, flag, sample = NULL,expr_flag = NULL){
 
     return(combined_dt)
     
+  } else if (flag == "TMB") { 
+    ext <- tolower(file_ext(input_files))
+    
+    if (ext == "xlsx") {
+      dt <- as.data.table(read.xlsx(input_files))
+    } else if (ext == "tsv") {
+      dt <- fread(input_files)
+    } else if (ext == "txt") {
+      dt <- fread(input_files)
+    } else {
+      stop("Podporovány jsou pouze soubory .xlsx, .tsv nebo .txt")
+    }
+
+    if (ncol(dt) < 1L) stop("Soubor neobsahuje žádné sloupce.")
+    
+    dt <- dt[,1:2]
+    setnames(dt,c("sample","TMB"))
+    dt[,TMB := as.numeric(gsub(",", ".", TMB))]
+    
+    return(dt)
   } else {
     return(print("not varcall nor fusion nor expression"))
   }

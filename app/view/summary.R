@@ -17,8 +17,6 @@ box::use(
 )
 
 box::use(
-  # app/logic/load_data[get_inputs,load_data],
-  app/logic/patients_list[set_patient_to_sample],
   app/logic/prepare_table[get_tissue_list],
 )
 
@@ -87,93 +85,76 @@ ui <- function(id){
 
 server <- function(id, patient, shared_data){ #,active_tab
   moduleServer(id, function(input, output, session){
+
+# 
+# 
+#     #####################
+#     ### Card overview ###
+#     #####################
+# 
+#     output$tissues <- renderText({
+#       paste0("Tissue comparison: ",uniqueN(get_tissue_list()))
+#     })
+    overview_som <- shared_data$somatic.overview[[ patient ]]
+    overview_germ <- shared_data$germline.overview[[ patient ]]
+    overview_fus <- shared_data$fusion.overview[[ patient ]]
     
-
-
-    #####################
-    ### Card overview ###
-    #####################
-
-    output$tissues <- renderText({
-      paste0("Tissue comparison: ",uniqueN(get_tissue_list()))
-    })
-
-    # Pomocná funkce, která vrátí odpovídající klíč pro overview podle jména pacienta
-    getMatchingPatientKey <- function(patient, tag) {
-      samples <- set_patient_to_sample(tag)  # Např. c("DZ1601krev", "MR1507krev", "VH0452krev")
-      matching_sample <- samples[grepl(patient, samples)]
-      if (length(matching_sample) == 0) return(NULL)
-      matching_sample[1]
-    }
-
-
-    output$for_review_germ <- renderText({
-      key <- getMatchingPatientKey(patient,"germline")
-      if (is.null(key)) return("Variants for review: Not available")
-      overview_data <- shared_data$germline_overview[[ key ]]
-      if (is.null(overview_data)) {
+    
+    output$for_review_som <- renderText({
+      if (is.null(patient)) return("Variants for review: Not available")
+      if (is.null(overview_som$for_review)) {
         return("Variants for review: NA")
       } else {
-        paste("Variants for review: ", overview_data$for_review)
+        paste("Variants for review: ", overview_som$for_review)
+      }
+    })
+    
+    output$TMB <- renderText({
+      if (is.null(patient)) return("Tumor mutation burden: Not available")
+      if (!is.null(overview_som$TMB)){
+        paste("Tumor mutation burden (load):", overview_som$TMB[sample == patient, TMB])
+      } else {
+        "Tumor mutation burden: N/A"
+      }
+    })
+    
+    output$for_review_germ <- renderText({
+      if (is.null(patient)) return("Variants for review: Not available")
+      if (is.null(overview_germ$for_review)) {
+        return("Variants for review: NA")
+      } else {
+        paste("Variants for review: ", overview_germ$for_review)
       }
     })
 
     output$clinvar_N_germ <- renderText({
-      key <- getMatchingPatientKey(patient,"germline")
-      if (is.null(key)) return("Pathogenic and likely-pathogenic variants: Not available")
-      overview_data <- shared_data$germline_overview[[ key ]]
-      if (is.null(overview_data)) {
+      if (is.null(patient)) return("Pathogenic and likely-pathogenic variants: Not available")
+      if (is.null(overview_germ$clinvar_N)) {
         return("Pathogenic and likely-pathogenic variants: NA")
       } else {
-        paste("Pathogenic and likely-pathogenic variants: ", overview_data$clinvar_N)
+        paste("Pathogenic and likely-pathogenic variants: ", overview_germ$clinvar_N)
       }
     })
 
 
     output$high_confidence <- renderText({
-      key <- getMatchingPatientKey(patient,"fusion")
-      if (is.null(key)) return("Fused genes with high confidence: Not available")
-      overview_data <- shared_data$fusion_overview[[ key ]]
-      if (is.null(overview_data)) {
+      if (is.null(patient)) return("Fused genes with high confidence: Not available")
+      if (is.null(overview_fus$high_confidence)) {
         return("Fused genes with high confidence: NA")
       } else {
-        paste("Fused genes with high confidence: ", overview_data$high_confidence)
+        paste("Fused genes with high confidence: ", overview_fus$high_confidence)
       }
     })
 
     output$potencially_fused <- renderText({
-      key <- getMatchingPatientKey(patient,"fusion")
-      if (is.null(key)) return("Potencially fused genes: Not available")
-      overview_data <- shared_data$fusion_overview[[ key ]]
-      if (is.null(overview_data)) {
+      if (is.null(patient)) return("Potencially fused genes: Not available")
+      if (is.null(overview_fus$potencially_fused)) {
         return("Potencially fused genes: NA")
       } else {
-        paste("Potencially fused genes: ", overview_data$potencially_fused)
+        paste("Potencially fused genes: ", overview_fus$potencially_fused)
       }
     })
 
-    mutation_load <- reactive({
-      dt <- as.data.table(read.xlsx("input_files/MOII_e117/117_WES_somatic/mutation_loads.xlsx"))
-      dt[,normal:= as.numeric(gsub(",", ".", normal))]
-      dt
-    })
-
-
-    # 2) Zobrazení počtu variant pro kontrolu
-    output$for_review_som <- renderText({
-      paste("Variants for review: ")#, variantsCount())
-    })
-
-    # 3) Zobrazení mutation load pro 'normal'
-    output$TMB <- renderText({
-      row <- mutation_load()[sample == patient, ]
-
-      if (nrow(row) == 1) {
-        paste("Tumor mutation burden (load):", row$normal)
-      } else {
-        "Tumor mutation burden: N/A"
-      }
-    })
 
     #################################################
     ### Selected variant or fusion data + buttons ###
@@ -181,9 +162,6 @@ server <- function(id, patient, shared_data){ #,active_tab
 
     noNA_text <- function(x) ifelse(is.na(x) | x == "", "-", x)
 
-    # observe({
-    #   req(active_tab() == "app-summary" || shared_data$session_loaded())
-    # observeEvent(shared_data$somatic.variants(), {
       output$somatic_boxes <- renderUI({
         som_vars <- as.data.table(shared_data$somatic.variants())
   
@@ -232,11 +210,9 @@ server <- function(id, patient, shared_data){ #,active_tab
           }
         }
       })
-    # })
-    
-    # observeEvent(shared_data$germline_var(), {
+
       output$germline_boxes <- renderUI({
-        germ_vars <- as.data.table(shared_data$germline_var())
+        germ_vars <- as.data.table(shared_data$germline.variants())
   
         if (is.null(germ_vars) || nrow(germ_vars) == 0) {
           tags$div("No germline variants selected")
@@ -288,9 +264,8 @@ server <- function(id, patient, shared_data){ #,active_tab
       })
     # })
 
-    # observeEvent(shared_data$fusion_var(), {
       output$fusion_boxes <- renderUI({
-        fusion_vars <- as.data.table(shared_data$fusion_var())
+        fusion_vars <- as.data.table(shared_data$fusion.variants())
   
         if (is.null(fusion_vars) || nrow(fusion_vars) == 0) {
           tags$div("No fusion genes selected")
@@ -331,11 +306,10 @@ server <- function(id, patient, shared_data){ #,active_tab
          }
         }
       })
-    # })
-    # observeEvent(list(shared_data$expression_all_var(), shared_data$expression_goi_var()), {
+
       output$expression_box <- renderUI({
-        exp_goi <- as.data.table(shared_data$expression_goi_var())
-        exp_all <- as.data.table(shared_data$expression_all_var())
+        exp_goi <- as.data.table(shared_data$expression.variants.goi())
+        exp_all <- as.data.table(shared_data$expression.variants.all())
         deregulated_genes <- unique(rbind(exp_goi, exp_all, use.names = TRUE, fill = TRUE))
   
         

@@ -48,7 +48,6 @@ ui <- function(id) {
                        downloadButton(ns("Table_download"),"Download")),
         filterTab_ui(ns("filterTab_dropdown")))),
     use_spinner(reactableOutput(ns("germline_var_call_tab"))),
-    # reactableOutput(ns("germline_var_call_tab")),
     tags$br(),
 
     div(style = "display: flex; justify-content: space-between; align-items: top; width: 100%;",
@@ -74,6 +73,20 @@ ui <- function(id) {
 server <- function(id, selected_samples, shared_data, file,  load_session_btn = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+    
+    
+    observe({
+      req(data())
+      overview_dt <- data.table(
+        clinvar_N = uniqueN(data()[clinvar_sig %in% c("Pathogenic", "Likely_pathogenic", "Pathogenic/Likely_pathogenic",
+                                                      "Pathogenic_(VUS)", "Likely_pathogenic (VUS)", "Pathogenic_(VUS)"), unique(var_name)]),
+
+        for_review = uniqueN(data()[gnomAD_NFE <= 0.01 & coverage_depth > 10 & Consequence != "synonymous_variant" &
+                                      (gene_region == "exon" | gene_region == "splice"), unique(var_name)]))
+      # print(overview_dt)
+      shared_data$germline.overview[[ selected_samples ]] <- overview_dt
+    })
+    
     # Load and process data table
     prepare_data <- reactive({
       message("Loading input data for germline: ", file$variant)
@@ -81,26 +94,16 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       prepare_germline_table(data, colnames(data))
     })
 
-    # observe({
-    #     req(data())
-    #     overview_dt <- data.table(
-    #         clinvar_N = uniqueN(data()[clinvar_sig %in% c("Pathogenic", "Likely_pathogenic", "Pathogenic/Likely_pathogenic",
-    #                                                       "Pathogenic_(VUS)", "Likely_pathogenic (VUS)", "Pathogenic_(VUS)")]),
-    #         for_review = uniqueN(data()[gnomAD_NFE <= 0.01 & coverage_depth > 10 & Consequence != "synonymous_variant" &
-    #                                       (gene_region == "exon" | gene_region == "splice")]))
-    #     shared_data$germline_overview[[ selected_samples ]] <- overview_dt
-    # })
-
     data <- reactive(prepare_data()$dt)
     colnames_list <- prepare_data()$columns
     
     map_list <- colnames_map_list("germline") # gives list of all columns with their column definitions
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     
-    start <- Sys.time()
+    # start <- Sys.time()
     filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names)
-    end <- Sys.time()
-    message("⏱️ render UI filterTab: ", round(difftime(end, start, units = "secs"), 3), " sec")
+    # end <- Sys.time()
+    # message("⏱️ render UI filterTab: ", round(difftime(end, start, units = "secs"), 3), " sec")
     
     selected_coverage_depth <- reactiveVal(NULL)
     selected_gnomAD_min  <- reactiveVal(NULL)
@@ -223,8 +226,8 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
 
       if (nrow(new_unique_variants) > 0) selected_variants(rbind(current_variants, new_unique_variants))
       
-      # Aktualizace globální proměnné shared_data$germline_var:
-      global_data <- shared_data$germline_var()
+      # Aktualizace globální proměnné shared_data$germline.variants:
+      global_data <- shared_data$germline.variants()
 
       # Pokud je NULL nebo nemá správnou strukturu, inicializujeme
       if (is.null(global_data) || !is.data.table(global_data) || !("sample" %in% names(global_data))) {
@@ -248,8 +251,8 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       
       # Přidáme nově aktualizované lokální data daného pacienta
       updated_global_data <- rbind(global_data, selected_variants())
-      shared_data$germline_var(updated_global_data)
-      message("## shared_data$germline_var(): ", shared_data$germline_var())
+      shared_data$germline.variants(updated_global_data)
+      message("## shared_data$germline_var(): ", shared_data$germline.variants())
     })
     
 
@@ -277,7 +280,7 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       updated_variants <- current_variants[-rows, ]
       selected_variants(updated_variants)
       
-      global_data <- shared_data$germline_var()
+      global_data <- shared_data$germline.variants()
       if (!is.null(global_data) && is.data.table(global_data)) {
         global_data <- global_data[sample != selected_samples]
       } else {
@@ -303,7 +306,7 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
         updated_global_data <- global_data
       }
       
-      shared_data$germline_var(updated_global_data)
+      shared_data$germline.variants(updated_global_data)
       session$sendCustomMessage("resetReactableSelection", updated_variants)
       
       if (nrow(updated_variants) == 0) {
@@ -445,7 +448,7 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names) {
       consequence_split <- unique(unlist(unique(data$consequence_trimws)))
       consequence_list <- sort(unique(ifelse(is.na(consequence_split) | consequence_split == "", "missing_value", consequence_split)))
       
-      updatePrettyCheckboxGroup(session, "gene_regions", choices = unique(data$gene_region), selected = c("exon", "intron"),
+      updatePrettyCheckboxGroup(session, "gene_regions", choices = unique(data$gene_region), selected = c("exon", "splice"),
                                 prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
       updatePrettyCheckboxGroup(session, "clinvar_sig", choices = clinvar_list, selected = setdiff(clinvar_list, "synonymous variant"),
                                 prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))

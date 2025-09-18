@@ -1,10 +1,13 @@
 # app/logic/helper_main.R
 
 box::use(
-  shiny[reactiveVal,removeTab,appendTab,NS,onFlushed,updateTabsetPanel,tabPanel],
+  shiny[reactiveVal,removeTab,appendTab,NS,onFlushed,updateTabsetPanel,tabPanel, reactive, observe, renderUI, uiOutput, tagList, div, span, HTML, icon, tags],
+  bs4Dash[bs4Card],
   stats[setNames],
 )
-
+box::use(
+  app/view/create_report
+)
 #' @export
 get_files_fo_all_patients <- function(){
   return(message("I dont know who called me but in this function is nothing."))
@@ -46,6 +49,66 @@ get_files_by_patient <- function(confirmed_paths, dataset_type) {
       split(tab$path, tab$file_type)
     }
   })
+}
+
+
+
+
+
+#' @export
+add_summary_panels <- function(session,
+                               output,
+                               shared_data,
+                               ui_output_id,
+                               summary_module,        # objekt s $ui a $server (tvůj modul summary)
+                               mounted_ref){          # reactiveValues s polem $mounted (proti duplicitám); když NULL, vytvoří se uvnitř
+
+  ns <- session$ns
+  if (is.null(mounted_ref)) mounted_ref <- reactiveValues(mounted = character(0))
+  
+  # patients_list <- reactive({ unique(c(shared_data$somatic.patients(), 
+  #                                          shared_data$germline.patients(), 
+  #                                          shared_data$fusion.patients(), 
+  #                                          shared_data$expression.patients())) })
+  patients_list <- reactiveVal(c("DZ1601","MR1507"))
+  # 1) UI render – karty pro všechny aktuální pacienty
+  output[[ui_output_id]] <- renderUI({
+    pats <- patients_list()
+    if (!length(pats)) return(div("Žádní pacienti k zobrazení."))
+    
+    tagList(lapply(pats, function(sample) {
+      bs4Card(
+        title = tagList(
+          tags$head(tags$style(HTML(
+            ".card-title {float: none !important;} .card-title { font-size: 20px; }"
+          ))),
+          span(sample),
+          div(style = "float: right; margin-left: auto;",
+              create_report$ui(ns(paste0("create_report_", sample))))
+        ),
+        icon = icon("person"),
+        collapsible = FALSE,
+        width = 12,
+        summary_module$ui(ns(paste0("summary_table_", sample)))
+      )
+    }))
+  })
+
+  # 2) Server mount – jen pro NOVÉ pacienty
+  observe({
+    pats <- patients_list()
+    already <- mounted_ref$mounted
+    new_pats <- setdiff(pats, already)
+    
+    lapply(new_pats, function(sample) {
+      summary_module$server(paste0("summary_table_", sample), sample, shared_data)
+      create_report$server(paste0("create_report_", sample), sample, shared_data)
+    })
+    
+    if (length(new_pats)) mounted_ref$mounted <- union(already, new_pats)
+  })
+  
+  invisible(NULL)
 }
 
 #' @export

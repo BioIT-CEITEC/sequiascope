@@ -136,7 +136,7 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
       overview_dt <- data.table(
           high_confidence = uniqueN(dt[arriba.confidence %in% "high"]),
           potencially_fused = uniqueN(dt[arriba.confidence %in% c("medium", "low", NA)]))
-      shared_data$fusion_overview[[ selected_samples ]] <- overview_dt
+      shared_data$fusion.overview[[ selected_samples ]] <- overview_dt
     })
 
     map_list <- colnames_map_list("fusion",session = session) # gives list of all columns with their column definitions

@@ -41,6 +41,7 @@ step2_ui <- function(id) {
       ns <- session$ns
       all_files <- reactiveVal()
       goi_files <- reactiveVal()
+      TMB_files <- reactiveVal()
       confirmed_paths_state <- reactiveVal(NULL)
       
       observe({
@@ -53,17 +54,26 @@ step2_ui <- function(id) {
       
       observe({
         req(path(), patients())
-        goi_files_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
+        goi_file_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
         patient_pattern <- paste(patients(), collapse = "|") 
-        matches <- stri_detect_regex(goi_files_list, "genes_of_interest") & !str_detect(goi_files_list, regex(patient_pattern, ignore_case = TRUE))
-        goi_files(goi_files_list[matches])
+        matches <- stri_detect_regex(goi_file_list, "genes_of_interest") & !str_detect(goi_file_list, regex(patient_pattern, ignore_case = TRUE))
+        goi_files(goi_file_list[matches])
       })
 
+      observe({
+        req(path(), patients())
+        TMB_file_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
+        patient_pattern <- paste(patients(), collapse = "|")
+        file_pattern <- paste(c("mutation_loads","TMB"), collapse = "|")
+        matches <- stri_detect_regex(TMB_file_list, file_pattern) & !str_detect(TMB_file_list, regex(patient_pattern, ignore_case = TRUE))
+        TMB_files(TMB_file_list[matches])
+      })
+      
       datasets_data <- reactive({
         req(datasets(), all_files(), patients(), path())
         result <- list()
         for (dataset in datasets()) {
-          result[[dataset]] <- create_dataset_data(dataset, all_files(), goi_files(), patients(), path(), tumor_pattern, normal_pattern, tissues())
+          result[[dataset]] <- create_dataset_data(dataset, all_files(), goi_files(), TMB_files(), patients(), path(), tumor_pattern, normal_pattern, tissues())
         }
         return(result)
       })
@@ -98,10 +108,16 @@ step2_ui <- function(id) {
         matches <- stri_detect_regex(all_files_list, patient_pattern) 
         all_files(all_files_list[matches])
         
-        # Znovu načti goi soubory
+        # Znovu načti goi soubor
         goi_matches <- stri_detect_regex(all_files_list, "genes_of_interest") & !str_detect(all_files_list, regex(patient_pattern, ignore_case = TRUE))
         goi_files(all_files_list[goi_matches])
+        
+        # Znovu načti TMB soubor
+        file_pattern <- paste(c("mutation_loads","TMB"), collapse = "|")
+        TMB_matches <- stri_detect_regex(all_files_list, file_pattern) & !str_detect(all_files_list, regex(patient_pattern, ignore_case = TRUE))
+        TMB_files(all_files_list[TMB_matches])
       })
+
       
       observeEvent(input$confirm, {
         req(datasets(), patients(), all_files())
@@ -177,6 +193,18 @@ step2_ui <- function(id) {
               "</ul>"
             )
             warning_parts <- c(warning_parts, goi_html)
+          }
+          
+          # TMB část (ponecháno)
+          if (length(validation$TMB_issues) > 0) {
+            TMB_lines <- paste(sprintf("<li style='text-align: left'><b>%s</b></li>", validation$TMB_issues), collapse = "")
+            TMB_html <- paste0(
+              "<div style='text-align: center;'><strong>Tumor mutation burden information will be missing for:</strong></div><br>",
+              "<ul style='text-align: left; margin-left: 2em;'>",
+              TMB_lines,
+              "</ul>"
+            )
+            warning_parts <- c(warning_parts, TMB_html)
           }
           
           warning_message <- paste0(paste(warning_parts, collapse = "<br>"), "<br>Do you want to continue anyway?")
