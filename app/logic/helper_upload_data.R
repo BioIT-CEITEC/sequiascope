@@ -24,7 +24,7 @@ get_status_icon <- function(color, simple = FALSE, reason = "unknown") {
       simple   = "Provide exactly one expression file",
       detailed = "Multiple expression files found while no tissue was specified"
     ),
-    
+
     # Zelené stavy  
     "complete_pair_bam_bai" = list(
       simple   = "Paired files OK",
@@ -192,48 +192,64 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
       }
     }
   } else {
-    # For non-BAM files
-    if (length(matched) == 0) {
-      status <- if (config$required) "red" else "gray"
-      reason <- if (config$required) "required_missing" else "optional_missing"
-    } else if (length(matched) == 1) {
-      status <- "green"
-      reason <- "single_file_ok"
-      if (config_key == "expression_expression") {
-        tissues_matched <- "none"
+    # --- Non-BAM files ---
+    if (config_key == "expression_expression") {
+      # Pokud nejsou zadané tissues (pattern_list prázdné)
+      if (length(pattern_list) == 0 || all(!nzchar(pattern_list))) {
+        if (length(matched) == 0) {
+          status <- if (config$required) "red" else "gray"
+          reason <- if (config$required) "required_missing" else "optional_missing"
+          tissues_matched <- character(0)
+        } else if (length(matched) == 1) {
+          status <- "green"
+          reason <- "single_file_ok"
+          tissues_matched <- "none"
+        } else {
+          status <- "red"
+          reason <- "required_one_file"
+          tissues_matched <- rep("none", length(matched))
+        }
+      } else {
+        # Tissues jsou zadané -> vždy použij mapování
+        filtered <- create_tissue_file_mapping(
+          expression_files = matched,
+          tissues_str      = pattern_list
+        )
+        matched <- as.character(filtered$mapping)         # jen mapované soubory (mohou být length 0)
+        status  <- if (filtered$status == "green") "green" else "red"
+        reason  <- if (status == "green") "files_ok" else "required_missing_exp"
+        tissues_matched <- names(filtered$mapping)
+        
+        # PŘIDEJME do výstupu i úplné mapování (vč. NA pro chybějící)
+        attr(matched, "all_mapping") <- filtered$all_mapping
+        attr(matched, "missing_tissues") <- filtered$missing_tissues
       }
-    } else if (config_key == "expression_expression" && (length(pattern_list) == 0 || all(!nzchar(pattern_list)))) {
-      # tissues nezadané a nalezeno >1 soubor -> RED + vypiš všechny
-      status <- "red"
-      reason <- "required_one_file"
-      tissues_matched <- rep("none", length(matched))
-    } else if (config_key != "expression_expression" && length(matched) > 1) {
-      status <- "orange"
-      reason <- "multiple_files"
       
-    } else if (config_key == "expression_expression") {
-      # PŮVODNÍ mapování přes create_tissue_file_mapping (beze změn)
-      filtered <- create_tissue_file_mapping(
-        expression_files = matched,
-        tissues_str      = pattern_list
-      )
-      matched <- as.character(filtered$mapping)   # jen mapované soubory
-      status  <- filtered$status                  # "green" nebo "red" (extras neřeší)
-      reason  <- if (status == "green") "files_ok"
-      else if (status == "red") "required_missing_exp"
-      else "multiple_files_exp"
-      tissues_matched <- names(filtered$mapping)
     } else {
-      status <- "gray"
-      reason <- "unknown"
+      # --- Other non-BAM types ---
+      if (length(matched) == 0) {
+        status <- if (config$required) "red" else "gray"
+        reason <- if (config$required) "required_missing" else "optional_missing"
+      } else if (length(matched) == 1) {
+        status <- "green"
+        reason <- "single_file_ok"
+      } else if (config_key != "expression_expression" && length(matched) > 1) {
+        status <- "orange"
+        reason <- "multiple_files"
+      } else {
+        status <- "gray"
+        reason <- "unknown"
+      }
     }
-
   }
+  
   return(list(
     status = status,
     files = matched,
     reason = reason,
-    tissues = if (config_key == "expression_expression") tissues_matched else rep("none", length(matched))
+    tissues = if (config_key == "expression_expression") tissues_matched else rep("none", length(matched)),
+    all_mapping = if (config_key == "expression_expression") attr(matched, "all_mapping") else NULL,
+    missing_tissues = if (config_key == "expression_expression") attr(matched, "missing_tissues") else NULL
   ))
 }
 
@@ -269,30 +285,35 @@ create_dataset_data <- function(dataset_type, files, goi_files, TMB_files, patie
     } else if (dataset_type == "expression") {
       expression_result = evaluate_file_status(files, patient, "expression", "expression", patterns = tissues)
       goi_result = evaluate_file_status(goi_files, patient, "goi", "expression")
-
-      # tissue_mapping <- if (length(expression_result$tissues) > 0) {
-      #   setNames(expression_result$files, expression_result$tissues)
-      # } else {
-      #   expression_result$files
-      # }
       
-      tissue_mapping <- if (length(expression_result$files) == length(expression_result$tissues) &&
-                            length(expression_result$files) > 0) {
-        setNames(expression_result$files, expression_result$tissues)
-      } else if (length(expression_result$files) > 0) {
-        setNames(expression_result$files, rep("none", length(expression_result$files))) # single-file without tissues -> named as "none"
+      # full mapping (vč. NA pro chybějící)
+      if (!is.null(expression_result$all_mapping) && length(expression_result$all_mapping) > 0) {
+        tissue_mapping_full <- expression_result$all_mapping
       } else {
-        character(0)
+        # žádné tissues zadané -> "none" nebo prázdno
+        if (length(expression_result$files) > 0 && length(expression_result$tissues) > 0) {
+          tissue_mapping_full <- setNames(expression_result$files, expression_result$tissues)
+        } else if (length(expression_result$files) > 0) {
+          tissue_mapping_full <- setNames(expression_result$files, rep("none", length(expression_result$files)))
+        } else {
+          tissue_mapping_full <- character(0)
+        }
       }
       
-      message("### tissue_mapping: ", tissue_mapping)
+      # jen detekované (bez NA)
+      if (length(tissue_mapping_full) > 0) {
+        tissue_mapping_detected <- tissue_mapping_full[!is.na(tissue_mapping_full)]
+      } else {
+        tissue_mapping_detected <- character(0)
+      }
       
       list(
         expression = list(
           status = expression_result$status,
           files = expression_result$files,
           reason = expression_result$reason,
-          tissue_mapping = tissue_mapping
+          tissue_mapping = tissue_mapping_detected,  # zachováno pro stávající logiku
+          tissue_mapping_full = tissue_mapping_full  # nově: úplný seznam tkání
         ),
         goi = goi_result
       )
@@ -402,12 +423,10 @@ create_dataset_data <- function(dataset_type, files, goi_files, TMB_files, patie
   else if (dataset_type == "expression") {
     patient_data$expression <- sapply(patient_results, function(x) get_status_icon(x$expression$status, simple = TRUE, reason = x$expression$reason))
     patient_data$goi <- sapply(patient_results, function(x) get_status_icon(x$goi$status, simple = TRUE, reason = x$goi$reason))
+
     patient_data$tissue <- sapply(patient_results, function(x) {
-      if (length(x$expression$tissue_mapping) > 0) {
-        paste(names(x$expression$tissue_mapping), collapse = "\n")
-      } else {
-        ""
-      }
+      tm_full <- x$expression$tissue_mapping_full
+      if (length(tm_full) > 0) paste(names(tm_full), collapse = "\n") else ""
     })
     
     patient_data$icon <- sapply(patient_results, function(x) {
@@ -428,17 +447,32 @@ create_dataset_data <- function(dataset_type, files, goi_files, TMB_files, patie
     })
     
     patient_data$files <- sapply(patient_results, function(x) {
-      # pokud existuje mapování tkání, použij ho; jinak rovnou vrácené soubory
-      expression_files <- if (length(x$expression$tissue_mapping) > 0) {
-        as.vector(x$expression$tissue_mapping)
-      } else {
-        x$expression$files
-      }
-
-      message("## x$expression$files: ",x$expression$files)
+      tm_full   <- x$expression$tissue_mapping_full
       goi_files <- x$goi$files
-      all_files <- unique(c(expression_files, goi_files))
-      if (length(all_files) == 0) "" else paste(str_replace(all_files, path, ""), collapse = ",\n")
+      
+      lines <- character(0)
+      
+      if (length(tm_full) > 0) {
+        expr_lines <- ifelse(is.na(tm_full), "-", as.vector(tm_full))
+        expr_lines <- str_replace(expr_lines, path, "")
+        lines <- c(lines, expr_lines)
+      } else {
+        # žádné tkáně zadané → držíme původní chování (single-file/none apod.)
+        expr_files <- x$expression$files
+        if (length(expr_files) > 0) {
+          lines <- c(lines, str_replace(expr_files, path, ""))
+        }
+      }
+      
+      # Připojit GOI až na konec, jasně označené a bez vazby na tkáň
+      if (length(goi_files) > 0) {
+        goi_lines <- str_replace(goi_files, path, "")
+        # volitelné prázdné oddělení, ať se blok vizuálně neplete s tkáněmi:
+        if (length(lines) > 0) lines <- c(lines, "")
+        lines <- c(lines, goi_lines)
+      }
+      
+      if (length(lines) == 0) "" else paste(lines, collapse = ",\n")
     })
     
   }
