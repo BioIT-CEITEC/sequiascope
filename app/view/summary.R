@@ -16,11 +16,6 @@ box::use(
   # billboarder[bb_donutchart,billboarderOutput,renderBillboarder]
 )
 
-box::use(
-  app/logic/prepare_table[get_tissue_list],
-)
-
-
 ui <- function(id){
   ns <- NS(id)
   hasData <- TRUE
@@ -91,17 +86,24 @@ server <- function(id, patient, shared_data){ #,active_tab
 #     #####################
 #     ### Card overview ###
 #     #####################
-# 
-#     output$tissues <- renderText({
-#       paste0("Tissue comparison: ",uniqueN(get_tissue_list()))
-#     })
-    overview_som <- shared_data$somatic.overview[[ patient ]]
-    overview_germ <- shared_data$germline.overview[[ patient ]]
-    overview_fus <- shared_data$fusion.overview[[ patient ]]
     
+
+    output$tissues <- renderText({
+      if (is.null(patient)) return("Tissue comparison: Not available")
+      overview_exp  <- shared_data$expression.overview[[ patient ]]
+      if (is.null(overview_exp$tissues)) {
+        paste0("Tissue comparison: NA")
+      } else if (overview_exp$tissues == "none") {
+        paste0("Tissue comparison: ",0)
+      } else {
+        paste0("Tissue comparison: ",uniqueN(overview_exp$tissues))
+      }
+ 
+    })
     
     output$for_review_som <- renderText({
       if (is.null(patient)) return("Variants for review: Not available")
+      overview_som  <- shared_data$somatic.overview[[ patient ]]
       if (is.null(overview_som$for_review)) {
         return("Variants for review: NA")
       } else {
@@ -111,6 +113,7 @@ server <- function(id, patient, shared_data){ #,active_tab
     
     output$TMB <- renderText({
       if (is.null(patient)) return("Tumor mutation burden: Not available")
+      overview_som  <- shared_data$somatic.overview[[ patient ]]
       if (!is.null(overview_som$TMB)){
         paste("Tumor mutation burden (load):", overview_som$TMB[sample == patient, TMB])
       } else {
@@ -120,6 +123,7 @@ server <- function(id, patient, shared_data){ #,active_tab
     
     output$for_review_germ <- renderText({
       if (is.null(patient)) return("Variants for review: Not available")
+      overview_germ <- shared_data$germline.overview[[ patient ]]
       if (is.null(overview_germ$for_review)) {
         return("Variants for review: NA")
       } else {
@@ -129,6 +133,7 @@ server <- function(id, patient, shared_data){ #,active_tab
 
     output$clinvar_N_germ <- renderText({
       if (is.null(patient)) return("Pathogenic and likely-pathogenic variants: Not available")
+      overview_germ <- shared_data$germline.overview[[ patient ]]
       if (is.null(overview_germ$clinvar_N)) {
         return("Pathogenic and likely-pathogenic variants: NA")
       } else {
@@ -139,6 +144,7 @@ server <- function(id, patient, shared_data){ #,active_tab
 
     output$high_confidence <- renderText({
       if (is.null(patient)) return("Fused genes with high confidence: Not available")
+      overview_fus  <- shared_data$fusion.overview[[ patient ]]
       if (is.null(overview_fus$high_confidence)) {
         return("Fused genes with high confidence: NA")
       } else {
@@ -148,6 +154,7 @@ server <- function(id, patient, shared_data){ #,active_tab
 
     output$potencially_fused <- renderText({
       if (is.null(patient)) return("Potencially fused genes: Not available")
+      overview_fus  <- shared_data$fusion.overview[[ patient ]]
       if (is.null(overview_fus$potencially_fused)) {
         return("Potencially fused genes: NA")
       } else {

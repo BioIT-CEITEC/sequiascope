@@ -56,21 +56,32 @@ load_data <- function(input_files, flag, sample = NULL,expr_flag = NULL){
     dt[, sample := sample]
     return(dt)
     
-  } else if (flag == "expression") { 
-    files   <- input_files$files$expression
-    tissues <- input_files$tissues
-
-    dt_list <- invisible(mapply(function(file, tissue) {
-        dt <- fread(file)
-        dt[, c("tissue", "sample") := .(tissue, sample)]
+  } else if (flag == "expression") {
+    
+    expr_files <- input_files$files$expression
+    input_var  <- expr_files[grepl(sample, expr_files)]
+    
+    message("input_var: ", input_var)
+    message("unique(input_files$tissues): ", unique(input_files$tissues))
+    message("tissues (names): ", names(input_var))
+    
+    if (length(input_var) == 1 && unique(input_files$tissues) == "none") {
+      combined_dt <- fread(unlist(input_var))
+      combined_dt[, c("tissue", "sample") := .("none", sample)]
+      
+    } else {
+      dt_list <- lapply(seq_along(input_var), function(i) {
+        dt <- fread(input_var[[i]])
+        dt[, c("tissue", "sample") := .(names(input_var)[i], sample)]
         return(dt)
-    }, file = files[tissues != "none"], tissue = tissues[tissues != "none"], SIMPLIFY = FALSE))
-
-    combined_dt <- rbindlist(dt_list, use.names = TRUE, fill = TRUE)
+      })
+      combined_dt <- rbindlist(dt_list, use.names = TRUE, fill = TRUE)
+    }
+    
     combined_dt$sample <- NULL
     combined_dt[, sample := sample]
     setnames(combined_dt, "all_kegg_paths_name", "pathway", skip_absent = TRUE)
-
+    
     return(combined_dt)
     
   } else if (flag == "TMB") { 

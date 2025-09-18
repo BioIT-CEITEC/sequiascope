@@ -104,15 +104,7 @@ server <- function(id, patient, shared_data, patient_files) {
     
     observe({
       req(tissue_list)
-      message("## tissue_list: ",tissue_list)
-      
-      if (!is.null(tissue_list)) {
-        overview_dt <- data.table(
-          tissues_N = uniqueN(tissue_list))
-      } else {
-
-      }
-      
+      overview_dt <- data.table(tissues = unique(tissue_list))
       shared_data$expression.overview[[ patient ]] <- overview_dt
     })
     
@@ -152,6 +144,7 @@ server <- function(id, patient, shared_data, patient_files) {
     # Základní reaktivní hodnoty
     data <- reactive(prepare_data()$dt)
     tissue_list <- prepare_data()$tissues
+    message("## tissue_list in expr modul: ",tissue_list)
     colnames_list <- prepare_data()$columns
     
     # 1. ALL GENES - použití vašeho kódu s prepare_data()

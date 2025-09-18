@@ -167,8 +167,6 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
   if (!is.null(config$exclude)) {
     matched <- matched[!str_detect(matched, regex(config$exclude, ignore_case = TRUE))]
   }
-  message("## relevant_files: ",relevant_files)
-  message("## matched1: ",matched)
   tissues_matched <- character(0)
   
   # BAM/BAI pairing

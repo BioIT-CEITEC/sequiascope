@@ -195,9 +195,7 @@ prepare_germline_table <- function(dt, all_colNames){
 
 #' @export
 prepare_expression_table <- function(combined_dt) {
-  # vyhoď "none", pokud by se tam náhodou připletlo
-  combined_dt <- combined_dt[tissue != "none"]
-  
+
   tissues <- unique(combined_dt$tissue)
   base_cols <- colnames(combined_dt)
   
