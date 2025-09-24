@@ -9,7 +9,7 @@
 box::use(
   shiny[moduleServer,NS,h2,h3,tagList,div,tabsetPanel,tabPanel,observeEvent,fluidPage,fluidRow, reactive,icon,textInput,isTruthy,verbatimTextOutput,
         sliderInput,showModal,modalDialog,modalButton,column,uiOutput,renderUI,textOutput,renderText,reactiveVal,req,observe,outputOptions,checkboxInput,
-        renderPrint,getDefaultReactiveDomain,selectInput,downloadButton,numericInput,updateNumericInput],
+        renderPrint,getDefaultReactiveDomain,selectInput,downloadButton,numericInput,updateNumericInput,isolate],
   bs4Dash[actionButton, box,popover,addPopover,updateNavbarTabs],
   reactable,
   reactable[reactable,reactableOutput,renderReactable,colDef,colGroup,JS,getReactableState],
@@ -31,7 +31,7 @@ box::use(
   app/logic/waiters[use_spinner],
   app/logic/reactable_helpers[selectFilter,minRangeFilter,filterMinValue,create_clinvar_filter,create_consequence_filter],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
-  app/logic/session_utils[create_session_handlers,safe_extract]
+  app/logic/session_utils[create_session_handlers,safe_extract, register_module]
 )
 
 
@@ -74,6 +74,7 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
+    is_restoring_session <- reactiveVal(FALSE)
     
     observe({
       req(data())
@@ -101,7 +102,7 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     
     # start <- Sys.time()
-    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names)
+    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names, is_restoring = is_restoring_session)
     # end <- Sys.time()
     # message("⏱️ render UI filterTab: ", round(difftime(end, start, units = "secs"), 3), " sec")
     
@@ -116,16 +117,16 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
 
     column_defs <- reactive({
       req(selected_columns())
-      start <- Sys.time()
+      # start <- Sys.time()
       x <- generate_columnsDef(names(data()), selected_columns(), "germline", map_list)
-      end <- Sys.time()
-      message("⏱️ reactive column_defs: ", round(difftime(end, start, units = "secs"), 3), " sec")
+      # end <- Sys.time()
+      # message("⏱️ reactive column_defs: ", round(difftime(end, start, units = "secs"), 3), " sec")
       x
     })
     
 
     filtered_data <- reactive({
-      start <- Sys.time()
+      # start <- Sys.time()
       dt <- data()
       selected_coverage_depth <- selected_coverage_depth()
       selected_gnomAD_min <- selected_gnomAD_min()
@@ -148,8 +149,8 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       if (!is.null(selected_consequence) && length(selected_consequence) > 0) {
         dt <- create_consequence_filter(dt, selected_consequence)
       }
-      end <- Sys.time()
-      message("⏱️ reactive filtered_data: ", round(difftime(end, start, units = "secs"), 3), " sec")
+      # end <- Sys.time()
+      # message("⏱️ reactive filtered_data: ", round(difftime(end, start, units = "secs"), 3), " sec")
       return(dt)
     })
 
@@ -426,71 +427,255 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       filter_state = filter_state
     )
     
-
-    return(list(       # return information to the main module
-      get_session_data = session_handlers$get_session_data,
+    methods <- list(
+      get_session_data     = session_handlers$get_session_data,
       restore_session_data = session_handlers$restore_session_data,
-      filter_state = filter_state
-    ))
+      filter_state         = filter_state,
+      is_restoring         = is_restoring_session
+    )
     
+    register_module(shared_data, "germline", selected_samples, methods)  # nové
+    return(methods)
   })
 }
 
 
 
-
-
-filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names) {
+filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_restoring = NULL) {
   moduleServer(id, function(input, output, session) {
-    observe({
-      clinvar_split <- unique(unlist(unique(data$clinvar_trimws)))
-      clinvar_list <- sort(unique(ifelse(is.na(clinvar_split) | clinvar_split == "", "missing value", clinvar_split)))
-      consequence_split <- unique(unlist(unique(data$consequence_trimws)))
-      consequence_list <- sort(unique(ifelse(is.na(consequence_split) | consequence_split == "", "missing_value", consequence_split)))
+    
+    nz <- function(x, default) if (is.null(x) || !length(x)) default else x
+    ch <- function(x) trimws(as.character(x))
+
+    initialized <- reactiveVal(FALSE)
+    
+    # ===== HELPERY =====
+    # Normalizace výběru sloupců (umí přijmout labely i values)
+    normalize_column_selection <- function(selection, choices_map, default_cols) {
+      if (is.null(selection) || length(selection) == 0) {
+        return(ch(default_cols))
+      }
+      choice_labels <- names(choices_map)
+      choice_vals   <- ch(unname(choices_map))
+      label2val <- setNames(choice_vals, choice_labels)
       
-      updatePrettyCheckboxGroup(session, "gene_regions", choices = unique(data$gene_region), selected = c("exon", "splice"),
-                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
-      updatePrettyCheckboxGroup(session, "clinvar_sig", choices = clinvar_list, selected = setdiff(clinvar_list, "synonymous variant"),
-                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
-      updatePrettyCheckboxGroup(session, "consequence", choices = consequence_list, selected = setdiff(consequence_list, "synonymous variant"),
-                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
-                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
-      
-      if(isTruthy(is.na(input$coverage_depth))) updateNumericInput(session, "coverage_depth", value = 10)
-      if(isTruthy(is.na(input$gnomAD_min))) updateNumericInput(session, "gnomAD_min", value = 0.01)
-    })
-    
-    observeEvent(input$show_all, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
-    })
-    
-    observeEvent(input$show_default, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
-    })
-    
-    restore_ui_inputs <- function(data) {
-      if (!is.null(data$gnomAD_min)) updateNumericInput(session, "gnomAD_min", value = safe_extract(data$gnomAD_min))
-      if (!is.null(data$tumor_depth)) updateNumericInput(session, "tumor_depth", value = safe_extract(data$tumor_depth))
-      if (!is.null(data$gene_regions)) updatePrettyCheckboxGroup(session, "gene_regions", selected = safe_extract(data$gene_regions))
-      if (!is.null(data$clinvar_sig)) updatePrettyCheckboxGroup(session, "clinvar_sig", selected = safe_extract(data$clinvar_sig))
-      if (!is.null(data$consequence)) updatePrettyCheckboxGroup(session, "consequence", selected = safe_extract(data$consequence))
-      if (!is.null(data$selected_cols)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(data$selected_cols))
+      sel_norm <- character(0)
+      for (item in ch(selection)) {
+        if (item %in% choice_vals) {
+          sel_norm <- c(sel_norm, item)
+        } else if (item %in% choice_labels) {
+          sel_norm <- c(sel_norm, label2val[[item]])
+        }
+      }
+      intersect(unique(sel_norm), choice_vals)
     }
     
+    # Consequence
+    update_consequence_choices <- function() {
+      consequence_split <- unique(unlist(unique(data$consequence_trimws)))
+      consequence_list <- sort(unique(ifelse(
+        is.na(consequence_split) | consequence_split == "", 
+        "missing_value", 
+        consequence_split
+      )))
+      consequence_list <- ch(consequence_list)
+      
+      if (!initialized()) {
+        selected <- setdiff(consequence_list, "synonymous variant")
+      } else {
+        current  <- isolate(input$consequence)
+        selected <- if (is.null(current)) setdiff(consequence_list, "synonymous variant") else current
+        selected <- intersect(ch(selected), consequence_list)
+      }
+      
+      updatePrettyCheckboxGroup(
+        session, "consequence",
+        choices = consequence_list,
+        selected = selected,
+        prettyOptions = list(status = "primary", icon = icon("check"), outline = FALSE)
+      )
+    }
+    
+    # Gene regions
+    update_gene_region_choices <- function() {
+      gene_choices <- sort(unique(ch(data$gene_region)))
+      
+      if (!initialized()) {
+        preferred <- c("exon", "splice")
+        selected  <- if (length(intersect(preferred, gene_choices))) intersect(preferred, gene_choices) else gene_choices
+      } else {
+        print("##### it is else not if")
+        selected <- isolate(nz(input$gene_regions, gene_choices))
+        selected <- intersect(ch(selected), gene_choices)
+      }
+      
+      updatePrettyCheckboxGroup(
+        session, "gene_regions",
+        choices = gene_choices,
+        selected = selected,
+        prettyOptions = list(status = "primary", icon = icon("check"), outline = FALSE)
+      )
+    }
+    
+    # ClinVar significance
+    update_clinvar_choices <- function() {
+      clinvar_split <- unique(unlist(unique(data$clinvar_trimws)))
+      clinvar_list <- sort(unique(ifelse(
+        is.na(clinvar_split) | clinvar_split == "",
+        "missing_value",
+        clinvar_split
+      )))
+      clinvar_list <- ch(clinvar_list)
+      
+      if (!initialized()) {
+        # výchozí: pokud existují benignní kategorie, vynech je; jinak vyber vše
+        benign_like <- c("Benign", "Likely_benign", "Benign/Likely_benign", "benign", "likely_benign")
+        selected <- if (length(intersect(benign_like, clinvar_list))) {
+          setdiff(clinvar_list, intersect(benign_like, clinvar_list))
+        } else {
+          clinvar_list
+        }
+      } else {
+        current  <- isolate(input$clinvar_sig)
+        selected <- if (is.null(current)) clinvar_list else current
+        selected <- intersect(ch(selected), clinvar_list)
+      }
+      
+      updatePrettyCheckboxGroup(
+        session, "clinvar_sig",
+        choices  = clinvar_list,
+        selected = selected,
+        prettyOptions = list(status = "primary", icon = icon("check"), outline = FALSE)
+      )
+    }
+    
+    # Column choices
+    update_column_choices <- function() {
+      # Seřaď podle LABELŮ (names)
+      col_choices_ordered <- mapped_checkbox_names[order(names(mapped_checkbox_names))]
+      
+      current_selection <- isolate(input$colFilter_checkBox)
+      default_selection <- if (!initialized() || is.null(current_selection) || length(current_selection) == 0) {
+        colnames_list$default_columns
+      } else {
+        current_selection
+      }
+      
+      selected_values <- normalize_column_selection(
+        selection   = default_selection,
+        choices_map = col_choices_ordered,
+        default_cols = colnames_list$default_columns
+      )
+      
+      updatePrettyCheckboxGroup(
+        session, "colFilter_checkBox",
+        choices  = col_choices_ordered,
+        selected = selected_values,
+        prettyOptions = list(status = "primary", icon = icon("check"), outline = FALSE)
+      )
+    }
+    
+    # Numeric defaults
+    update_numeric_inputs <- function() {
+      if (!initialized()) {
+        if (isTruthy(is.na(input$coverage_depth))) {
+          updateNumericInput(session, "coverage_depth", value = 10)
+        }
+        if (isTruthy(is.na(input$gnomAD_min))) {
+          updateNumericInput(session, "gnomAD_min", value = 0.01)
+        }
+      }
+    }
+    
+    # ===== MAIN OBSERVE =====
+    observe({
+      # během restore nepřepisovat UI
+      if (!is.null(is_restoring) && isTruthy(is_restoring())) return()
+      
+      update_consequence_choices()
+      update_gene_region_choices()
+      update_clinvar_choices()
+      update_column_choices()
+      update_numeric_inputs()
+      
+      if (!initialized()) initialized(TRUE)
+    })
+    
+    # ===== HANDLERY =====
+    observeEvent(input$show_all, {
+      all_values <- ch(unname(mapped_checkbox_names))
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
+    })
+    observeEvent(input$show_default, {
+      default_values <- normalize_column_selection(
+        selection   = colnames_list$default_columns,
+        choices_map = mapped_checkbox_names,
+        default_cols = colnames_list$default_columns
+      )
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
+    })
+    
+    # ===== RESTORE =====
+    restore_ui_inputs <- function(state) {
+      message("🎯 Restoring germline filter UI inputs")
+      
+      if (!is.null(state$gnomAD_min)) {
+        val <- safe_extract(state$gnomAD_min)
+        message(sprintf("Restoring gnomAD_min: %s", val))
+        updateNumericInput(session, "gnomAD_min", value = val)
+      }
+      
+      if (!is.null(state$coverage_depth)) {
+        val <- safe_extract(state$coverage_depth)
+        message(sprintf("Restoring coverage_depth: %s", val))
+        updateNumericInput(session, "coverage_depth", value = val)
+      }
+      
+      if (!is.null(state$gene_regions)) {
+        wanted <- ch(safe_extract(state$gene_regions))
+        message(sprintf("Restoring gene_regions: %s", paste(wanted, collapse = ", ")))
+        updatePrettyCheckboxGroup(session, "gene_regions", selected = wanted)
+      }
+      
+      if (!is.null(state$clinvar_sig)) {
+        wanted <- ch(safe_extract(state$clinvar_sig))
+        message(sprintf("Restoring clinvar_sig: %s", paste(wanted, collapse = ", ")))
+        updatePrettyCheckboxGroup(session, "clinvar_sig", selected = wanted)
+      }
+      
+      if (!is.null(state$consequence)) {
+        wanted <- ch(safe_extract(state$consequence))
+        message(sprintf("Restoring consequence: %s", paste(wanted, collapse = ", ")))
+        updatePrettyCheckboxGroup(session, "consequence", selected = wanted)
+      }
+      
+      if (!is.null(state$selected_cols)) {
+        wanted <- ch(safe_extract(state$selected_cols))
+        message(sprintf("Restoring selected_cols: %s", paste(wanted, collapse = ", ")))
+        
+        wanted_values <- normalize_column_selection(
+          selection   = wanted,
+          choices_map = mapped_checkbox_names,
+          default_cols = colnames_list$default_columns
+        )
+        message(sprintf("Final selected values: %s", paste(wanted_values, collapse = ", ")))
+        updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = wanted_values)
+      }
+    }
+    
+    # ===== RETURN =====
     return(list(
-      confirm = reactive(input$confirm_btn),
-      coverage_depth = reactive(input$coverage_depth),
-      gnomAD_min = reactive(input$gnomAD_min),
-      gene_regions = reactive(input$gene_regions),
-      clinvar_sig = reactive(input$clinvar_sig),
-      consequence = reactive(input$consequence),
-      selected_columns = reactive(input$colFilter_checkBox),
+      confirm           = reactive(input$confirm_btn),
+      coverage_depth    = reactive(input$coverage_depth),
+      gnomAD_min        = reactive(input$gnomAD_min),
+      gene_regions      = reactive(input$gene_regions),
+      clinvar_sig       = reactive(input$clinvar_sig),
+      consequence       = reactive(input$consequence),
+      selected_columns  = reactive(input$colFilter_checkBox),
       restore_ui_inputs = restore_ui_inputs
     ))
   })
 }
-
 
 filterTab_ui <- function(id){
   ns <- NS(id)

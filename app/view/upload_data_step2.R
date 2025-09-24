@@ -20,8 +20,9 @@ box::use(
 step2_ui <- function(id) {
   ns <- NS(id)
   tagList(
-    box(width = 12, headerBorder = FALSE, collapsible = FALSE,
-        title = div(style = "display: flex; justify-content: space-between; align-items: baseline;",
+    tags$style(HTML(sprintf("#%s .card-title { float: none !important; }", ns("step2_box")))),
+    box(id = ns("step2_box"), width = 12, headerBorder = FALSE, collapsible = FALSE,
+        title = div(style = "display: flex; justify-content: space-between; align-items: stretch; float: none;",
         h4("Step 2: Select data type", style = "display: inline-block; margin: 0;"),
         actionBttn(ns("refresh_files"), "Refresh", style = "jelly", icon = HTML('<i class="fa-solid fa-sync download-button"></i>'))),
       div(class = "collapsible-box",

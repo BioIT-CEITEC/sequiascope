@@ -39,7 +39,7 @@ box::use(
   shinyjs[useShinyjs, runjs,toggle,hide,show],
   utils[str],
   waiter[spin_1],
-  jsonlite[read_json,write_json],
+  # jsonlite[read_json,write_json],
   # fresh[create_theme,bs4dash_vars,bs4dash_yiq,bs4dash_layout,bs4dash_sidebar_light,bs4dash_status,bs4dash_color]s
   # promises[future_promise,`%...!%`,`%...>%`,catch],
   # future[plan,multisession],
@@ -66,7 +66,7 @@ box::use(
 #   app/view/IGV,
 #   app/logic/igv_helper[start_static_server,stop_static_server],
 #   app/view/networkGraph_cytoscape,
-  # app/logic/session_utils[save_session],
+  app/logic/session_utils[load_session, save_session],
   app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data, get_fusion_prerun_status],
   app/logic/helper_main[get_patients,add_dataset_tabs, add_summary_panels],
 )
@@ -258,6 +258,12 @@ server <- function(id) {
       fusion_prerun_progress = reactiveVal(0),
       fusion_prerun_future = NULL  # pro sledování future objektu
     )
+    shared_data$upload_modules <- reactiveVal(list())
+    shared_data$upload_pending <- reactiveVal(list()) 
+    shared_data$somatic_modules <- reactiveVal(list())  # patient -> list(methods)
+    shared_data$somatic_pending <- reactiveVal(list())  # patient -> state (k načtení)
+    shared_data$germline_modules <- reactiveVal(list())
+    shared_data$germline_pending <- reactiveVal(list()) 
     
     # Track which tab values were added per dataset (so we can remove/replace on reconfirm)
     added_tab_values <- reactiveValues(
@@ -278,7 +284,7 @@ server <- function(id) {
     #######################################################################################
     #### upload data module - lock all other tabs until data is uploaded and confirmed ####
     #######################################################################################
-    upload <- upload_data$server("upload_data_table")
+    upload <- upload_data$server("upload_data_table", shared_data)
   
     
     # NOVÝ: Observer pro sledování fusion prerun statusu (pro debugging)
@@ -305,14 +311,61 @@ server <- function(id) {
       # ## Somatic
       add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
       # ## Germline
-      # add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
+      add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
       # ## Fusion
       # add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
       # ## Expression
       # add_dataset_tabs(session, confirmed_paths, "expression", shared_data, added_tab_values, "expression_tabset", "expr_", expression_profile_table, reactive(input$load_session_btn))
       ## Summary
       add_summary_panels(session, output, shared_data, "summary_table", summary, mounted_summary)
-# 
+
+      
+
+      
+      
+      observeEvent(input$save_session_btn, {
+        shinyalert(
+          title = "Confirm Save",
+          text  = "Do you really want to save/overwrite the session?",
+          type  = "warning",
+          showCancelButton = TRUE,
+          confirmButtonText = "Yes, save it",
+          cancelButtonText  = "Cancel",
+          callbackR = function(x) {
+            if (isTRUE(x)) {
+              save_session("session_data.json", shared_data)
+              showNotification("Session successfully saved.", type = "message")
+            } else {
+              showNotification("Saving session was canceled.", type = "default")
+            }
+          }
+        )
+      })
+      
+      
+      observeEvent(input$load_session_btn, {
+        shinyalert(
+          title = "Confirm Load",
+          text  = "Do you really want to load the session? This will overwrite current selections.",
+          type  = "warning",
+          showCancelButton = TRUE,
+          confirmButtonText = "Yes, load it",
+          cancelButtonText  = "Cancel",
+          callbackR = function(x) {
+            if (isTRUE(x)) {
+              load_session("session_data.json", shared_data)
+              updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))  # volitelné
+              showNotification("Session successfully loaded.", type = "message")
+            } else {
+              showNotification("Loading session was canceled.", type = "default")
+            }
+          }
+        )
+      })
+      
+      
+      
+      # 
 #       fusion_patients <- get_patients(confirmed_paths, "fusion")
 #       patients_to_run <- fusion_patients_to_prerun(fusion_patients, "www")
 # 
@@ -630,7 +683,7 @@ server <- function(id) {
 #       }
 # 
 #     })
-#   
+
   
     }, ignoreInit = TRUE)
     

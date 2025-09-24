@@ -22,7 +22,12 @@ step1_ui <- function(id) {
                                 Shiny.setInputValue('%s', selectedValues, {priority: 'event'});
                               });", ns("patient_list"), ns("patient_list_js")))),
     tags$head(tags$style(HTML(".folderInput-container{ display: flex; align-items: baseline; gap: 0px; }"))),
-    box(title = h3("Step 1: Select directory and patients"), width = 12, headerBorder = FALSE, collapsible = FALSE,
+    tags$style(HTML(sprintf("#%s .card-title { float: none !important; }", ns("step1_box")))),
+    box(id = ns("step1_box"), width = 12, headerBorder = FALSE, collapsible = FALSE,
+      title = div(style = "display: flex; justify-content: space-between; align-items: stretch; float: none;",
+      h3("Step 1: Select directory and patients", style = "display: inline-block; margin: 0;"),
+      actionBttn(ns("load_session_btn"), "Load session", style = "jelly", icon = HTML('<i class="fa-solid fa-upload download-button"></i>'))),
+    
         tags$label(h5("Select directory with patients data:")),
         div(class = "folderInput-container",
             shinyDirButton(ns("dir"), "Browse...", "Select directory with data", class = "btn btn-default"),
@@ -78,6 +83,7 @@ step1_server <- function(id, path, patients, datasets, tumor_pattern, normal_pat
   moduleServer(id, function(input, output, session) {
     
     next1_btn <- reactiveVal(NULL)
+    load_click <- reactiveVal(NULL)
     
     wd <- c(home = getwd())
     shinyDirChoose(input, "dir", roots = wd)
@@ -209,8 +215,42 @@ step1_server <- function(id, path, patients, datasets, tumor_pattern, normal_pat
       tissues(trimws(ifelse(isTruthy(input$tissue_list), input$tissue_list, "")))
     })
     
+    # return(list(
+    #   next1 = reactive(next1_btn())
+    # ))
+    observeEvent(input$load_session_btn, {
+      # Klidně přidej confirm shinyalert tady; ale jednoduše stačí pulz:
+      load_click(Sys.time())  # unikátní hodnota => pulse
+    })
+    
+    # helper na "NULL -> prázdný string"
+    nz <- function(x) if (is.null(x)) "" else x
+    
+    # --- veřejná funkce pro přepsání UI podle aktuálních reaktiv ---
+    restore_ui_inputs <- function() {
+      updateTextInput(session, "dir_path", value = nz(path()))
+      p <- patients()
+      updateVirtualSelect("patient_list", choices = p, selected = p, open = TRUE)
+      
+      dataset <- datasets()
+      updatePrettySwitch(session, "somVariants_data",  value = "somatic"  %in% dataset)
+      updatePrettySwitch(session, "germVariants_data", value = "germline" %in% dataset)
+      updatePrettySwitch(session, "fusion_data",       value = "fusion"   %in% dataset)
+      updatePrettySwitch(session, "expression_data",   value = "expression" %in% dataset)
+      
+      # patterns / tissues
+      updateTextAreaInput(session, "somatic_tumor_pattern",   value = nz(tumor_pattern$somatic))
+      updateTextAreaInput(session, "somatic_normal_pattern",  value = nz(normal_pattern$somatic))
+      updateTextAreaInput(session, "germline_normal_pattern", value = nz(normal_pattern$germline))
+      updateTextAreaInput(session, "fusion_tumor_pattern",    value = nz(tumor_pattern$fusion))
+      updateTextAreaInput(session, "fusion_chimeric_pattern", value = nz(tumor_pattern$chimeric))
+      updateTextAreaInput(session, "tissue_list",             value = nz(tissues()))
+    }
+    
     return(list(
-      next1 = reactive(next1_btn(1))
+      next1              = reactive(next1_btn()),
+      load_request       = reactive(load_click()),
+      restore_ui_inputs  = restore_ui_inputs
     ))
   })
 }
