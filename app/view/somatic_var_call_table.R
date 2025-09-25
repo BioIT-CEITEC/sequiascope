@@ -29,7 +29,7 @@ box::use(
   app/logic/prepare_table[prepare_somatic_table,colFilter],
   app/logic/reactable_helpers[create_clinvar_filter,create_consequence_filter],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
-  app/logic/session_utils[create_session_handlers,safe_extract, register_module]
+  app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch]
 )
 
 
@@ -128,25 +128,43 @@ server <- function(id, selected_samples, shared_data, file) {
     
     data <- reactive(prepare_data()$dt)
     colnames_list <- prepare_data()$columns
+    
+    map_list <- colnames_map_list("somatic") # gives list of all columns with their column definitions
+    mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
+    
+    
+    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names, is_restoring_session)
+    
+    ############
+    
+    selected_tumor_depth <- reactiveVal(NULL)
+    selected_gnomAD_min  <- reactiveVal(NULL)
+    selected_gene_region <- reactiveVal(NULL)
+    selected_clinvar_sig <- reactiveVal(NULL)
+    selected_consequence <- reactiveVal(NULL)
+    selected_columns <- reactiveVal(colnames_list$default_columns)
+    selected_variants <- reactiveVal(data.frame(patient = character(),var_name = character(), Gene_symbol = character()))
+    
+    defaults_applied <- reactiveVal(FALSE)
 
-# colnames_list <- getColFilterValues("somatic") # gives list of all_columns and default_columns
-map_list <- colnames_map_list("somatic") # gives list of all columns with their column definitions
-mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
-
-
-filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names, is_restoring = is_restoring_session)
-
-############
-
-selected_tumor_depth <- reactiveVal(NULL)
-selected_gnomAD_min  <- reactiveVal(NULL)
-selected_gene_region <- reactiveVal(NULL)
-selected_clinvar_sig <- reactiveVal(NULL)
-selected_consequence <- reactiveVal(NULL)
-selected_columns <- reactiveVal(colnames_list$default_columns)
-selected_variants <- reactiveVal(data.frame(patient = character(),var_name = character(), Gene_symbol = character()))
-
-
+    observe({
+      req(filter_state$tumor_depth())
+      req(filter_state$gnomAD_min())
+      req(filter_state$gene_regions())
+      req(filter_state$consequence())
+      req(filter_state$selected_columns())
+      
+      if (!defaults_applied() && !is_restoring_session()) {      # Aplikuj defaults jen jednou, při prvním načtení
+        selected_tumor_depth(filter_state$tumor_depth())
+        selected_gnomAD_min(filter_state$gnomAD_min())
+        selected_gene_region(filter_state$gene_regions())
+        selected_consequence(filter_state$consequence())
+        selected_columns(filter_state$selected_columns())
+        
+        defaults_applied(TRUE)
+      }
+    })
+    
   # Call generate_columnsDef to generate colDef setting for reactable
   column_defs <- reactive({
     req(data())
@@ -161,24 +179,18 @@ selected_variants <- reactiveVal(data.frame(patient = character(),var_name = cha
   
     if (!is.null(selected_tumor_depth())) {
       dt <- dt[selected_tumor_depth() <= tumor_depth, ]
-      if (nrow(dt) == 0) {
-        message("⚠️ Tumor depth filter removed all rows. Returning empty data.table with original structure.")
-        return(dt)}}
+      if (nrow(dt) == 0) return(dt)}
   
     if (!is.null(selected_gnomAD_min())) {
       dt <- dt[gnomAD_NFE <= selected_gnomAD_min()]
-      if (nrow(dt) == 0) {
-        message("⚠️ gnomAD filter removed all rows. Returning empty data.table with original structure.")
-        return(dt)}}
+      if (nrow(dt) == 0) return(dt)}
   
     if (!is.null(selected_gene_region()) && length(selected_gene_region()) > 0) {
       dt <- dt[gene_region %in% selected_gene_region(), ]
-      if (nrow(dt) == 0) {
-        message("⚠️ Gene region filter removed all rows. Returning empty data.table with original structure.")
-        return(dt)}}
+      if (nrow(dt) == 0) return(dt)}
   
     if (!is.null(selected_consequence()) && length(selected_consequence()) > 0) {
-      if (nrow(dt) > 0) dt <- create_consequence_filter(dt, selected_consequence()) else message("⚠️ Skipping consequence filter - no rows to filter.")}
+      if (nrow(dt) > 0) dt <- create_consequence_filter(dt, selected_consequence())}
   
     return(dt)
   })
@@ -485,7 +497,7 @@ selected_variants <- reactiveVal(data.frame(patient = character(),var_name = cha
     )
     
     register_module(shared_data, "somatic", selected_samples, methods)
-    # register_module(shared_data, "fusion", selected_samples, methods)    # nové
+ 
     return(methods)
 
   })
@@ -493,10 +505,7 @@ selected_variants <- reactiveVal(data.frame(patient = character(),var_name = cha
 
 filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_restoring = NULL) {
   moduleServer(id, function(input, output, session) {
-    
-    nz <- function(x, default) if (is.null(x) || !length(x)) default else x
-    ch <- function(x) trimws(as.character(x))
-    
+
     # Flag pro inicializaci
     initialized <- reactiveVal(FALSE)
     

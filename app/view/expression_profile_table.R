@@ -29,7 +29,7 @@ box::use(
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
   app/logic/prepare_table[prepare_expression_table, prepare_goi_table, set_pathway_colors],
   app/logic/networkGraph_helper[get_pathway_list],
-  app/logic/session_utils[create_session_handlers,safe_extract]
+  app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch]
 )
 
 ui <- function(id, tissue_list, goi = FALSE) {
@@ -101,20 +101,17 @@ server <- function(id, patient, shared_data, patient_files) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    
     observe({
       req(tissue_list)
       overview_dt <- data.table(tissues = unique(tissue_list))
       shared_data$expression.overview[[ patient ]] <- overview_dt
     })
     
-    # Příprava základních dat
     prepare_data <- reactive({
       data <- load_data(patient_files, "expression", patient)
       prepare_expression_table(data)
     })
     
-    # Kontrola dostupnosti GOI dat
     has_goi <- reactive({
       tryCatch({
         files <- patient_files$files$goi
@@ -127,12 +124,10 @@ server <- function(id, patient, shared_data, patient_files) {
       })
     })
 
-    # Příprava GOI dat
     prepare_goi_dt <- reactive({
       req(prepare_data())
-      if (!has_goi()) {
-        return(NULL)
-      }
+      if (!has_goi()) return(NULL)
+      
       tryCatch({
         goi_data <- prepare_goi_table(prepare_data()$dt, patient_files$files$goi)
         return(goi_data)
@@ -141,27 +136,25 @@ server <- function(id, patient, shared_data, patient_files) {
       })
     })
 
-    # Základní reaktivní hodnoty
     data <- reactive(prepare_data()$dt)
     tissue_list <- prepare_data()$tissues
-    message("## tissue_list in expr modul: ",tissue_list)
     colnames_list <- prepare_data()$columns
     
-    # 1. ALL GENES - použití vašeho kódu s prepare_data()
+    # 1. ALL GENES
     all_genes_logic <- create_expression_logic(
       session = session,
       ns = ns,
-      data = data,  # <-- TADY: All Genes data
+      data = data,
       tissue_list = tissue_list,
       colnames_list = colnames_list,
       patient = patient,
       expression_var = shared_data$expression.variants.all,
       pathway_list = get_pathway_list("all_genes"),
       expr_tag = "all_genes",
-      suffix = ""  # <-- TADY: bez přípony
+      suffix = ""
     )
 
-    # 2. GOI - použití stejného kódu s prepare_goi_dt()
+    # 2. GOI
     goi_logic <- NULL
     if (has_goi() && !is.null(prepare_goi_dt())) {
       goi_logic <- create_expression_logic(
@@ -174,29 +167,24 @@ server <- function(id, patient, shared_data, patient_files) {
         expression_var = shared_data$expression.variants.goi,
         pathway_list = get_pathway_list("genes_of_interest",prepare_goi_dt()),
         expr_tag = "genes_of_interest",
-        suffix = "_goi"  # <-- TADY: s příponou _goi
+        suffix = "_goi"
       )
     }
-    
-    
 
-    
-    return(list(
+    methods <- list(
       get_session_data = function() {
-        all_data <- all_genes_logic$get_session_data()
-        if (!is.null(goi_logic)) {
-          goi_data <- goi_logic$get_session_data()
-          all_data$goi <- goi_data
-        }
-        return(all_data)
-      },
+        result <- list()
+        if (!is.null(all_genes_logic)) result$all_genes <- all_genes_logic$get_session_data()
+        if (!is.null(goi_logic)) result$goi <- goi_logic$get_session_data()
+        return(result)},
       restore_session_data = function(data) {
-        all_genes_logic$restore_session_data(data)
-        if (!is.null(goi_logic) && !is.null(data$goi)) {
-          goi_logic$restore_session_data(data$goi)
-        }
-      }
-    ))
+        if (!is.null(data$all_genes) && !is.null(all_genes_logic)) all_genes_logic$restore_session_data(data$all_genes)
+        if (!is.null(data$goi) && !is.null(goi_logic)) goi_logic$restore_session_data(data$goi)}
+    )
+    
+    register_module(shared_data, "expression", patient, methods)
+    
+    return(methods)
   })
 }
 
@@ -204,12 +192,13 @@ server <- function(id, patient, shared_data, patient_files) {
 
 create_expression_logic <- function(session, ns, data, tissue_list, colnames_list, patient, expression_var, pathway_list, expr_tag, suffix = "") {
   
+  is_restoring_session <- reactiveVal(FALSE)
+  
   map_list <- colnames_map_list("expression", colnames_list$all_columns)
   mapped_checkbox_names <- map_checkbox_names(map_list)
   
-  filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), colnames_list, data(), mapped_checkbox_names, pathway_list)
-  
-  # Reaktivní hodnoty filtrů
+  filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), colnames_list, data(), mapped_checkbox_names, pathway_list, is_restoring_session)
+
   selected_tissues_final <- reactiveVal(tissue_list)
   selected_pathway_final <- reactiveVal(pathway_list)
   log2fc_bigger1_final <- reactiveVal(NULL)
@@ -223,21 +212,49 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   selected_columns <- reactiveVal(colnames_list$default_columns)
   selected_genes <- reactiveVal(data.frame(patient = character(), feature_name = character(), geneid = character()))
   
-  # Filtrace dat - VÁŠ PŮVODNÍ KÓD
+  defaults_applied <- reactiveVal(FALSE)
+  
+  observe({
+    req(filter_state$selected_tissue())
+    req(filter_state$selected_pathway())
+    req(filter_state$selected_columns())
+    req(filter_state$log2fc_bigger1_tissue())
+    req(filter_state$log2fc_smaller1_tissue())
+    req(filter_state$pval_tissue())
+    req(filter_state$padj_tissue())
+    req(filter_state$log2fc_bigger1_btn())
+    req(filter_state$log2fc_smaller1_btn())
+    req(filter_state$pval_btn())
+    req(filter_state$padj_btn())
+    
+    if (!defaults_applied() && !is_restoring_session()) {
+      selected_tissues_final(filter_state$selected_tissue())
+      selected_pathway_final(filter_state$selected_pathway())
+      selected_columns(filter_state$selected_columns())
+      log2fc_bigger1_final(filter_state$log2fc_bigger1_tissue())
+      log2fc_smaller1_final(filter_state$log2fc_smaller1_tissue())
+      pval_final(filter_state$pval_tissue())
+      padj_final(filter_state$padj_tissue())
+      log2fc_bigger1_btn_final("log2FC > 1" %in% filter_state$log2fc_bigger1_btn())
+      log2fc_smaller1_btn_final("log2FC < -1" %in% filter_state$log2fc_smaller1_btn())
+      pval_btn_final("p-value < 0.05" %in% filter_state$pval_btn())
+      padj_btn_final("p-adj < 0.05" %in% filter_state$padj_btn())
+      
+      defaults_applied(TRUE)
+    }
+  })
+
   filtered_data <- reactive({
     req(data())
-    message("▶ filtered_data computed for ", expr_tag)
     df <- data()
     base_cols <- c("sample", "feature_name", "geneid", "pathway", "mean_log2FC")
     
-    # --- Pathways filtr ---
     pathways_selected <- selected_pathway_final()
     if (!is.null(pathways_selected) && length(pathways_selected) > 0 && length(pathways_selected) < length(pathway_list)) {
       pattern <- paste(pathways_selected, collapse = "|")
       df <- df[grepl(pattern, pathway)]
     }
     
-    # --- Tkáně a prahové hodnoty ---
     for (filter_name in c("log2fc_bigger1", "log2fc_smaller1", "pval", "padj")) {
       tissues <- get(paste0(filter_name, "_final"))()
       btn_state <- get(paste0(filter_name, "_btn_final"))()
@@ -261,7 +278,6 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       }
     }
     
-    # --- Výběr sloupců ---
     tissues <- selected_tissues_final()
     if (is.null(tissues) || length(tissues) == 0) return(df[, ..base_cols])
     selected_cols <- unlist(lapply(tissues, function(tissue) {
@@ -279,13 +295,11 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     generate_columnsDef(names(data()), selected_columns(), "expression", map_list)
   })
   
-  # Název výstupní tabulky podle suffixu
   table_name <- if (suffix == "_goi") "goi_expression_table" else "expression_table"
 
   session$output[[table_name]] <- renderReactable({
     req(filtered_data())
     req(column_defs())
-    message("▶ Rendering reactable for expressions: ", expr_tag)
     filtered_data_local <- filtered_data()
     deregulated_genes <- selected_genes()
     
@@ -324,19 +338,16 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     )
   })
   
-  # VÁŠ PŮVODNÍ KÓD PRO BUTTON EVENTS - s dynamickými názvy
   button_name <- paste0("selectDeregulated_button", suffix)
   delete_button_name <- paste0("delete_button", suffix)
   selected_tab_name <- paste0("selectDeregulated_tab", suffix)
   
-  # Sledování vybraného řádku a genů
   selected_gene <- reactive({
     selected_row <- getReactableState(table_name, "selected")
     req(selected_row)
     filtered_data()[selected_row, c("feature_name","geneid")]
   })
-  
-  # Akce po kliknutí na tlačítko pro přidání varianty
+
   observeEvent(session$input[[button_name]], {
     selected_rows <- getReactableState(table_name, "selected")
     req(selected_rows)
@@ -349,8 +360,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
                                             new_variants$geneid %in% current_variants$geneid), ]
     
     if (nrow(new_unique_variants) > 0) selected_genes(rbind(current_variants, new_unique_variants))
-    
-    # Aktualizace globální proměnné
+
     global_data <- expression_var()
     
     if (is.null(global_data) || !is.data.table(global_data) || !("sample" %in% names(global_data))) {
@@ -367,8 +377,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     updated_global_data <- rbind(global_data, selected_genes())
     expression_var(updated_global_data)
   })
-  
-  # VÁŠ PŮVODNÍ KÓD PRO OUTPUT TABULKU
+
   session$output[[selected_tab_name]] <- renderReactable({
     genes <- selected_genes()
     if (is.null(genes) || nrow(genes) == 0) {
@@ -384,8 +393,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
         selection = "multiple", onClick = "select")
     }
   })
-  
-  # VÁŠ PŮVODNÍ KÓD PRO DELETE BUTTON
+
   observeEvent(session$input[[delete_button_name]], {
     rows <- getReactableState(selected_tab_name, "selected")
     req(rows)
@@ -420,12 +428,10 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     expression_var(updated_global_data)
     session$sendCustomMessage("resetReactableSelection", updated_variants)
     
-    if (nrow(updated_variants) == 0) {
-      hide(delete_button_name)
-    }
+    if (nrow(updated_variants) == 0) hide(delete_button_name)
+    
   })
-  
-  # VÁŠ PŮVODNÍ KÓD PRO SHOW/HIDE BUTTONS
+
   observeEvent(session$input[[button_name]], {
     if (is.null(selected_genes()) || nrow(selected_genes()) == 0) {
       hide(delete_button_name)
@@ -444,14 +450,9 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   
   observe({
     genes <- selected_genes()
-    if (!is.null(genes) && nrow(genes) > 0) {
-      show(delete_button_name)
-    } else {
-      hide(delete_button_name)
-    }
+    if (!is.null(genes) && nrow(genes) > 0) show(delete_button_name) else hide(delete_button_name)
   })
   
-  # VÁŠ PŮVODNÍ KÓD PRO CONFIRM BUTTON
   observeEvent(filter_state$confirm(), {
     selected_tissues_final(filter_state$selected_tissue())
     selected_pathway_final(filter_state$selected_pathway())
@@ -467,12 +468,14 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     pval_btn_final("p-value < 0.05" %in% filter_state$pval_btn())
     padj_btn_final("p-adj < 0.05" %in% filter_state$padj_btn())
   })
-  
-  # Plot server
+
   plot_id <- if (suffix == "") "plot" else paste0("plot", suffix)
   plot_server(plot_id, patient, data, expr_tag, tissue_list)
   
-  # Session handlers - VÁŠ PŮVODNÍ KÓD
+  ###########################
+  ## get / restore session ##
+  ###########################
+  
   session_handlers <- create_session_handlers(
     selected_inputs = list(
       selected_tissue = selected_tissues_final,
@@ -488,20 +491,80 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       padj_btn = padj_btn_final,
       selected_genes = selected_genes
     ),
-    filter_state = filter_state
+    filter_state = filter_state,
+    is_restoring = is_restoring_session
   )
-
   
   return(list(
     get_session_data = session_handlers$get_session_data,
     restore_session_data = session_handlers$restore_session_data,
-    filter_state = filter_state
+    filter_state = filter_state,
+    is_restoring = is_restoring_session,
+    filtered_data = filtered_data
   ))
 }
 
-filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names,pathway_list) {
+filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names,pathway_list, is_restoring = NULL) {
   moduleServer(id, function(input, output, session) {
 
+#     # Flag pro inicializaci
+    # initialized <- reactiveVal(FALSE)
+#     
+#     # ===== HELPER FUNCTIONS =====
+#     
+#     # Funkce pro normalizaci column selection
+#     normalize_column_selection <- function(selection, choices_map, default_cols) {
+#       if (is.null(selection) || length(selection) == 0) {
+#         return(ch(default_cols))
+#       }
+#       
+#       choice_labels <- names(choices_map)
+#       choice_vals <- ch(unname(choices_map))
+#       
+#       # Převeď labels na values kde je to potřeba
+#       label2val <- setNames(choice_vals, choice_labels)
+#       
+#       sel_normalized <- character(0)
+#       for (item in ch(selection)) {
+#         if (item %in% choice_vals) {
+#           sel_normalized <- c(sel_normalized, item)  # už je value
+#         } else if (item %in% choice_labels) {
+#           sel_normalized <- c(sel_normalized, label2val[[item]])  # převeď label na value
+#         }
+#       }
+#       
+#       # Vrať jen platné hodnoty
+#       return(intersect(unique(sel_normalized), choice_vals))
+#     }
+#     
+#     # Funkce pro update column choices
+#     update_column_choices <- function() {
+#       # Seřaď choices podle názvů
+#       col_choices_ordered <- mapped_checkbox_names[order(names(mapped_checkbox_names))]
+#       
+#       # Normalizuj current selection
+#       current_selection <- isolate(input$colFilter_checkBox)
+#       default_selection <- if (!initialized() || is.null(current_selection) || length(current_selection) == 0) {
+#         colnames_list$default_columns
+#       } else {
+#         current_selection
+#       }
+#       
+#       selected_values <- normalize_column_selection(
+#         selection = default_selection,
+#         choices_map = col_choices_ordered,
+#         default_cols = colnames_list$default_columns
+#       )
+#       
+#       updatePrettyCheckboxGroup(
+#         session, "colFilter_checkBox", 
+#         choices = col_choices_ordered, 
+#         selected = selected_values,
+#         prettyOptions = list(status = "primary", icon = icon("check"), outline = FALSE)
+#       )
+#     }
+#     
+#     
     observe({
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
                                 prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
@@ -528,30 +591,67 @@ options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = 
     }) %>% bindEvent(input$padj_tissue)
     
     
+    # ===== MAIN OBSERVE =====
+    
+    # observe({
+    #   # Pokud probíhá restore session, přeskoč automatické aktualizace
+    #   if (!is.null(is_restoring) && isTruthy(is_restoring())) {
+    #     return()
+    #   }
+    #   
+    #   # update_consequence_choices()
+    #   # update_gene_region_choices()
+    #   update_column_choices()
+    #   # update_numeric_inputs()
+    #   
+    #   if (!initialized()) {
+    #     initialized(TRUE)
+    #   }
+    # })
+    
+    # ===== EVENT HANDLERS =====
     
     observeEvent(input$show_all, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
+      all_values <- ch(unname(mapped_checkbox_names))
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
     
     observeEvent(input$show_default, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
+      default_values <- normalize_column_selection(
+        selection = colnames_list$default_columns,
+        choices_map = mapped_checkbox_names,
+        default_cols = colnames_list$default_columns
+      )
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
     })
-
     
-    restore_ui_inputs <- function(data) {
-      if (!is.null(data$selected_tissue)) updateCheckboxGroupButtons(session, "select_tissue", selected = safe_extract(data$selected_tissue))
-      if (!is.null(data$selected_pathway)) updateCheckboxGroupButtons(session, "filter_pathway", selected = safe_extract(data$selected_pathway))
-      if (!is.null(data$selected_columns)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(data$selected_columns))
+    
+    restore_ui_inputs <- function(state) {
+      # 
+      # if (!is.null(state$selected_cols)) {
+      #   wanted <- ch(safe_extract(state$selected_cols))
+      #   
+      #   wanted_values <- normalize_column_selection(
+      #     selection = wanted,
+      #     choices_map = mapped_checkbox_names,
+      #     default_cols = colnames_list$default_columns
+      #   )
+      #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = wanted_values)
+      # }
+
+      if (!is.null(state$selected_tissue)) updateCheckboxGroupButtons(session, "select_tissue", selected = safe_extract(state$selected_tissue))
+      if (!is.null(state$selected_pathway)) updateCheckboxGroupButtons(session, "filter_pathway", selected = safe_extract(state$selected_pathway))
+      if (!is.null(state$selected_pathway)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(state$selected_cols))
       
-      if (!is.null(data$log2fc_bigger1_tissue)) updatePickerInput(session, "log2fc_bigger1_tissue", selected = safe_extract(data$log2fc_bigger1_tissue))
-      if (!is.null(data$log2fc_smaller1_tissue)) updatePickerInput(session, "log2fc_smaller1_tissue", selected = safe_extract(data$log2fc_smaller1_tissue))
-      if (!is.null(data$pval_tissue)) updatePickerInput(session, "pval_tissue", selected = safe_extract(data$pval_tissue))
-      if (!is.null(data$padj_tissue)) updatePickerInput(session, "padj_tissue", selected = safe_extract(data$padj_tissue))
+      if (!is.null(state$log2fc_bigger1_tissue)) updatePickerInput(session, "log2fc_bigger1_tissue", selected = safe_extract(state$log2fc_bigger1_tissue))
+      if (!is.null(state$log2fc_smaller1_tissue)) updatePickerInput(session, "log2fc_smaller1_tissue", selected = safe_extract(state$log2fc_smaller1_tissue))
+      if (!is.null(state$pval_tissue)) updatePickerInput(session, "pval_tissue", selected = safe_extract(state$pval_tissue))
+      if (!is.null(state$padj_tissue)) updatePickerInput(session, "padj_tissue", selected = safe_extract(state$padj_tissue))
       
-      if (!is.null(data$log2fc_bigger1_btn)) updateCheckboxGroupButtons(session, "log2fc_bigger1_btn", selected = safe_extract(data$log2fc_bigger1_btn))
-      if (!is.null(data$log2fc_smaller1_btn)) updateCheckboxGroupButtons(session, "log2fc_smaller1_btn", selected = safe_extract(data$log2fc_smaller1_btn))
-      if (!is.null(data$pval_btn)) updateCheckboxGroupButtons(session, "pval_btn", selected = safe_extract(data$pval_btn))
-      if (!is.null(data$padj_btn)) updateCheckboxGroupButtons(session, "padj_btn", selected = safe_extract(data$padj_btn))
+      if (!is.null(state$log2fc_bigger1_btn)) updateCheckboxGroupButtons(session, "log2fc_bigger1_btn", selected = safe_extract(state$log2fc_bigger1_btn))
+      if (!is.null(state$log2fc_smaller1_btn)) updateCheckboxGroupButtons(session, "log2fc_smaller1_btn", selected = safe_extract(state$log2fc_smaller1_btn))
+      if (!is.null(state$pval_btn)) updateCheckboxGroupButtons(session, "pval_btn", selected = safe_extract(state$pval_btn))
+      if (!is.null(state$padj_btn)) updateCheckboxGroupButtons(session, "padj_btn", selected = safe_extract(state$padj_btn))
 
     }
     
@@ -706,8 +806,7 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
       }
       
       plot_titul <- if (expr_flag == "all_genes") "Top 20 selected genes" else "All genes of interest"
-      
-      print(paste("Rendering heatmap for patient:", patient))
+
       pheatmap(heatmap_matrix(),
                scale = "none",
                cluster_rows = TRUE,
@@ -728,8 +827,6 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
       ggvolcanoPlot(dt_all)
     })
     observeEvent(input$selected_tissue, {
-      message("Selected tissue: ",input$selected_tissue)
-      
       output$volcanoPlot_blood <- renderPlotly({
         req(data())
         # toWebGL()
@@ -741,8 +838,7 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
     
     heatmap_matrix <- reactive({
       req(data())  # Ujisti se, že data jsou dostupná
-      print(paste("Generating heatmap for patient:", patient))
-      
+
       data_dt <- as.data.table(data())
       
       if(expr_flag == "all_genes"){
@@ -778,8 +874,7 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
       
       # Ošetření NA hodnot
       heatmap_matrix[is.na(heatmap_matrix)] <- 0
-      
-      print(paste("Heatmap matrix generated for:", patient))
+
       return(heatmap_matrix)
     })
     

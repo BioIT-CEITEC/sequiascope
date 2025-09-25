@@ -8,11 +8,7 @@ box::use(
 box::use(
   app/view/create_report
 )
-#' @export
-get_files_fo_all_patients <- function(){
-  return(message("I dont know who called me but in this function is nothing."))
-}
-  
+
 #' @export
 get_patients <- function(confirmed_paths, dataset_type) {
   if (is.null(confirmed_paths) || !nrow(confirmed_paths)) return(character(0))
@@ -36,7 +32,7 @@ get_patients <- function(confirmed_paths, dataset_type) {
   )
   sort(patients[keep])
 }
-
+#' @export
 get_files_by_patient <- function(confirmed_paths, dataset_type) {
   rows <- subset(confirmed_paths, dataset == dataset_type)
   if (!nrow(rows)) return(list())

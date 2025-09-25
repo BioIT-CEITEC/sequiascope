@@ -235,8 +235,6 @@ prepare_expression_table <- function(combined_dt) {
               lapply(.SD, function(x) formatC(x, format = "e", digits = 3)), .SDcols = intersect(p_adj_cols, names(wide_dt))]
   }
   
-  message(paste0("Expression profile, pacient ", paste(unique(wide_dt$sample), collapse = ", "), " (prepare_table)"))
-  
   # vrátíme balíček: tabulka + sloupce + tissues
   list(
     dt = wide_dt,

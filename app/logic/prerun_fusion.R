@@ -12,7 +12,7 @@ box::use(
 box::use(
   app/logic/prepare_arriba_pictures[pdf2png],
   app/logic/load_data[get_inputs],
-  app/logic/helper_main[get_patients,get_files_fo_all_patients],
+  app/logic/helper_main[get_patients,get_files_by_patient],
 )
 
 #' Create IGV batch file for taking snapshots
@@ -281,7 +281,7 @@ prerun_fusion_data <- function(confirmed_paths, shared_data, prog_file = NULL) {
     return(TRUE)
   }
   
-  fusion_files <- get_files_fo_all_patients(confirmed_paths, "fusion")
+  fusion_files <- get_files_by_patient(confirmed_paths, "fusion")
   message("Found ", length(fusion_patients), " fusion patients: ", paste(fusion_patients, collapse = ", "))
   
   # 3) Základní adresáře (idempotentně)

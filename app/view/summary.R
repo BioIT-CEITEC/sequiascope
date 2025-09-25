@@ -17,6 +17,9 @@ box::use(
   # billboarder[bb_donutchart,billboarderOutput,renderBillboarder]
 )
 
+
+
+
 ui <- function(id){
   ns <- NS(id)
   hasData <- TRUE
@@ -332,10 +335,7 @@ server <- function(id, patient, shared_data){ #,active_tab
           }
         }
       })
-    # })
       
-    # })
-  
   })
 }
 

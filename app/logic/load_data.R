@@ -61,7 +61,7 @@ load_data <- function(input_files, flag, sample = NULL,expr_flag = NULL){
     expr_files <- input_files$files$expression
     input_var  <- expr_files[grepl(sample, expr_files)]
 
-    if (length(input_var) == 1 && unique(input_files$tissues) == "none") {
+    if (length(unique(input_files$tissues)) == 1 &&  unique(input_files$tissues) == "none") {
       combined_dt <- fread(unlist(input_var))
       combined_dt[, c("tissue", "sample") := .("none", sample)]
       

@@ -68,7 +68,7 @@ box::use(
 #   app/view/networkGraph_cytoscape,
   app/logic/session_utils[load_session, save_session],
   app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data, get_fusion_prerun_status],
-  app/logic/helper_main[get_patients,add_dataset_tabs, add_summary_panels],
+  app/logic/helper_main[get_patients, get_files_by_patient, add_dataset_tabs, add_summary_panels],
 )
 
 #####################################################
@@ -264,20 +264,18 @@ server <- function(id) {
     shared_data$somatic_pending <- reactiveVal(list())  # patient -> state (k načtení)
     shared_data$germline_modules <- reactiveVal(list())
     shared_data$germline_pending <- reactiveVal(list()) 
+    shared_data$fusion_modules <- reactiveVal(list())
+    shared_data$fusion_pending <- reactiveVal(list()) 
+    shared_data$expression_modules <- reactiveVal(list())
+    shared_data$expression_pending <- reactiveVal(list()) 
     
     # Track which tab values were added per dataset (so we can remove/replace on reconfirm)
     added_tab_values <- reactiveValues(
       somatic  = character(0),
       germline = character(0),
-      fusion = character(0)
+      fusion = character(0),
+      expression = character(0)
     )
-    
-    load_btn <- reactiveValues(somatic = FALSE,
-                               germline = FALSE,
-                               fusion = FALSE,
-                               expression_goi = FALSE,
-                               expression_all = FALSE,
-                               summary = FALSE)
     
     observe({ session$sendCustomMessage("initRadioSync", list()) })
     
@@ -307,21 +305,17 @@ server <- function(id) {
       
       mounted_summary <- reactiveValues(mounted = character(0))
 
-      # ## Somatic
+      # # ## Somatic
       add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
-      # ## Germline
+      # # ## Germline
       add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
       # ## Fusion
-      # add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
+      add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
       # ## Expression
-      # add_dataset_tabs(session, confirmed_paths, "expression", shared_data, added_tab_values, "expression_tabset", "expr_", expression_profile_table, reactive(input$load_session_btn))
+      add_dataset_tabs(session, confirmed_paths, "expression", shared_data, added_tab_values, "expression_tabset", "expr_", expression_profile_table, reactive(input$load_session_btn))
       ## Summary
       add_summary_panels(session, output, shared_data, "summary_table", summary, mounted_summary)
 
-      
-
-      
-      
       observeEvent(input$save_session_btn, {
         shinyalert(
           title = "Confirm Save",
@@ -340,7 +334,6 @@ server <- function(id) {
           }
         )
       })
-      
       
       observeEvent(input$load_session_btn, {
         shinyalert(
@@ -453,49 +446,7 @@ server <- function(id) {
 # 
 #       # Optionally focus the whole Variant calling page
       updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
-    
 
-# ## run summary module
-# 
-#     lapply(patients_list(), function(patient) {
-#       summary$server(paste0("summary_table_", patient), patient, shared_data) #, active_tab = reactive(input$navbarMenu)
-#       create_report$server(paste0("create_report_", patient), patient, shared_data)
-#     })
-# #################
-#     ## Run fusion genes module
-#     samples_fuze <- set_patient_to_sample("fusion")
-#     fusion_module <- lapply(names(samples_fuze), function(patient) {
-#       fusion_genes_table$server(paste0("geneFusion_tab_", patient), samples_fuze[[patient]], shared_data, reactive({ input$load_session_btn }))
-#     })
-#     names(fusion_module) <- names(samples_fuze)
-##################
-    # # Run somatic varcall module
-    # samples_som <- set_patient_to_sample("somatic")
-    # som_module <- lapply(names(samples_som), function(patient) {
-    #   somatic_var_call_table$server(paste0("somatic_tab_", patient), samples_som[[patient]], shared_data)
-    # })
-    # names(som_module) <- names(samples_som)
-# 
-# ##################
-# 
-#     # Run germline varcall module
-#     samples_germ <- set_patient_to_sample("germline")
-#     germ_module <- lapply(names(samples_germ), function(patient) {
-#       germline_var_call_table$server(paste0("germline_tab_", patient), samples_germ[[patient]],shared_data)
-#     })
-#     names(germ_module) <- names(samples_germ)
-# 
-# ##################
-# 
-#     samples_expr <- set_patient_to_sample("expression")
-#     expression_module_goi <- lapply(names(samples_expr), function(patient) {
-#       expression_profile_table$server(paste0("genesOfinterest_tab_", patient),samples_expr[[patient]],"genes_of_interest",shared_data$expression_goi_var)
-#     })
-#     expression_module_all <- lapply(names(samples_expr), function(patient) {
-#       expression_profile_table$server(paste0("allGenes_tab_", patient),samples_expr[[patient]],"all_genes",shared_data$expression_all_var)
-#     })
-#     names(expression_module_goi) <- names(samples_expr)
-#     names(expression_module_all) <- names(samples_expr)
 # ##################
 # #### run network graph module
 # 
@@ -505,6 +456,7 @@ server <- function(id) {
 # ##### start_static_server(dir = "/Users/katerinajuraskova/Desktop/sequiaViz/input_files/MOII_e117/primary_analysis/230426_MOII_e117_tkane/mapped")
 # ##### Spustíme statický server při startu celé aplikace
 # 
+#   path <-    get_files_by_patient(confirmed_paths)
 #   path <- get_inputs("bam_file")
 #   path_combined <- file.path(getwd(), path$path_to_folder)
 #   path_clean <- sub("/+$", "", path_combined)
@@ -517,171 +469,6 @@ server <- function(id) {
 #   session$onSessionEnded(function() {
 #     stop_static_server()
 #   })
-# 
-#     ###################################
-#     ## save and restore user session ##
-#     ###################################
-# 
-#     observeEvent(input$save_session_btn, {
-#       shinyalert(
-#         title = "Confirm Save",
-#         text = "Do you really want to save/overwrite the session?",
-#         type = "warning",
-#         showCancelButton = TRUE,
-#         confirmButtonText = "Yes, save it",
-#         cancelButtonText = "Cancel",
-#         callbackR = function(x) {
-#           if (isTRUE(x)) {
-#             save_session(file = "session_data.json", all_modules)
-#             showNotification("Session successfully saved.", type = "message")
-#           } else {
-#             showNotification("Saving session was canceled.", type = "default")
-#           }
-#         }
-#       )
-#     })
-#     # session$onSessionEnded(function() { ## when session ends, save it automatically
-#     #   save_session(file = "session_data.json", patient_modules = all_modules)
-#     # }
-# 
-# 
-#     all_modules <- list(
-#       somatic = som_module,
-#       germline = germ_module,
-#       fusion = fusion_module,
-#       expression_goi = expression_module_goi,
-#       expression_all = expression_module_all
-#     )
-# 
-# 
-#     observeEvent(input$load_session_btn, {
-#       shinyalert(
-#         title = "Confirm Load",
-#         text = "Do you really want to load the session? This will overwrite current selections.",
-#         type = "warning",
-#         showCancelButton = TRUE,
-#         confirmButtonText = "Yes, load it",
-#         cancelButtonText = "Cancel",
-#         callbackR = function(x) {
-#           if (isTRUE(x)) {
-#             print("Load_session_btn was clicked. Setting all load_btn values as TRUE.")
-#             load_btn$somatic = TRUE
-#             load_btn$germline = TRUE
-#             load_btn$fusion = TRUE
-#             load_btn$expression_goi = TRUE
-#             load_btn$expression_all = TRUE
-#             load_btn$summary = TRUE
-# 
-#           # updateNavbarTabs(session, "navbarMenu", "app-summary")
-#             updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
-#             showNotification("Session successfully loaded.", type = "message")
-# 
-#           } else {
-#             showNotification("Loading session was canceled.", type = "default")
-#           }
-#         }
-#       )
-#     })
-# 
-# 
-#   observe({
-#     session_data <- read_json("session_data.json", simplifyVector = TRUE)
-#     #### === SOMATIC DEFERRED RESTORE ===
-#     if (isTRUE(load_btn$somatic) && input$navbarMenu == "app-variant_calling" && input$variant_calling_tabs == "somatic") {
-# 
-#       for (patient in names(all_modules$somatic)) {
-#         mod <- all_modules$somatic[[patient]]
-#         mod$restore_session_data(session_data$somatic[[patient]])
-#         mod$filter_state$restore_ui_inputs(session_data$somatic[[patient]])
-#         print(paste("Restored UI inputs for patient:", patient))
-#       }
-#       load_btn$somatic <- FALSE
-#       print("Deferred restore for somatic completed and flag reset.")
-#     }
-#       #### === GERMLINE DEFERRED RESTORE ===
-#       if (isTRUE(load_btn$germline) && input$navbarMenu == "app-variant_calling" && input$variant_calling_tabs == "germline") {
-# 
-#         for (patient in names(all_modules$germline)) {
-#           mod <- all_modules$germline[[patient]]
-#           mod$restore_session_data(session_data$germline[[patient]])
-#           mod$filter_state$restore_ui_inputs(session_data$germline[[patient]])
-#         }
-#         load_btn$germline <- FALSE
-#         print("Deferred restore for GERMLINE completed and flag reset.")
-#       }
-#       #### === FUSION DEFERRED RESTORE ===
-#       if (isTRUE(load_btn$fusion) &&
-#           input$navbarMenu == "app-fusion_genes") {
-# 
-#         for (patient in names(all_modules$fusion)) {
-#           mod <- all_modules$fusion[[patient]]
-#           mod$restore_session_data(session_data$fusion[[patient]])
-#           mod$filter_state$restore_ui_inputs(session_data$fusion[[patient]])
-#         }
-#         load_btn$fusion <- FALSE
-#         print("Deferred restore for FUSION completed and flag reset.")
-#       }
-#   #### === EXPRESSION DEFERRED RESTORE ===
-#   if (isTRUE(load_btn$expression_goi) &&
-#       input$navbarMenu == "app-expression_profile") {
-# 
-#     for (patient in names(all_modules$expression_goi)) {
-#       mod <- all_modules$expression_goi[[patient]]
-#       mod$restore_session_data(session_data$expression_goi[[patient]])
-#       mod$filter_state$restore_ui_inputs(session_data$expression_goi[[patient]])
-#     }
-#     load_btn$expression_goi <- FALSE
-#     print("Deferred restore for EXPRESSION GOI completed and flag reset.")
-#   }
-#   if (isTRUE(load_btn$expression_all) &&
-#       input$navbarMenu == "app-expression_profile") {
-# 
-#     for (patient in names(all_modules$expression_all)) {
-#       mod <- all_modules$expression_all[[patient]]
-#       mod$restore_session_data(session_data$expression_all[[patient]])
-#       mod$filter_state$restore_ui_inputs(session_data$expression_all[[patient]])
-#     }
-#     load_btn$expression <- FALSE
-#     print("Deferred restore for EXPRESSION ALL completed and flag reset.")
-#   }
-#   ### === SUMMARY DEFERRED RESTORE ===
-#   if (isTRUE(load_btn$summary) && input$navbarMenu == "app-summary") {
-# 
-#     if (!is.null(session_data$somatic)) {
-#       somatic_selected_vars <- lapply(session_data$somatic, function(p) p$selected_vars)
-#       combined_somatic_vars <- do.call(rbind, somatic_selected_vars)
-#       shared_data$somatic_var(combined_somatic_vars)
-#     }
-# 
-#     if (!is.null(session_data$germline)) {
-#       germline_selected_vars <- lapply(session_data$germline, function(p) p$selected_vars)
-#       combined_germline_vars <- do.call(rbind, germline_selected_vars)
-#       shared_data$germline_var(combined_germline_vars)
-#     }
-# 
-#     if (!is.null(session_data$fusion)) {
-#       fusion_selected_vars <- lapply(session_data$fusion, function(p) p$selected_vars)
-#       combined_fusion_vars <- do.call(rbind, fusion_selected_vars)
-#       shared_data$fusion_var(combined_fusion_vars)
-#     }
-# 
-#     if (!is.null(session_data$expression_goi)) {
-#       expression_goi_vars <- lapply(session_data$expression_goi, function(p) p$selected_genes)
-#       combined_goi_vars <- do.call(rbind, expression_goi_vars)
-#       shared_data$expression_goi_var(combined_goi_vars)
-#     }
-# 
-#     if (!is.null(session_data$expression_all)) {
-#       expression_all_vars <- lapply(session_data$expression_all, function(p) p$selected_genes)
-#       combined_all_vars <- do.call(rbind, expression_all_vars)
-#       shared_data$expression_all_var(combined_all_vars)
-#     }
-# 
-#         load_btn$summary <- FALSE
-#         print("Deferred restore for SUMMARY completed and flag reset.")
-#       }
-# 
-#     })
 
   
     }, ignoreInit = TRUE)

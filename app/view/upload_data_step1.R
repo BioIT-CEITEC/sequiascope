@@ -214,19 +214,14 @@ step1_server <- function(id, path, patients, datasets, tumor_pattern, normal_pat
     observeEvent(input$tissue_list, {
       tissues(trimws(ifelse(isTruthy(input$tissue_list), input$tissue_list, "")))
     })
-    
-    # return(list(
-    #   next1 = reactive(next1_btn())
-    # ))
+
     observeEvent(input$load_session_btn, {
       # Klidně přidej confirm shinyalert tady; ale jednoduše stačí pulz:
       load_click(Sys.time())  # unikátní hodnota => pulse
     })
     
-    # helper na "NULL -> prázdný string"
     nz <- function(x) if (is.null(x)) "" else x
     
-    # --- veřejná funkce pro přepsání UI podle aktuálních reaktiv ---
     restore_ui_inputs <- function() {
       updateTextInput(session, "dir_path", value = nz(path()))
       p <- patients()
@@ -248,7 +243,7 @@ step1_server <- function(id, path, patients, datasets, tumor_pattern, normal_pat
     }
     
     return(list(
-      next1              = reactive(next1_btn()),
+      next1              = reactive(next1_btn(1)),
       load_request       = reactive(load_click()),
       restore_ui_inputs  = restore_ui_inputs
     ))

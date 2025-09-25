@@ -1,7 +1,7 @@
 # app/view/fusion_genes_table.R
 
 box::use(
-  shiny[moduleServer,NS,h3,tagList,div,textInput,renderPrint,reactive,observe,observeEvent,icon,mainPanel,titlePanel,isolate,
+  shiny[moduleServer,NS,h3,tagList,div,textInput,renderPrint,reactive,observe,observeEvent,icon,mainPanel,titlePanel,isolate,isTruthy,
         uiOutput,renderUI,HTML,req,reactiveVal,column,fluidRow,showModal,modalDialog,modalButton,selectInput,downloadButton,invalidateLater,
         reactiveValues,textOutput,renderText,reactiveValuesToList],
   reactable,
@@ -12,6 +12,7 @@ box::use(
   shinyalert[shinyalert,useShinyalert],
   data.table[data.table,uniqueN,as.data.table,copy,is.data.table,fifelse,setcolorder,fread,setnames],
   shinyWidgets[pickerInput,updatePickerInput,dropdownButton,prettyCheckboxGroup,updatePrettyCheckboxGroup,actionBttn,pickerOptions,dropdown],
+  stats[setNames],
 )
 box::use(
   app/logic/load_data[get_inputs,load_data],
@@ -19,7 +20,7 @@ box::use(
   app/logic/waiters[use_spinner],
   app/logic/reactable_helpers[create_clinvar_filter,create_consequence_filter,update_fusion_data],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
-  app/logic/session_utils[create_session_handlers,safe_extract]
+  app/logic/session_utils[create_session_handlers, register_module, safe_extract, ch]
 )
 
 ##############  pozn  #####################
@@ -79,6 +80,8 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
    
+    is_restoring_session <- reactiveVal(FALSE)
+    
     prerun_ready <- reactive({
       status <- shared_data$fusion_prerun_status()
       status %in% c("completed", "not_started")
@@ -142,7 +145,7 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
     map_list <- colnames_map_list("fusion",session = session) # gives list of all columns with their column definitions
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     
-    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names)
+    filter_state <- filterTab_server("filterTab_dropdown", colnames_list, data(), mapped_checkbox_names,  is_restoring = is_restoring_session)
     
     ############
     notes_state <- reactiveVal(data.frame(row = integer(), value = character()))
@@ -150,8 +153,7 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
     selected_fusions <- reactiveVal(data.frame(gene1 = character(), gene2 = character()))
     visual_check_state <- reactiveVal(data.frame(row = integer(), value = character()))
     fusion_data_to_render <- reactiveVal(NULL)
-      
-      
+    
   # Call generate_columnsDef to generate colDef setting for reactable
     column_defs <- reactive({
       req(data())
@@ -531,46 +533,156 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
     ###########################
     ## get / restore session ##
     ###########################
-    
-    
+
     session_handlers <- create_session_handlers(
       selected_inputs = list(
         selected_cols = selected_columns,
         selected_vars = selected_fusions,
         visual_check_state = visual_check_state,
         notes_state = notes_state
+
       ),
       filter_state = filter_state
     )
     
-    return(list(
-      get_session_data = session_handlers$get_session_data,
+    methods <- list(
+      get_session_data     = session_handlers$get_session_data,
       restore_session_data = session_handlers$restore_session_data,
-      filter_state = filter_state
-    ))
+      filter_state         = filter_state,
+      is_restoring         = is_restoring_session
+    )
+    
+    register_module(shared_data, "fusion", selected_samples, methods)
+    
+    return(methods)
   })
 }
 
 
 
-filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names) {
+filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_restoring = NULL) {
   moduleServer(id, function(input, output, session) {
 
+    initialized <- reactiveVal(FALSE)
+    
+    # Funkce pro normalizaci column selection
+    normalize_column_selection <- function(selection, choices_map, default_cols) {
+      if (is.null(selection) || length(selection) == 0) {
+        return(ch(default_cols))
+      }
+      
+      choice_labels <- names(choices_map)
+      choice_vals <- ch(unname(choices_map))
+      
+      # Převeď labels na values kde je to potřeba
+      label2val <- setNames(choice_vals, choice_labels)
+      
+      sel_normalized <- character(0)
+      for (item in ch(selection)) {
+        if (item %in% choice_vals) {
+          sel_normalized <- c(sel_normalized, item)  # už je value
+        } else if (item %in% choice_labels) {
+          sel_normalized <- c(sel_normalized, label2val[[item]])  # převeď label na value
+        }
+      }
+      
+      # Vrať jen platné hodnoty
+      return(intersect(unique(sel_normalized), choice_vals))
+    }
+    
+    # Funkce pro update column choices
+    update_column_choices <- function() {
+      # Seřaď choices podle názvů
+      col_choices_ordered <- mapped_checkbox_names[order(names(mapped_checkbox_names))]
+      
+      # Normalizuj current selection
+      current_selection <- isolate(input$colFilter_checkBox)
+      default_selection <- if (!initialized() || is.null(current_selection) || length(current_selection) == 0) {
+        colnames_list$default_columns
+      } else {
+        current_selection
+      }
+      
+      selected_values <- normalize_column_selection(
+        selection = default_selection,
+        choices_map = col_choices_ordered,
+        default_cols = colnames_list$default_columns
+      )
+      
+      updatePrettyCheckboxGroup(
+        session, "colFilter_checkBox", 
+        choices = col_choices_ordered, 
+        selected = selected_values,
+        prettyOptions = list(status = "primary", icon = icon("check"), outline = FALSE)
+      )
+    }
+    
+    # ===== MAIN OBSERVE =====
+    
     observe({
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
-                                prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+      # Pokud probíhá restore session, přeskoč automatické aktualizace
+      if (!is.null(is_restoring) && isTruthy(is_restoring())) {
+        return()
+      }
+      
+      update_column_choices()
+      
+      if (!initialized()) {
+        initialized(TRUE)
+      }
     })
+
+    # ===== EVENT HANDLERS =====
     
     observeEvent(input$show_all, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
+      all_values <- ch(unname(mapped_checkbox_names))
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
     
     observeEvent(input$show_default, {
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
+      default_values <- normalize_column_selection(
+        selection = colnames_list$default_columns,
+        choices_map = mapped_checkbox_names,
+        default_cols = colnames_list$default_columns
+      )
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
     })
-
-    restore_ui_inputs <- function(data) {
-      if (!is.null(data$selected_cols)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(data$selected_cols))
+    # 
+    # observe({
+    #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
+    #                             prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
+    # })
+    # 
+    # observeEvent(input$show_all, {
+    #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
+    # })
+    # 
+    # observeEvent(input$show_default, {
+    #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
+    # })
+# 
+#     restore_ui_inputs <- function(data) {
+#       if (!is.null(data$selected_cols)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(data$selected_cols))
+#     }
+    
+    # ===== RESTORE FUNCTION =====
+    
+    restore_ui_inputs <- function(state) {
+      message("🎯 Restoring filter UI inputs")
+      
+      if (!is.null(state$selected_cols)) {
+        wanted <- ch(safe_extract(state$selected_cols))
+        message(sprintf("Restoring selected_cols: %s", paste(wanted, collapse = ", ")))
+        
+        wanted_values <- normalize_column_selection(
+          selection = wanted,
+          choices_map = mapped_checkbox_names,
+          default_cols = colnames_list$default_columns
+        )
+        
+        message(sprintf("Final selected values: %s", paste(wanted_values, collapse = ", ")))
+        updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = wanted_values)
+      }
     }
     
     return(list(
