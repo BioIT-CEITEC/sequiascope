@@ -236,31 +236,38 @@ get_default_module_configs <- function() {
         shared_data$fusion.variants(combined_fusion)
       }
     ),
+    # v get_default_module_configs() -> expression$post_restore = function(session_data, shared_data) { ... }
     
     expression = list(
       post_restore = function(session_data, shared_data) {
-        # Sestavuj data pro all_genes a goi odděleně
+        as_dt_safe <- function(x) {
+          if (is.null(x)) return(NULL)
+          if (is.data.frame(x)) return(as.data.table(x))
+          if (is.list(x) && length(x) > 0) return(as.data.table(x))
+          NULL
+        }
+        
         all_genes_data <- list()
         goi_data <- list()
         
         for (patient in names(session_data)) {
           patient_data <- session_data[[patient]]
           
-          # All genes data
-          if (!is.null(patient_data$all_genes) && !is.null(patient_data$all_genes$selected_genes)) {
-            all_genes_selected <- patient_data$all_genes$selected_genes
-            if (!is.null(all_genes_selected) && nrow(all_genes_selected) > 0) {
-              dt <- as.data.table(all_genes_selected)
+          # ALL GENES
+          if (!is.null(patient_data$all_genes)) {
+            sel <- patient_data$all_genes$selected_genes
+            dt  <- as_dt_safe(sel)
+            if (!is.null(dt) && nrow(dt) > 0) {
               if (!"sample" %in% names(dt)) dt[, sample := patient]
               all_genes_data[[patient]] <- dt
             }
           }
           
-          # GOI data
-          if (!is.null(patient_data$goi) && !is.null(patient_data$goi$selected_genes)) {
-            goi_selected <- patient_data$goi$selected_genes
-            if (!is.null(goi_selected) && nrow(goi_selected) > 0) {
-              dt <- as.data.table(goi_selected)
+          # GOI
+          if (!is.null(patient_data$goi)) {
+            sel <- patient_data$goi$selected_genes
+            dt  <- as_dt_safe(sel)
+            if (!is.null(dt) && nrow(dt) > 0) {
               if (!"sample" %in% names(dt)) dt[, sample := patient]
               goi_data[[patient]] <- dt
             }
@@ -268,16 +275,55 @@ get_default_module_configs <- function() {
         }
         
         if (length(all_genes_data) > 0) {
-          combined_all_genes <- rbindlist(all_genes_data, use.names = TRUE, fill = TRUE)
-          shared_data$expression.variants.all(combined_all_genes)
+          shared_data$expression.variants.all(rbindlist(all_genes_data, use.names = TRUE, fill = TRUE))
         }
-        
         if (length(goi_data) > 0) {
-          combined_goi <- rbindlist(goi_data, use.names = TRUE, fill = TRUE)
-          shared_data$expression.variants.goi(combined_goi)
+          shared_data$expression.variants.goi(rbindlist(goi_data, use.names = TRUE, fill = TRUE))
         }
       }
     )
+    
+    # expression = list(
+    #   post_restore = function(session_data, shared_data) {
+    #     # Sestavuj data pro all_genes a goi odděleně
+    #     all_genes_data <- list()
+    #     goi_data <- list()
+    #     
+    #     for (patient in names(session_data)) {
+    #       patient_data <- session_data[[patient]]
+    #       
+    #       # All genes data
+    #       if (!is.null(patient_data$all_genes) && !is.null(patient_data$all_genes$selected_genes)) {
+    #         all_genes_selected <- patient_data$all_genes$selected_genes
+    #         if (!is.null(all_genes_selected) && nrow(all_genes_selected) > 0) {
+    #           dt <- as.data.table(all_genes_selected)
+    #           if (!"sample" %in% names(dt)) dt[, sample := patient]
+    #           all_genes_data[[patient]] <- dt
+    #         }
+    #       }
+    #       
+    #       # GOI data
+    #       if (!is.null(patient_data$goi) && !is.null(patient_data$goi$selected_genes)) {
+    #         goi_selected <- patient_data$goi$selected_genes
+    #         if (!is.null(goi_selected) && nrow(goi_selected) > 0) {
+    #           dt <- as.data.table(goi_selected)
+    #           if (!"sample" %in% names(dt)) dt[, sample := patient]
+    #           goi_data[[patient]] <- dt
+    #         }
+    #       }
+    #     }
+    #     
+    #     if (length(all_genes_data) > 0) {
+    #       combined_all_genes <- rbindlist(all_genes_data, use.names = TRUE, fill = TRUE)
+    #       shared_data$expression.variants.all(combined_all_genes)
+    #     }
+    #     
+    #     if (length(goi_data) > 0) {
+    #       combined_goi <- rbindlist(goi_data, use.names = TRUE, fill = TRUE)
+    #       shared_data$expression.variants.goi(combined_goi)
+    #     }
+    #   }
+    # )
   )
 }
 

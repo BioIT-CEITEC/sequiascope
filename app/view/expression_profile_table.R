@@ -6,9 +6,8 @@ box::use(
   reactable,
   bs4Dash[box,tabBox],
   reactable[colDef, reactableOutput, renderReactable, reactable, getReactableState, colGroup, JS],
-  htmltools[tags,HTML],
+  htmltools[tags,HTML,h6,h5],
   plotly[plotlyOutput, renderPlotly, toWebGL],
-  utils[head],
   shinyWidgets[radioGroupButtons, checkboxGroupButtons, updateCheckboxGroupButtons,prettyCheckboxGroup, updatePrettyCheckboxGroup, dropdown, dropdownButton, actionBttn,
                awesomeCheckboxGroup, pickerInput, updatePickerInput],
   data.table[rbindlist, dcast.data.table, as.data.table, melt.data.table, copy],
@@ -32,42 +31,43 @@ box::use(
   app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch]
 )
 
+
 ui <- function(id, tissue_list, goi = FALSE) {
   ns <- NS(id)
   useShinyjs()
   
   tabs <- list()
   
-  # GOI tab se vytvoří pouze pokud goi = TRUE (globálně dostupný)
+  # GOI will be created only when goi = TRUE
   if (isTRUE(goi)) {
     tabs <- c(tabs, list(
       tabPanel(title = "Genes of Interest", value = "genesOfinterest",
-         tagList(tags$head(tags$style(HTML("#download_btn { background-color: transparent; border: 1px solid transparent; margin-top: -1px; }
+               tagList(tags$head(tags$style(HTML("#download_btn { background-color: transparent; border: 1px solid transparent; margin-top: -1px; }
                                             #download_btn:hover { box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15); }"))),
-             fluidRow(
-               div(style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
-                   dropdownButton(inputId = "download_btn",label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
-                                  selectInput(ns("export_data_table_goi"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
-                                  selectInput(ns("export_format_table_goi"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
-                                  downloadButton(ns("Table_download_goi"), "Download")),
-                   filterTab_ui(ns("filterTab_dropdown_goi"), tissue_list))
-             )),
-             use_spinner(reactableOutput(ns("goi_expression_table"))),
-             div(
+                       fluidRow(
+                         div(style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
+                             dropdownButton(inputId = ns("download_btn"),label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
+                                            selectInput(ns("export_data_table_goi"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
+                                            selectInput(ns("export_format_table_goi"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
+                                            downloadButton(ns("Table_download_goi"), "Download")),
+                             filterTab_ui(ns("filterTab_dropdown_goi"), tissue_list))
+                       )),
+               use_spinner(reactableOutput(ns("goi_expression_table"))),
+               div(
+                 tags$br(),
+                 actionButton(ns("selectDeregulated_button_goi"), "Select deregulated genes for report", status = "info"),
+                 tags$br(),
+                 fluidRow(column(8, reactableOutput(ns("selectDeregulated_tab_goi")))),
+                 tags$br(),
+                 fluidRow(column(3, actionButton(ns("delete_button_goi"), "Delete genes", icon = icon("trash-can"))))),
                tags$br(),
-               actionButton(ns("selectDeregulated_button_goi"), "Select deregulated genes for report", status = "info"),
-               tags$br(),
-               fluidRow(column(8, reactableOutput(ns("selectDeregulated_tab_goi")))),
-               tags$br(),
-               fluidRow(column(3, actionButton(ns("delete_button_goi"), "Delete genes", icon = icon("trash-can"))))),
-             tags$br(),
-             plot_ui(ns("plot_goi"))
-        )
+               plot_ui(ns("plot_goi"))
+      )
       
-      ))
+    ))
   }
   
-  # All Genes tab - vždy k dispozici
+  # All Genes tab - always available
   tabs <- c(tabs, list(
     tabPanel(title = "All Genes", value = "allGenes",
              fluidRow(
@@ -90,17 +90,17 @@ ui <- function(id, tissue_list, goi = FALSE) {
              plot_ui(ns("plot"))
     )
   ))
-
-
+  
+  
   tabbox_id <- if (isTRUE(goi)) "expression_profile_tabs_goi" else "expression_profile_tabs_allGenes"
-
+  
   do.call(tabBox, c(list(id = ns(tabbox_id), width = 12, collapsible = FALSE, selected = "genesOfinterest", headerBorder = FALSE), tabs))
 }
 
 server <- function(id, patient, shared_data, patient_files) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-
+    
     observe({
       req(tissue_list)
       overview_dt <- data.table(tissues = unique(tissue_list))
@@ -123,7 +123,7 @@ server <- function(id, patient, shared_data, patient_files) {
         return(FALSE)
       })
     })
-
+    
     prepare_goi_dt <- reactive({
       req(prepare_data())
       if (!has_goi()) return(NULL)
@@ -135,7 +135,7 @@ server <- function(id, patient, shared_data, patient_files) {
         return(NULL)
       })
     })
-
+    
     data <- reactive(prepare_data()$dt)
     tissue_list <- prepare_data()$tissues
     colnames_list <- prepare_data()$columns
@@ -153,7 +153,7 @@ server <- function(id, patient, shared_data, patient_files) {
       expr_tag = "all_genes",
       suffix = ""
     )
-
+    
     # 2. GOI
     goi_logic <- NULL
     if (has_goi() && !is.null(prepare_goi_dt())) {
@@ -170,7 +170,7 @@ server <- function(id, patient, shared_data, patient_files) {
         suffix = "_goi"
       )
     }
-
+    
     methods <- list(
       get_session_data = function() {
         result <- list()
@@ -197,96 +197,80 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   map_list <- colnames_map_list("expression", colnames_list$all_columns)
   mapped_checkbox_names <- map_checkbox_names(map_list)
   
-  filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), colnames_list, data(), mapped_checkbox_names, pathway_list, is_restoring_session)
-
+  filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), colnames_list, data, mapped_checkbox_names, tissue_list, pathway_list, is_restoring_session)
+  
   selected_tissues_final <- reactiveVal(tissue_list)
   selected_pathway_final <- reactiveVal(pathway_list)
-  log2fc_bigger1_final <- reactiveVal(NULL)
-  log2fc_smaller1_final <- reactiveVal(NULL)
-  pval_final <- reactiveVal(NULL)
-  padj_final <- reactiveVal(NULL)
-  log2fc_bigger1_btn_final <- reactiveVal(FALSE)
-  log2fc_smaller1_btn_final <- reactiveVal(FALSE)
-  pval_btn_final <- reactiveVal(FALSE)
-  padj_btn_final <- reactiveVal(FALSE)
   selected_columns <- reactiveVal(colnames_list$default_columns)
   selected_genes <- reactiveVal(data.frame(patient = character(), feature_name = character(), geneid = character()))
+
+  tissue_filters_final <- setNames(
+    lapply(tissue_list, function(t) reactiveVal(character(0))), 
+    tissue_list
+  )
   
   defaults_applied <- reactiveVal(FALSE)
   
   observe({
     req(filter_state$selected_tissue())
-    req(filter_state$selected_pathway())
     req(filter_state$selected_columns())
-    req(filter_state$log2fc_bigger1_tissue())
-    req(filter_state$log2fc_smaller1_tissue())
-    req(filter_state$pval_tissue())
-    req(filter_state$padj_tissue())
-    req(filter_state$log2fc_bigger1_btn())
-    req(filter_state$log2fc_smaller1_btn())
-    req(filter_state$pval_btn())
-    req(filter_state$padj_btn())
     
     if (!defaults_applied() && !is_restoring_session()) {
       selected_tissues_final(filter_state$selected_tissue())
       selected_pathway_final(filter_state$selected_pathway())
       selected_columns(filter_state$selected_columns())
-      log2fc_bigger1_final(filter_state$log2fc_bigger1_tissue())
-      log2fc_smaller1_final(filter_state$log2fc_smaller1_tissue())
-      pval_final(filter_state$pval_tissue())
-      padj_final(filter_state$padj_tissue())
-      log2fc_bigger1_btn_final("log2FC > 1" %in% filter_state$log2fc_bigger1_btn())
-      log2fc_smaller1_btn_final("log2FC < -1" %in% filter_state$log2fc_smaller1_btn())
-      pval_btn_final("p-value < 0.05" %in% filter_state$pval_btn())
-      padj_btn_final("p-adj < 0.05" %in% filter_state$padj_btn())
       
+      for (tissue in tissue_list) {
+        tissue_filter <- filter_state[[paste0("tissue_filter_", tissue)]]
+        if (!is.null(tissue_filter)) tissue_filters_final[[tissue]](tissue_filter())
+      }
       defaults_applied(TRUE)
     }
   })
-
+  
   filtered_data <- reactive({
     req(data())
     df <- data()
-    base_cols <- c("sample", "feature_name", "geneid", "pathway", "mean_log2FC")
-    
     pathways_selected <- selected_pathway_final()
+    tissues <- selected_tissues_final()
+    base_cols <- c("sample","feature_name","geneid","pathway","mean_log2FC")
+
     if (!is.null(pathways_selected) && length(pathways_selected) > 0 && length(pathways_selected) < length(pathway_list)) {
       pattern <- paste(pathways_selected, collapse = "|")
       df <- df[grepl(pattern, pathway)]
     }
-    
-    for (filter_name in c("log2fc_bigger1", "log2fc_smaller1", "pval", "padj")) {
-      tissues <- get(paste0(filter_name, "_final"))()
-      btn_state <- get(paste0(filter_name, "_btn_final"))()
-      if (btn_state && length(tissues) > 0) {
-        for (tissue in tissues) {
-          col <- switch(filter_name,
-                        "log2fc_bigger1" = paste0("log2FC_", tissue),
-                        "log2fc_smaller1" = paste0("log2FC_", tissue),
-                        "pval" = paste0("p_value_", tissue),
-                        "padj" = paste0("p_adj_", tissue))
-          if (col %in% names(df)) {
-            df <- df[
-              switch(filter_name,
-                     "log2fc_bigger1" = get(col) > 1,
-                     "log2fc_smaller1" = get(col) < -1,
-                     "pval" = get(col) < 0.05,
-                     "padj" = get(col) < 0.05)
-            ]
-          }
-        }
+
+    for (t in tissue_list) {
+      filters <- tissue_filters_final[[t]]()
+      if (!length(filters)) next
+      
+      if ("log2FC > 1" %in% filters) {
+        col <- paste0("log2FC_", t)
+        if (col %in% names(df)) df <- df[as.numeric(get(col)) >  1]
+      }
+      if ("log2FC < -1" %in% filters) {
+        col <- paste0("log2FC_", t)
+        if (col %in% names(df)) df <- df[as.numeric(get(col)) < -1]
+      }
+      if ("p-value < 0.05" %in% filters) {
+        col <- paste0("p_value_", t)
+        if (col %in% names(df)) df <- df[as.numeric(get(col)) < 0.05]
+      }
+      if ("p-adj < 0.05" %in% filters) {
+        col <- paste0("p_adj_", t)
+        if (col %in% names(df)) df <- df[as.numeric(get(col)) < 0.05]
       }
     }
+
+    if (is.null(tissues) || !length(tissues)) return(df[, ..base_cols])
     
-    tissues <- selected_tissues_final()
-    if (is.null(tissues) || length(tissues) == 0) return(df[, ..base_cols])
-    selected_cols <- unlist(lapply(tissues, function(tissue) {
-      c(paste0("log2FC_", tissue), paste0("p_value_", tissue), paste0("p_adj_", tissue))
-    }))
+    selected_cols <- unlist(lapply(tissues, function(t) c(paste0("log2FC_", t), paste0("p_value_", t), paste0("p_adj_", t))))
     valid_cols <- intersect(selected_cols, names(df))
     df_filtered <- df[, c(base_cols, valid_cols), with = FALSE]
+    
     return(df_filtered)
   })
+
   
   # Call generate_columnsDef to generate colDef setting for reactable
   column_defs <- reactive({
@@ -296,7 +280,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   })
   
   table_name <- if (suffix == "_goi") "goi_expression_table" else "expression_table"
-
+  
   session$output[[table_name]] <- renderReactable({
     req(filtered_data())
     req(column_defs())
@@ -347,7 +331,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     req(selected_row)
     filtered_data()[selected_row, c("feature_name","geneid")]
   })
-
+  
   observeEvent(session$input[[button_name]], {
     selected_rows <- getReactableState(table_name, "selected")
     req(selected_rows)
@@ -360,7 +344,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
                                             new_variants$geneid %in% current_variants$geneid), ]
     
     if (nrow(new_unique_variants) > 0) selected_genes(rbind(current_variants, new_unique_variants))
-
+    
     global_data <- expression_var()
     
     if (is.null(global_data) || !is.data.table(global_data) || !("sample" %in% names(global_data))) {
@@ -377,7 +361,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     updated_global_data <- rbind(global_data, selected_genes())
     expression_var(updated_global_data)
   })
-
+  
   session$output[[selected_tab_name]] <- renderReactable({
     genes <- selected_genes()
     if (is.null(genes) || nrow(genes) == 0) {
@@ -393,7 +377,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
         selection = "multiple", onClick = "select")
     }
   })
-
+  
   observeEvent(session$input[[delete_button_name]], {
     rows <- getReactableState(selected_tab_name, "selected")
     req(rows)
@@ -431,7 +415,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     if (nrow(updated_variants) == 0) hide(delete_button_name)
     
   })
-
+  
   observeEvent(session$input[[button_name]], {
     if (is.null(selected_genes()) || nrow(selected_genes()) == 0) {
       hide(delete_button_name)
@@ -458,17 +442,12 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     selected_pathway_final(filter_state$selected_pathway())
     selected_columns(filter_state$selected_columns())
     
-    log2fc_bigger1_final(filter_state$log2fc_bigger1_tissue())
-    log2fc_smaller1_final(filter_state$log2fc_smaller1_tissue())
-    pval_final(filter_state$pval_tissue())
-    padj_final(filter_state$padj_tissue())
-    
-    log2fc_bigger1_btn_final("log2FC > 1" %in% filter_state$log2fc_bigger1_btn())
-    log2fc_smaller1_btn_final("log2FC < -1" %in% filter_state$log2fc_smaller1_btn())
-    pval_btn_final("p-value < 0.05" %in% filter_state$pval_btn())
-    padj_btn_final("p-adj < 0.05" %in% filter_state$padj_btn())
+    for (t in tissue_list) {
+      r <- filter_state[[paste0("tissue_filter_", t)]]
+      if (!is.null(r)) tissue_filters_final[[t]](isolate(r()))
+    }
   })
-
+  
   plot_id <- if (suffix == "") "plot" else paste0("plot", suffix)
   plot_server(plot_id, patient, data, expr_tag, tissue_list)
   
@@ -476,21 +455,19 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   ## get / restore session ##
   ###########################
   
+  selected_inputs_list <- list(
+    selected_tissue = selected_tissues_final,
+    selected_pathway = selected_pathway_final,
+    selected_columns = selected_columns,
+    selected_genes = selected_genes
+  )
+  
+  for (tissue in tissue_list) {
+    selected_inputs_list[[paste0("tissue_filter_", tissue)]] <- tissue_filters_final[[tissue]]
+  }
+  
   session_handlers <- create_session_handlers(
-    selected_inputs = list(
-      selected_tissue = selected_tissues_final,
-      selected_pathway = selected_pathway_final,
-      selected_columns = selected_columns,
-      log2fc_bigger1_tissue = log2fc_bigger1_final,
-      log2fc_smaller1_tissue = log2fc_smaller1_final,
-      pval_tissue = pval_final,
-      padj_tissue = padj_final,
-      log2fc_bigger1_btn = log2fc_bigger1_btn_final,
-      log2fc_smaller1_btn = log2fc_smaller1_btn_final,
-      pval_btn = pval_btn_final,
-      padj_btn = padj_btn_final,
-      selected_genes = selected_genes
-    ),
+    selected_inputs = selected_inputs_list,
     filter_state = filter_state,
     is_restoring = is_restoring_session
   )
@@ -504,110 +481,48 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   ))
 }
 
-filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names,pathway_list, is_restoring = NULL) {
-  moduleServer(id, function(input, output, session) {
 
-#     # Flag pro inicializaci
-    # initialized <- reactiveVal(FALSE)
-#     
-#     # ===== HELPER FUNCTIONS =====
-#     
-#     # Funkce pro normalizaci column selection
-#     normalize_column_selection <- function(selection, choices_map, default_cols) {
-#       if (is.null(selection) || length(selection) == 0) {
-#         return(ch(default_cols))
-#       }
-#       
-#       choice_labels <- names(choices_map)
-#       choice_vals <- ch(unname(choices_map))
-#       
-#       # Převeď labels na values kde je to potřeba
-#       label2val <- setNames(choice_vals, choice_labels)
-#       
-#       sel_normalized <- character(0)
-#       for (item in ch(selection)) {
-#         if (item %in% choice_vals) {
-#           sel_normalized <- c(sel_normalized, item)  # už je value
-#         } else if (item %in% choice_labels) {
-#           sel_normalized <- c(sel_normalized, label2val[[item]])  # převeď label na value
-#         }
-#       }
-#       
-#       # Vrať jen platné hodnoty
-#       return(intersect(unique(sel_normalized), choice_vals))
-#     }
-#     
-#     # Funkce pro update column choices
-#     update_column_choices <- function() {
-#       # Seřaď choices podle názvů
-#       col_choices_ordered <- mapped_checkbox_names[order(names(mapped_checkbox_names))]
-#       
-#       # Normalizuj current selection
-#       current_selection <- isolate(input$colFilter_checkBox)
-#       default_selection <- if (!initialized() || is.null(current_selection) || length(current_selection) == 0) {
-#         colnames_list$default_columns
-#       } else {
-#         current_selection
-#       }
-#       
-#       selected_values <- normalize_column_selection(
-#         selection = default_selection,
-#         choices_map = col_choices_ordered,
-#         default_cols = colnames_list$default_columns
-#       )
-#       
-#       updatePrettyCheckboxGroup(
-#         session, "colFilter_checkBox", 
-#         choices = col_choices_ordered, 
-#         selected = selected_values,
-#         prettyOptions = list(status = "primary", icon = icon("check"), outline = FALSE)
-#       )
-#     }
-#     
-#     
+
+filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tissue_list, pathway_list, is_restoring = NULL) {
+  moduleServer(id, function(input, output, session) {
+    
+    sanitize <- function(x) gsub("[^A-Za-z0-9]+", "_", x)
+    
+    # ===== HELPER FUNCTIONS =====
+    
+    # Funkce pro normalizaci column selection
+    normalize_column_selection <- function(selection, choices_map, default_cols) {
+      if (is.null(selection) || length(selection) == 0) {
+        return(ch(default_cols))
+      }
+      
+      choice_labels <- names(choices_map)
+      choice_vals <- ch(unname(choices_map))
+      
+      # Převeď labels na values kde je to potřeba
+      label2val <- setNames(choice_vals, choice_labels)
+      
+      sel_normalized <- character(0)
+      for (item in ch(selection)) {
+        if (item %in% choice_vals) {
+          sel_normalized <- c(sel_normalized, item)  # už je value
+        } else if (item %in% choice_labels) {
+          sel_normalized <- c(sel_normalized, label2val[[item]])  # převeď label na value
+        }
+      }
+      
+      # Vrať jen platné hodnoty
+      return(intersect(unique(sel_normalized), choice_vals))
+    }
+    
     observe({
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
                                 prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
-      updatePickerInput(session, "filter_pathway",
-                  choices = pathway_list, selected = character(0),
-options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)
-      )
+      updatePickerInput(session, "filter_pathway", choices = pathway_list, selected = character(0),
+                        options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))
     })
-  
-    observe({
-      updateCheckboxGroupButtons(session, "log2fc_bigger1_btn", selected = if (length(input$log2fc_bigger1_tissue) > 0) "log2FC > 1" else character(0))
-    }) %>% bindEvent(input$log2fc_bigger1_tissue)
-    
-    observe({
-      updateCheckboxGroupButtons(session, "log2fc_smaller1_btn", selected = if (length(input$log2fc_smaller1_tissue) > 0) "log2FC < -1" else character(0))
-    }) %>% bindEvent(input$log2fc_smaller1_tissue)
-    
-    observe({
-      updateCheckboxGroupButtons(session, "pval_btn",  selected = if (length(input$pval_tissue) > 0) "p-value < 0.05" else character(0))
-    }) %>% bindEvent(input$pval_tissue)
-    
-    observe({
-      updateCheckboxGroupButtons(session, "padj_btn", selected = if (length(input$padj_tissue) > 0) "p-adj < 0.05" else character(0))
-    }) %>% bindEvent(input$padj_tissue)
-    
-    
-    # ===== MAIN OBSERVE =====
-    
-    # observe({
-    #   # Pokud probíhá restore session, přeskoč automatické aktualizace
-    #   if (!is.null(is_restoring) && isTruthy(is_restoring())) {
-    #     return()
-    #   }
-    #   
-    #   # update_consequence_choices()
-    #   # update_gene_region_choices()
-    #   update_column_choices()
-    #   # update_numeric_inputs()
-    #   
-    #   if (!initialized()) {
-    #     initialized(TRUE)
-    #   }
-    # })
+
+
     
     # ===== EVENT HANDLERS =====
     
@@ -625,55 +540,45 @@ options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = 
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
     })
     
+    tissue_ids <- setNames(sapply(tissue_list, sanitize, USE.NAMES = FALSE), tissue_list)
+    
+    tissue_reactives <- setNames(
+      lapply(tissue_list, function(t) {
+        t_raw <- t; t_id <- tissue_ids[[t]]; force(t_raw); force(t_id)
+        reactive({
+          val <- input[[paste0("select_filter_", t_id)]]
+          if (is.null(val)) character(0) else as.character(val)
+        })
+      }),
+      paste0("tissue_filter_", tissue_list)  # jméno reaktivu necháme s „raw“ názvem tkáně
+    )
+    
     
     restore_ui_inputs <- function(state) {
-      # 
-      # if (!is.null(state$selected_cols)) {
-      #   wanted <- ch(safe_extract(state$selected_cols))
-      #   
-      #   wanted_values <- normalize_column_selection(
-      #     selection = wanted,
-      #     choices_map = mapped_checkbox_names,
-      #     default_cols = colnames_list$default_columns
-      #   )
-      #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = wanted_values)
-      # }
-
-      if (!is.null(state$selected_tissue)) updateCheckboxGroupButtons(session, "select_tissue", selected = safe_extract(state$selected_tissue))
-      if (!is.null(state$selected_pathway)) updateCheckboxGroupButtons(session, "filter_pathway", selected = safe_extract(state$selected_pathway))
-      if (!is.null(state$selected_pathway)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(state$selected_cols))
+      if (!is.null(state$selected_tissue))  updateCheckboxGroupButtons(session, "select_tissue",  selected = safe_extract(state$selected_tissue))
+      if (!is.null(state$selected_pathway)) updatePickerInput(session, "filter_pathway",          selected = safe_extract(state$selected_pathway))
+      if (!is.null(state$selected_columns)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(state$selected_columns))
       
-      if (!is.null(state$log2fc_bigger1_tissue)) updatePickerInput(session, "log2fc_bigger1_tissue", selected = safe_extract(state$log2fc_bigger1_tissue))
-      if (!is.null(state$log2fc_smaller1_tissue)) updatePickerInput(session, "log2fc_smaller1_tissue", selected = safe_extract(state$log2fc_smaller1_tissue))
-      if (!is.null(state$pval_tissue)) updatePickerInput(session, "pval_tissue", selected = safe_extract(state$pval_tissue))
-      if (!is.null(state$padj_tissue)) updatePickerInput(session, "padj_tissue", selected = safe_extract(state$padj_tissue))
-      
-      if (!is.null(state$log2fc_bigger1_btn)) updateCheckboxGroupButtons(session, "log2fc_bigger1_btn", selected = safe_extract(state$log2fc_bigger1_btn))
-      if (!is.null(state$log2fc_smaller1_btn)) updateCheckboxGroupButtons(session, "log2fc_smaller1_btn", selected = safe_extract(state$log2fc_smaller1_btn))
-      if (!is.null(state$pval_btn)) updateCheckboxGroupButtons(session, "pval_btn", selected = safe_extract(state$pval_btn))
-      if (!is.null(state$padj_btn)) updateCheckboxGroupButtons(session, "padj_btn", selected = safe_extract(state$padj_btn))
-
+      for (t in tissue_list) {
+        tid <- tissue_ids[[t]]
+        if (!is.null(state[[paste0("tissue_filter_", t)]])) {
+          updateCheckboxGroupButtons(session, paste0("select_filter_", tid),
+                                     selected = safe_extract(state[[paste0("tissue_filter_", t)]]))
+        }
+      }
     }
-    
-    return(list(
+
+    return_list <- list(
       confirm = reactive(input$confirm_btn),
       selected_tissue = reactive(input$select_tissue),
       selected_pathway = reactive(input$filter_pathway),
       selected_columns = reactive(input$colFilter_checkBox),
-      
-      log2fc_bigger1_tissue = reactive(input$log2fc_bigger1_tissue),
-      log2fc_smaller1_tissue = reactive(input$log2fc_smaller1_tissue),
-      pval_tissue = reactive(input$pval_tissue),
-      padj_tissue = reactive(input$padj_tissue),
-      
-      log2fc_bigger1_btn = reactive(input$log2fc_bigger1_btn),
-      log2fc_smaller1_btn = reactive(input$log2fc_smaller1_btn),
-      pval_btn = reactive(input$pval_btn),
-      padj_btn = reactive(input$padj_btn),
-      
       restore_ui_inputs = restore_ui_inputs
-    ))
+    )
     
+    return_list <- c(return_list, tissue_reactives)
+    
+    return(return_list)
   })
 }
 
@@ -681,7 +586,8 @@ options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = 
 
 filterTab_ui <- function(id, tissue_list){
   ns <- NS(id)
-  
+  sanitize <- function(x) gsub("[^A-Za-z0-9]+", "_", x)
+  choices_list <- c("log2FC > 1", "log2FC < -1", "p-value < 0.05", "p-adj < 0.05")
   
   tagList(
     tags$head(tags$style(HTML(".sw-dropdown .action-button #my-filter-btn {background-color: transparent; border: none; margin-top: -1px;}
@@ -696,45 +602,33 @@ filterTab_ui <- function(id, tissue_list){
       size = "md",
       # width = "480px",
       icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
-      fluidRow(style = "display: flex; align-items: stretch;",
-         column(6,
-            box(width = 12, title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",
-                fluidRow(#class = "filterTab-select-tissue",
-                        checkboxGroupButtons(ns("select_tissue"),"Tissues:",choices = tissue_list,selected = tissue_list,individual = TRUE)),
-                fluidRow(#class = "filter_pathway",
-                    pickerInput(ns("filter_pathway"), "Pathways",choices = character(0), multiple = TRUE,
-                                options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))),
-                    tags$span("Tissue values:", style = "font-size: 1rem; font-weight: bold; isplay: inline-block; margin-bottom: .5rem;"),
-                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                        # div(style = "width: 100%",
-                        checkboxGroupButtons(ns("log2fc_bigger1_btn"),choices = "log2FC > 1",selected = "",individual = TRUE),
-                        div(class = "filter_pathway",
-                            pickerInput(ns("log2fc_bigger1_tissue"),choices = tissue_list, multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)
-                                        ))),
-                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                        checkboxGroupButtons(ns("log2fc_smaller1_btn"),choices = "log2FC < -1",selected = "",individual = TRUE),
-                        div(class = "filter_pathway",
-                            pickerInput(ns("log2fc_smaller1_tissue"), choices = tissue_list, multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))),
-                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                        checkboxGroupButtons(ns("pval_btn"),choices = "p-value < 0.05",selected = "",individual = TRUE),
-                        div(class = "filter_pathway",
-                            pickerInput(ns("pval_tissue"), choices = tissue_list, multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))),
-                    div(style = "display: flex; gap: 10px; margin-bottom: -10px;",
-                        checkboxGroupButtons(ns("padj_btn"),choices = "p-adj < 0.05",selected = "",individual = TRUE),
-                        div(class = "filter_pathway",
-                            pickerInput(ns("padj_tissue"), choices = tissue_list, multiple = TRUE, options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select tissue",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE)))))),
-         column(6,
-            box(width = 12, title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
-                div(style = "flex: 1; min-width: 300px;",
-                    div(class = "two-col-checkbox-group",
-                        prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL,choices = character(0))),
-                    div(style = "display: flex; gap: 10px; width: 100%;",
-                        actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
-                        actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))))
-      )),
+      fluidRow(style = "display: flex; align-items: stretch; max-width: 90rem;",
+               column(6,
+                      box(width = 12, title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",
+                          fluidRow(#class = "filterTab-select-tissue",
+                            checkboxGroupButtons(ns("select_tissue"),"Tissues:",choices = tissue_list,selected = tissue_list,individual = TRUE)),
+                          fluidRow(#class = "filter_pathway",
+                            pickerInput(ns("filter_pathway"), "Pathways",choices = character(0), multiple = TRUE,
+                                        options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "90%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))),
+                          tags$span("Tissue values:", style = "font-size: 1rem; font-weight: bold; isplay: inline-block; margin-bottom: .5rem;"),
+                          tagList(lapply(tissue_list, function(tissue) {
+                            tid <- sanitize(tissue)
+                            fluidRow(
+                              column(2, h6(tissue),style = "display: flex; align-items: center;"),
+                              column(10, checkboxGroupButtons(ns(paste0("select_filter_", tid)), NULL, choices = choices_list, selected = character(0), individual = TRUE))
+                            )}))
+                      )),
+               column(6,
+                      box(width = 12, title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
+                          div(style = "flex: 1; min-width: 300px;",
+                              div(class = "two-col-checkbox-group",
+                                  prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL,choices = character(0))),
+                              div(style = "display: flex; gap: 10px; width: 100%;",
+                                  actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
+                                  actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))))
+               )),
       div(style = "display: flex; justify-content: center;", 
           actionBttn(ns("confirm_btn"), "Apply changes", style = "stretch", color = "success"))
-    # )
     )
   )
 }
@@ -751,7 +645,7 @@ plot_ui <- function(id){
 
 plot_server <- function(id, patient, data, expr_flag, tissue_names) {
   moduleServer(id, function(input, output, session) {
-
+    
     ### render ui ###
     
     output$selected_plot_ui <- renderUI({
@@ -806,7 +700,7 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
       }
       
       plot_titul <- if (expr_flag == "all_genes") "Top 20 selected genes" else "All genes of interest"
-
+      
       pheatmap(heatmap_matrix(),
                scale = "none",
                cluster_rows = TRUE,
@@ -838,7 +732,7 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
     
     heatmap_matrix <- reactive({
       req(data())  # Ujisti se, že data jsou dostupná
-
+      
       data_dt <- as.data.table(data())
       
       if(expr_flag == "all_genes"){
@@ -874,7 +768,7 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
       
       # Ošetření NA hodnot
       heatmap_matrix[is.na(heatmap_matrix)] <- 0
-
+      
       return(heatmap_matrix)
     })
     

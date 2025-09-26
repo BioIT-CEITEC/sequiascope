@@ -305,13 +305,13 @@ server <- function(id) {
       
       mounted_summary <- reactiveValues(mounted = character(0))
 
-      # # ## Somatic
-      add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
-      # # ## Germline
-      add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
-      # ## Fusion
-      add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
-      # ## Expression
+      # # # ## Somatic
+      # add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
+      # # # ## Germline
+      # add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
+      # # ## Fusion
+      # add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
+      # # ## Expression
       add_dataset_tabs(session, confirmed_paths, "expression", shared_data, added_tab_values, "expression_tabset", "expr_", expression_profile_table, reactive(input$load_session_btn))
       ## Summary
       add_summary_panels(session, output, shared_data, "summary_table", summary, mounted_summary)
@@ -445,7 +445,8 @@ server <- function(id) {
 #       }
 # 
 #       # Optionally focus the whole Variant calling page
-      updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
+      updateNavbarTabs(session, "navbarMenu", selected = ns("expression_profile"))
+      # updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
 
 # ##################
 # #### run network graph module
