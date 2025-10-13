@@ -1,7 +1,8 @@
 box::use(
-  shiny[br, NS,h3, tagList, div, observe, observeEvent, mainPanel, titlePanel, uiOutput, renderUI, HTML, fluidPage,fluidRow, moduleServer,
+  shiny[br, NS,h3, tagList, div, observe, observeEvent, mainPanel, titlePanel, uiOutput, renderUI, fluidPage,fluidRow, moduleServer,
         reactiveValues, column, req, reactive, reactiveVal,showModal,modalDialog,modalButton],
-  htmltools[tags],
+  htmltools[tags,HTML],
+  shinyalert[shinyalert],
   bs4Dash[actionButton,box],
   shinyjs[useShinyjs, runjs],
   reactable,
@@ -54,40 +55,11 @@ igv_ui <- function(id) {
 }
 
 #' @export
-igv_server <- function(id,shared_data) {
+igv_server <- function(id, shared_data, root_path) {
   moduleServer(id, function(input, output, session) {
     
-    # values <- reactiveValues()
-    # 
-    # # Seznam vzorků
-    # samples <- list(
-    #   list(name = "DZ1601", file = "DZ1601fuze.bam"),
-    #   list(name = "MR1507", file = "MR1507fuze.bam")
-    # )
-    # 
-    # values$bookmark_df <- data.frame(
-    #   gene1 = c("KANSL1", "KMT2A", "METTL13"),
-    #   gene2 = c("LRRC37A4P", "MLLT3", "DNM3"),
-    #   position1 = c("17:45597764", "11:118482495", "1:171814013"),
-    #   position2 = c("17:45545676", "11:20365744", "1:171987759")
-    # )
-    #################################################
-    ### Selected variant or fusion data + buttons ###
-    #################################################
-    # observe({
-    #   # Výchozí hodnota pro selected_dt
-    #   selected_dt(NULL)
-    #   
-    #   if (is.null(selected_variants) || nrow(selected_variants) == 0) {
-    #     message("No variants selected.")
-    #     # result_dt(tissue_table)
-    #   } else {
-    #     var_tab <- selected_variants[, .(Gene_symbol, variant = var_name)]
-    #     var_tab <- unique(var_tab, by = "Gene_symbol")
-    #   }
-    # 
-    # })
-
+    igv_needs_refresh <- reactiveVal(FALSE)
+    
     selected_variants <- reactive({
       req(shared_data$navigation_context())
       from <- shared_data$navigation_context()
@@ -95,23 +67,23 @@ igv_server <- function(id,shared_data) {
         message("🔍 Opened IGV from tab: ", from)
         if (from == "somatic") {
           return(data.frame(
-            gene1 = shared_data$somatic_var()$Gene_symbol,
-            position1 = gsub("_(\\d+)_.*$", ":\\1", shared_data$somatic_var()$var_name),
-            sample = shared_data$somatic_var()$sample
+            gene1 = shared_data$somatic.variants()$Gene_symbol,
+            position1 = gsub("_(\\d+)_.*$", ":\\1", shared_data$somatic.variants()$var_name),
+            sample = shared_data$somatic.variants()$sample
           ))
         } else if (from == "germline") {
           return(data.frame(
-            gene1 = shared_data$germline_var()$Gene_symbol,
-            position1 = gsub("_(\\d+)_.*$", ":\\1", shared_data$germline_var()$var_name),
-            sample = shared_data$germline_var()$sample
+            gene1 = shared_data$germline.variants()$Gene_symbol,
+            position1 = gsub("_(\\d+)_.*$", ":\\1", shared_data$germline.variants()$var_name),
+            sample = shared_data$germline.variants()$sample
           ))
         } else if (from == "fusion") {
           return(data.frame(
-            gene1 = shared_data$fusion_var()$gene1,
-            gene2 = shared_data$fusion_var()$gene2,
-            position1 = gsub("_(\\d+)_.*$", ":\\1", shared_data$fusion_var()$position1),
-            position2 = gsub("_(\\d+)_.*$", ":\\1", shared_data$fusion_var()$position2),
-            sample = shared_data$fusion_var()$sample
+            gene1 = shared_data$fusion.variants()$gene1,
+            gene2 = shared_data$fusion.variants()$gene2,
+            position1 = gsub("_(\\d+)_.*$", ":\\1", shared_data$fusion.variants()$position1),
+            position2 = gsub("_(\\d+)_.*$", ":\\1", shared_data$fusion.variants()$position2),
+            sample = shared_data$fusion.variants()$sample
           ))
         }
       }
@@ -120,16 +92,46 @@ igv_server <- function(id,shared_data) {
     selected_bams <- reactive({
       req(shared_data$navigation_context())
       from <- shared_data$navigation_context()
-      if(!is.null(from)){
-        if (from == "somatic") {
-          return(shared_data$somatic_bam())
-        } else if (from == "germline") {
-          return(shared_data$germline_bam())
-        } else if (from == "fusion") {
-          return(shared_data$fusion_bam())
-        }
+  
+      if (is.null(from)) return(NULL)
+
+      bam_list <- switch(from,
+                         somatic = shared_data$somatic.bam(),
+                         germline = shared_data$germline.bam(),
+                         fusion = shared_data$fusion.bam(),
+                         NULL)
+      
+      if (is.null(bam_list) || !length(bam_list)) return(NULL)
+      
+      if (!is.null(root_path) && nzchar(root_path)) {
+        root_path <- sub("/+$", "", root_path)
+        
+        bam_list <- lapply(bam_list, function(x) {
+          x$file <- sub(paste0("^", root_path, "/?"), "", x$file)
+          x
+        })
       }
+      
+      return(bam_list)
     })
+    
+    selected_patients <- reactive({
+      req(shared_data$navigation_context())
+      from <- shared_data$navigation_context()
+      
+      if (is.null(from)) return(NULL)
+      
+      pat_list <- switch(from,
+                         somatic = shared_data$somatic.patients.igv(),
+                         germline = shared_data$germline.patients.igv(),
+                         fusion = shared_data$fusion.patients.igv(),
+                         NULL)
+      
+      if (is.null(pat_list) || !length(pat_list)) return(NULL)
+
+      return(pat_list)
+    })
+    
     
     output$bookmarks <- renderReactable({
       req(selected_variants())
@@ -145,60 +147,162 @@ igv_server <- function(id,shared_data) {
       )
     })
     
+    observeEvent(selected_bams(), {
+      # Pokud už bylo IGV načteno alespoň jednou
+      if (!is.null(input$loadIGVButton) && input$loadIGVButton > 0) {
+        igv_needs_refresh(TRUE)
+        
+        shinyalert(
+          title = "Patient selection changed",
+          text = "Do you want to reload IGV with the new patient data?",
+          type = "info",
+          html = TRUE,
+          showCancelButton = TRUE,
+          confirmButtonText = "Reload IGV",
+          cancelButtonText = "Later",
+          callbackR = function(value) {
+            if (value) {
+              shinyjs::click("loadIGVButton")
+            }
+          }
+        )
+      }
+    }, ignoreNULL = TRUE, ignoreInit = TRUE)
+    
     observeEvent(input$loadIGVButton, {
+      
+      igv_needs_refresh(FALSE)
+      
       message("Current selected_bams files: ", paste(selected_bams(), collapse = ", "))
       message("Current selected_variants files: ", paste(selected_variants(), collapse = ", "))
+      
       selected_empty <- is.null(selected_variants()) || 
         (is.data.frame(selected_variants()) && nrow(selected_variants()) == 0)
       bam_empty <- is.null(selected_bams()) || length(selected_bams()) == 0
+
+      if (selected_empty) {
+        shinyalert(
+          title = "No variants selected",
+          text = paste0("You have not selected any variants for visualization.<br><br>",
+                        "Please return to the <b>", shared_data$navigation_context(), "</b> tab and select variants."),
+          type = "warning",
+          html = TRUE,
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
+        return()
+      }
       
-      if (selected_empty || bam_empty) {
-        showModal(modalDialog(
-          title = "Missing input",
-          paste0("You have not selected variants or patients for visualization. Please return to the ",shared_data$navigation_context()," tab and define them."),
-          easyClose = TRUE,
-          footer = modalButton("OK")
-        ))
-      } else {
-        output$igvDivOutput <- renderUI({
-          div(id = session$ns("igv-igvDiv"))
-        })
-      message("###### build_igv_tracks selected_bams ######: ",selected_bams())
+      # Alert 2: Žádné BAM soubory (ani pro jednoho pacienta)
+      if (bam_empty) {
+        shinyalert(
+          title = "No BAM files available",
+          text = paste0("None of the selected patients have BAM files available for IGV visualization.<br><br>",
+                        "Please ensure BAM files are uploaded in the <b>Upload data</b> tab, ",
+                        "or select different patients with available data."),
+          type = "warning",
+          html = TRUE,
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
+        return()
+      }
+    
+      # # NOVÁ KONTROLA: Zkontroluj, jestli všichni vybraní pacienti mají BAM soubory
+      selected_pats <- unique(selected_patients())
+      # patients_with_bams <- unique(sapply(selected_bams(), function(x) x$name))
+      # message("selected_bams(): ", selected_bams())
+      # message("patients_with_bams: ", patients_with_bams)
+      # # # Extrahuj patient ID z názvů (např. "DZ1601 RNA" -> "DZ1601")
+      # # patients_with_bams <- unique(gsub(" (RNA|Chimeric)$", "", patients_with_bams))
+      # # 
+      # missing_patients <- setdiff(selected_pats, patients_with_bams)
+      # message("selected_pats: ", selected_pats)
+      # předpoklad:
+      # selected_pats <- unique(selected_patients())   # vektor pacientů (může jich být víc)
+      # selected_bams()                               # list tracků; každý má $file (a často i $name)
+      # cílem je: pacienti, jejichž ID se nevyskytuje v žádné cestě (file)
+      
+      sb <- selected_bams()
+      
+      # vytáhni vektor cest (funguje pro 1 i více tracků)
+      paths <- character(0)
+      if (!is.null(sb)) {
+        if (is.list(sb) && "file" %in% names(sb) && is.character(sb$file)) {
+          # případ: jen jeden track: list(name=..., file=...)
+          paths <- sb$file
+        } else if (is.list(sb)) {
+          # případ: víc tracků: list(list(name=..., file=...), list(...), ...)
+          paths <- unique(unlist(lapply(sb, function(x) if (is.list(x) && !is.null(x$file)) x$file), use.names = FALSE))
+        }
+      }
+      
+      # pro každého pacienta: je jeho ID někde v cestách?
+      has_file <- vapply(
+        selected_pats,
+        function(id) any(grepl(id, paths, fixed = TRUE)),
+        logical(1)
+      )
+      
+      missing_patients <- selected_pats[!has_file]
+      
+      # volitelně: log
+      message("missing_patients: ",
+              if (length(missing_patients)) paste(missing_patients, collapse = ", ") else "<none>")
+      
+      if (length(missing_patients) > 0) {
+        
+        shinyalert(
+          title = "Missing BAM files",
+          text = paste0("The following patients have no BAM files available for visualization:<br><br>",
+                        "<b>", paste(missing_patients, collapse = ", "), "</b><br><br>",
+                        "IGV will load data only for patients with available BAM files."),
+          type = "warning",
+          html = TRUE,
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
+      }
+      
+      # Pokračuj s vykreslením IGV
+      output$igvDivOutput <- renderUI({
+        div(id = session$ns("igv-igvDiv"))
+      })
+      
+      message("###### build_igv_tracks selected_bams ######: ", selected_bams())
       track_block <- build_igv_tracks(selected_bams())
       
-      message("##### track_block ##### : ",track_block)
-      # Krok 2: Po vykreslení spustíme JavaScript pro IGV s mírným zpožděním
+      message("##### track_block ##### : ", track_block)
+      
       runjs(sprintf("
-        setTimeout(function() {
-          var igvDiv = document.getElementById('%s');
-          if (igvDiv) {
-            var options = {
-              genome: 'hg38',
-              locus: 'all',
-              tracks: [%s],
-              showNavigation: true,       // horní navigační lišta
-              showRuler: true,            // číslování pozice nahoře
-              showSampleName: true,       // pokud máš sampleName v tracku
-              showCenterGuide: true,      // vertikální linka ve středu
-              trackHeight: 300,           // výchozí výška jednoho BAM tracku
-              minTrackHeight: 50,
-              maxTrackHeight: 1000,
-              search: {
-                url: 'https://www.ncbi.nlm.nih.gov/gene/?term=$$'
-              }
-            };
-            igv.createBrowser(igvDiv, options).then(function(browser) {
-              console.log('IGV browser created');
-              window.igvBrowser = browser;
-            });
-          } else {
-            console.error('IGV div not found.');
+    setTimeout(function() {
+      var igvDiv = document.getElementById('%s');
+      if (igvDiv) {
+        var options = {
+          genome: 'hg38',
+          locus: 'all',
+          tracks: [%s],
+          showNavigation: true,
+          showRuler: true,
+          showSampleName: true,
+          showCenterGuide: true,
+          trackHeight: 300,
+          minTrackHeight: 50,
+          maxTrackHeight: 1000,
+          search: {
+            url: 'https://www.ncbi.nlm.nih.gov/gene/?term=$$'
           }
-        }, 20);  // Zpoždění 20 ms k zajištění, že div je vykreslen
-      ", session$ns("igv-igvDiv"), track_block))  # Přidáme správné ID divu s namespace
+        };
+        igv.createBrowser(igvDiv, options).then(function(browser) {
+          console.log('IGV browser created');
+          window.igvBrowser = browser;
+        });
+      } else {
+        console.error('IGV div not found.');
       }
+    }, 20);
+    ", session$ns("igv-igvDiv"), track_block))
+      # }
     })
 
+    
     observeEvent(input$bookmarks_click, {
       selected <- input$bookmarks_click
       message("Clicked row info: ", selected$index)

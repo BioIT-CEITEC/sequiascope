@@ -802,7 +802,7 @@ create_reactable <- function(data, dataset_type) {
 }
 
 #' @export
-build_confirmed_paths <- function(dataset_objects) {
+build_confirmed_paths <- function(dataset_objects, root_path) {
   result_rows <- list()    
   
   for (dataset_name in names(dataset_objects)) {
@@ -815,6 +815,8 @@ build_confirmed_paths <- function(dataset_objects) {
     if (is.null(patient_tab) || nrow(patient_tab) == 0) next
     if (is.null(raw_results_list) || length(raw_results_list) != nrow(patient_tab)) next
     
+
+    
     for (row_index in seq_len(nrow(patient_tab))) {
       patient_id    <- patient_tab$patient[row_index]
       file_type_map <- raw_results_list[[row_index]]
@@ -823,12 +825,10 @@ build_confirmed_paths <- function(dataset_objects) {
       for (file_type_name in names(file_type_map)) {
         file_paths <- file_type_map[[file_type_name]]$files
         if (length(file_paths) == 0) next
-        
-        absolute_paths <- ifelse(
-          grepl("^/|^[A-Za-z]:", file_paths),
-          file_paths,
-          file.path(dataset_root_path, sub("^/+", "", file_paths))
-        )
+
+        is_absolute <- grepl("^/|^[A-Za-z]:", file_paths)
+        absolute_paths <- file_paths
+        absolute_paths[!is_absolute] <- file.path(dataset_root_path, sub("^/+", "", file_paths[!is_absolute]))
         
         # --- tissue assignment ---
         tissue_list <- rep("none", length(absolute_paths))
@@ -844,24 +844,26 @@ build_confirmed_paths <- function(dataset_objects) {
             }
           }
         }
-        
+
         result_rows[[length(result_rows) + 1]] <- data.frame(
-          dataset   = dataset_name,
-          patient   = patient_id,
-          file_type = file_type_name,
+          dataset   = rep(dataset_name, length(absolute_paths)),
+          patient   = rep(patient_id, length(absolute_paths)),
+          file_type = rep(file_type_name, length(absolute_paths)),
           path      = absolute_paths,
           tissue    = tissue_list,
+          root_path = rep(root_path, length(absolute_paths)),
           stringsAsFactors = FALSE
         )
       }
+      
     }
   }
-  
+
   if (length(result_rows) == 0) {
     data.frame(
       dataset = character(), patient = character(),
       file_type = character(), path = character(),
-      tissue = character(),
+      tissue = character(), root_path = character(),    
       stringsAsFactors = FALSE
     )
   } else {

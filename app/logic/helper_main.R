@@ -48,11 +48,15 @@ get_files_by_patient <- function(confirmed_paths, dataset_type) {
 }
 
 
+#' @export
+run_igv <- function(){
+  
+}
 
 
 
 #' @export
-add_summary_panels <- function(session,
+add_summary_boxes <- function(session,
                                output,
                                shared_data,
                                ui_output_id,
@@ -177,12 +181,14 @@ add_dataset_tabs <- function(session,
         patient_id, 
         shared_data, 
         patient_files, 
+        file_list,
         load_session_btn)
     } else {
       module_obj$server(paste0(dataset_name, "_tab_", patient_id),
                         patient_id, 
                         shared_data, 
-                        patient_files)
+                        patient_files,
+                        file_list)
     }
     
     new_vals <- c(new_vals, tab_value)

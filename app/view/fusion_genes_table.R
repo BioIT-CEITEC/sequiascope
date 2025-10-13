@@ -10,7 +10,7 @@ box::use(
   bs4Dash[actionButton,bs4Card,box,updateNavbarTabs],
   shinyjs[useShinyjs,runjs,hide,show],
   shinyalert[shinyalert,useShinyalert],
-  data.table[data.table,uniqueN,as.data.table,copy,is.data.table,fifelse,setcolorder,fread,setnames],
+  data.table[data.table,uniqueN,as.data.table,copy,is.data.table,fifelse,setcolorder,fread,setnames,rbindlist],
   shinyWidgets[pickerInput,updatePickerInput,dropdownButton,prettyCheckboxGroup,updatePrettyCheckboxGroup,actionBttn,pickerOptions,dropdown],
   stats[setNames],
 )
@@ -20,7 +20,8 @@ box::use(
   app/logic/waiters[use_spinner],
   app/logic/reactable_helpers[create_clinvar_filter,create_consequence_filter,update_fusion_data],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
-  app/logic/session_utils[create_session_handlers, register_module, safe_extract, ch]
+  app/logic/session_utils[create_session_handlers, register_module, safe_extract, ch],
+  app/logic/helper_main[get_files_by_patient]
 )
 
 ##############  pozn  #####################
@@ -76,7 +77,7 @@ read_fusion_manifest <- function(sample, www_dir = "www") {
 }
 
 #' @export
-server <- function(id, selected_samples, shared_data, file, load_session_btn) {
+server <- function(id, selected_samples, shared_data, file, file_list, load_session_btn) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
    
@@ -312,7 +313,7 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
       global_data <- global_data[sample != selected_samples]
       
       # Přidáme nově aktualizované lokální data daného pacienta
-      updated_global_data <- rbind(global_data, selected_fusions())
+      updated_global_data <- rbindlist(list(global_data, selected_fusions()), use.names = TRUE, fill = TRUE)
       shared_data$fusion.variants(updated_global_data)
       message("## shared_data$fusion.variants(): ", shared_data$fusion.variants())
     })
@@ -365,7 +366,7 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
       }
       
       if (nrow(updated_variants) > 0) {
-        updated_global_data <- rbind(global_data, as.data.table(updated_variants))
+        updated_global_data <- rbindlist(list(global_data, as.data.table(updated_variants)), use.names = TRUE, fill = TRUE)
       } else {
         updated_global_data <- global_data
       }
@@ -440,94 +441,87 @@ server <- function(id, selected_samples, shared_data, file, load_session_btn) {
       }
       updatePickerInput(session, "idpick", choices = patient_list, selected = sel)
     }, ignoreInit = FALSE)
+
+    
     
     observeEvent(input$go2igv_button, {
       message("selected_fusions(): ", selected_fusions())
-
       
       selected_empty <- is.null(selected_fusions()) || nrow(selected_fusions()) == 0
-      bam_empty <- is.null(shared_data$fusion.bam) || length(shared_data$fusion.bam) == 0
+      selected_patients <- input$idpick
+      no_patients_selected <- is.null(selected_patients) || length(selected_patients) == 0
       
-      if (selected_empty || bam_empty) {
+      if (selected_empty) {
         shinyalert(
-          title = "No gene fusion or patient selected",
-          text = "Please select at least one gene fusion and one patient before inspecting them in IGV.",
+          title = "No gene fusion selected",
+          text = "Please select at least one gene fusion before inspecting them in IGV.",
+          type = "warning",
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
+        
+      } else if (no_patients_selected) {
+        shinyalert(
+          title = "No patient selected",
+          text = "Please select at least one patient for IGV visualization.",
           type = "warning",
           showCancelButton = FALSE,
           confirmButtonText = "OK")
         
       } else {
         shared_data$navigation_context("fusion")   # odkud otevíráme IGV
-        bam_path  <- get_inputs("bam_file")
-        message("bam_path names: ", paste(names(bam_path), collapse=", "))
         
-        
-        # 1) Vemte ID ze zvolených fúzí (ne z input$idpick)
-        ids <- unique(selected_fusions()$sample)
-        message("IDs from selected_fusions(): ", paste(ids, collapse = ", "))
-        
-        # 2) Postavte seznam tracků bezpečně
-        track_lists <- lapply(ids, function(id_val) {
-          # pokud máte zvlášť vektory pro fuze a chimeric, použijte je
-          # upravte názvy slotů podle toho, co vrací get_inputs("bam_file")
-          fuze_vec <- bam_path$rna.fuze_bam %||% bam_path$rna.tumor_bam   # fallback, když slot neexistuje
-          chim_vec <- bam_path$rna.chimeric_bam
-          
-          tumor_path <- grep(paste0(id_val, "\\.bam$"), fuze_vec, value = TRUE)
-          chim_path  <- grep(paste0(id_val, ".*Chimeric\\.out\\.bam$"), chim_vec, value = TRUE)
-          
+        message("Selected patients for IGV: ", paste(selected_patients, collapse = ", "))
+
+        # Build tracks for selected patients
+        track_lists <- lapply(selected_patients, function(patient_id) {
           tracks <- list()
-          if (length(tumor_path)) {
-            tracks <- c(tracks, list(list(
-              name = paste0(id_val, " RNA"),
-              file = sub(bam_path$path_to_folder, ".", tumor_path, fixed = TRUE)
-            )))
+          
+          if (!patient_id %in% names(file_list)) {
+            message("No fusion files found for patient: ", patient_id)
+            return(tracks)
           }
-          if (length(chim_path)) {
-            tracks <- c(tracks, list(list(
-              name = paste0(id_val, " Chimeric"),
-              file = sub(bam_path$path_to_folder, ".", chim_path, fixed = TRUE)
-            )))
+          
+          patient_files <- file_list[[patient_id]]
+          
+          # Add tumor BAM track if available
+          if ("tumor" %in% names(patient_files) && length(patient_files$tumor) > 0) {
+            tumor_bam <- patient_files$tumor[grepl("\\.bam$", patient_files$tumor)][1]
+            if (!is.na(tumor_bam)) {
+              tracks <- c(tracks, list(list(
+                name = paste0(patient_id, " RNA"),
+                file = tumor_bam
+              )))
+            }
           }
+          
+          # Add chimeric BAM track if available  
+          if ("chimeric" %in% names(patient_files) && length(patient_files$chimeric) > 0) {
+            chimeric_bam <- patient_files$chimeric[grepl("\\.bam$", patient_files$chimeric)][1]
+            if (!is.na(chimeric_bam)) {
+              tracks <- c(tracks, list(list(
+                name = paste0(patient_id, " Chimeric"),
+                file = chimeric_bam
+              )))
+            }
+          }
+          
           tracks
         })
         
-        bam_list <- do.call(c, track_lists)   # žádné unlist(..., recursive=FALSE)
+        bam_list <- do.call(c, track_lists)   # flatten list
         
-        # Logy, které fakt něco ukážou
+        # Log assembled tracks
         if (length(bam_list)) {
           files <- vapply(bam_list, function(x) x$file, character(1L))
           message("✔ Assigned fusion_bam (", length(bam_list), " tracks): ", paste(files, collapse = ", "))
         } else {
-          message("✖ No tracks assembled for IDs: ", paste(ids, collapse = ", "))
+          message("✖ No tracks assembled for patients: ", paste(selected_patients, collapse = ", "))
         }
         
         shared_data$fusion.bam(bam_list)
-        
+        shared_data$fusion.patients.igv(selected_patients)
         updateNavbarTabs(session = session$userData$parent_session, inputId = "navbarMenu", selected = session$userData$parent_session$ns("hidden_igv"))
       }
-
-      #   bam_list <- unlist(
-      #     lapply(input$idpick, function(id_val) {
-      #       ## 1) RNA-tumor BAM
-      #       tumor_path <- grep(paste0(id_val, ".*\\.bam$"), bam_path$rna.tumor_bam, value = TRUE)
-      #       tumor_track <- list(name = paste0(id_val, " RNA"), file = sub(bam_path$path_to_folder, ".", tumor_path, fixed = TRUE))
-      #       
-      #       ## 2) Chimeric BAM
-      #       chim_path <- grep(paste0(id_val, ".*Chimeric\\.out\\.bam$"), bam_path$rna.chimeric_bam, value = TRUE)
-      #       chim_track <- list(name = paste0(id_val, " Chimeric"), file = sub(bam_path$path_to_folder, ".", chim_path, fixed = TRUE))
-      #       
-      #       message("#####.  list(tumor_track, chim_track) ###### : ",list(tumor_track, chim_track))
-      #       list(tumor_track, chim_track)    # pořadí: tumor -> chimeric
-      #     }), recursive = FALSE              # nerozbalujeme úplně, zůstane list tracků
-      #   )
-      # 
-      #   shared_data$fusion.bam(bam_list)
-      #   message("✔ Assigned fusion_bam: ", paste(sapply(bam_list, `[[`, "file"), collapse = ", "))
-      #   
-      #   # 
-      #   updateNavbarTabs(session$userData$parent_session, "navbarMenu", "app-hidden_igv")
-      # }
     })
 
     ###########################

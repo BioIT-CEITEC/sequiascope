@@ -70,7 +70,7 @@ ui <- function(id) {
   )
 }
 
-server <- function(id, selected_samples, shared_data, file,  load_session_btn = NULL) {
+server <- function(id, selected_samples, shared_data, file, file_list) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     
@@ -269,7 +269,7 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       global_data <- global_data[sample != selected_samples]
       
       # Přidáme nově aktualizované lokální data daného pacienta
-      updated_global_data <- rbind(global_data, selected_variants())
+      updated_global_data <- rbindlist(list(global_data, selected_variants()), use.names = TRUE, fill = TRUE)
       shared_data$germline.variants(updated_global_data)
       message("## shared_data$germline_var(): ", shared_data$germline.variants())
     })
@@ -320,7 +320,7 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       }
       
       if (nrow(updated_variants) > 0) {
-        updated_global_data <- rbind(global_data, as.data.table(updated_variants))
+        updated_global_data <- rbindlist(list(global_data, as.data.table(updated_variants)), use.names = TRUE, fill = TRUE)
       } else {
         updated_global_data <- global_data
       }
@@ -401,33 +401,83 @@ server <- function(id, selected_samples, shared_data, file,  load_session_btn = 
       updatePickerInput(session, "idpick", choices = patient_list, selected = sel)
     }, ignoreInit = FALSE)
     
+    
     observeEvent(input$go2igv_button, {
-      selected_empty <- is.null(selected_variants()) || nrow(selected_variants()) == 0
-      bam_empty <- is.null(shared_data$germline.bam) || length(shared_data$germline.bam) == 0
+      message("selected_variants(): ", selected_variants())
       
-      if (selected_empty || bam_empty) {
+      selected_empty <- is.null(selected_variants()) || nrow(selected_variants()) == 0
+      selected_patients <- input$idpick
+      no_patients_selected <- is.null(selected_patients) || length(selected_patients) == 0
+      
+      if (selected_empty) {
         shinyalert(
-          title = "No variant or patient selected",
-          text = "Please select at least one variant and one patient before inspecting them in IGV.",
+          title = "No variant selected",
+          text = "Please select at least one variant before inspecting them in IGV.",
           type = "warning",
           showCancelButton = FALSE,
-          confirmButtonText = "OK")
+          confirmButtonText = "OK"
+        )
+        
+      } else if (no_patients_selected) {
+        shinyalert(
+          title = "No patient selected",
+          text = "Please select at least one patient for IGV visualization.",
+          type = "warning",
+          showCancelButton = FALSE,
+          confirmButtonText = "OK"
+        )
         
       } else {
         shared_data$navigation_context("germline")   # odkud otevíráme IGV
+        message("Selected patients for IGV (germline): ", paste(selected_patients, collapse = ", "))
         
-        bam_path <- get_inputs("bam_file")
-        bam_list <- lapply(input$idpick, function(id_val) {
-            full_path <- grep(paste0(id_val, ".*\\.bam$"), bam_path$dna.normal_bam, value = TRUE)
-            list(name = id_val, file = sub(bam_path$path_to_folder, ".", full_path, fixed = TRUE))  # relativní cesta)
+        # Vytvoř seznam BAM souborů pro každého pacienta
+        track_lists <- lapply(selected_patients, function(patient_id) {
+          tracks <- list()
+          
+          if (!patient_id %in% names(file_list)) {
+            message("No germline files found for patient: ", patient_id)
+            return(tracks)
+          }
+          
+          patient_files <- file_list[[patient_id]]
+          
+          # Přidej pouze normal BAM (germline)
+          if ("normal" %in% names(patient_files) && length(patient_files$normal) > 0) {
+            normal_bam <- patient_files$normal[grepl("\\.bam$", patient_files$normal)][1]
+            if (!is.na(normal_bam)) {
+              tracks <- c(tracks, list(list(
+                name = paste0(patient_id, " Normal"),
+                file = normal_bam
+              )))
+            }
+          } else {
+            message("No normal BAM for patient: ", patient_id)
+          }
+          
+          tracks
         })
         
-        shared_data$germline.bam(bam_list)
-        message("✔ Assigned germline.bam: ",paste(sapply(bam_list, `[[`, "file"), collapse = ", "))
+        bam_list <- do.call(c, track_lists)   # flatten list
         
-        updateNavbarTabs(session = session$userData$parent_session, inputId = "navbarMenu", selected = session$userData$parent_session$ns("hidden_igv"))
+        # Log info
+        if (length(bam_list)) {
+          files <- vapply(bam_list, function(x) x$file, character(1L))
+          message("✔ Assigned germline_bam (", length(bam_list), " tracks): ", paste(files, collapse = ", "))
+        } else {
+          message("✖ No tracks assembled for patients: ", paste(selected_patients, collapse = ", "))
+        }
+        
+        shared_data$germline.bam(bam_list)
+        shared_data$germline.patients.igv(selected_patients)
+        updateNavbarTabs(
+          session = session$userData$parent_session,
+          inputId = "navbarMenu",
+          selected = session$userData$parent_session$ns("hidden_igv")
+        )
       }
     })
+    
     
     ###########################
     ## get / restore session ##

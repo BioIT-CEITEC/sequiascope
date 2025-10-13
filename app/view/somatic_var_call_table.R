@@ -13,7 +13,7 @@ box::use(
   stats[setNames],
   shinyalert[shinyalert,useShinyalert],
   shinyjs[useShinyjs,hide,show],
-  data.table[fread,data.table,as.data.table,copy,is.data.table,uniqueN],
+  data.table[fread,data.table,as.data.table,copy,is.data.table,uniqueN,rbindlist],
   magrittr[`%>%`],
   jsonlite[read_json],
 )
@@ -97,7 +97,7 @@ ui <- function(id) {
 }
 
 # Serverova funkce pro modul definující funkce veskerych prvku v zalozce somatic variants
-server <- function(id, selected_samples, shared_data, file) {
+server <- function(id, selected_samples, shared_data, file, file_list) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     is_restoring_session <- reactiveVal(FALSE)
@@ -277,7 +277,8 @@ server <- function(id, selected_samples, shared_data, file) {
 
 
       # Přidáme nově aktualizované lokální data daného pacienta
-      updated_global_data <- rbind(global_data, selected_variants())
+      updated_global_data <- rbindlist(list(global_data, selected_variants()), use.names = TRUE, fill = TRUE)
+      
       shared_data$somatic.variants(updated_global_data)
     })
 
@@ -327,7 +328,7 @@ server <- function(id, selected_samples, shared_data, file) {
       }
 
       if (nrow(updated_variants) > 0) {
-        updated_global_data <- rbind(global_data, as.data.table(updated_variants))
+        updated_global_data <- rbindlist(list(global_data, as.data.table(updated_variants)), use.names = TRUE, fill = TRUE)
       } else {
         updated_global_data <- global_data
       }
@@ -430,48 +431,86 @@ server <- function(id, selected_samples, shared_data, file) {
       updatePickerInput(session, "idpick", choices = patient_list, selected = sel)
     }, ignoreInit = FALSE)
     
-    
     observeEvent(input$go2igv_button, {
+      message("selected_variants(): ", selected_variants())
+      
       selected_empty <- is.null(selected_variants()) || nrow(selected_variants()) == 0
-      bam_empty <- is.null(shared_data$somatic.bam) || length(shared_data$somati._bam) == 0
-
-      if (selected_empty || bam_empty) {
+      selected_patients <- input$idpick
+      no_patients_selected <- is.null(selected_patients) || length(selected_patients) == 0
+      
+      if (selected_empty) {
         shinyalert(
-          title = "No variant or patient selected",
-          text = "Please select at least one variant and one patient before inspecting them in IGV.",
+          title = "No variant selected",
+          text = "Please select at least one variant before inspecting them in IGV.",
           type = "warning",
           showCancelButton = FALSE,
           confirmButtonText = "OK")
-
+        
+      } else if (no_patients_selected) {
+        shinyalert(
+          title = "No patient selected",
+          text = "Please select at least one patient for IGV visualization.",
+          type = "warning",
+          showCancelButton = FALSE,
+          confirmButtonText = "OK")
+        
       } else {
         shared_data$navigation_context("somatic")   # odkud otevíráme IGV
-
-        bam_path  <- get_inputs("bam_file")
-        # bam_list  <- lapply(input$idpick, function(id_val) {
-        #   full_path <- grep(paste0(id_val, ".*\\.bam$"), bam_path$dna.tumor_bam, value = TRUE)
-        #   list(name = id_val, file = sub(bam_path$path_to_folder, ".", full_path, fixed = TRUE))
-        # })
-
-        bam_list <- unlist(
-          lapply(input$idpick, function(id_val) {
-            ## 1) DNA-tumor BAM
-            tumor_path <- grep(paste0(id_val, ".*\\.bam$"), bam_path$dna.tumor_bam, value = TRUE)
-            tumor_track <- list(name = paste0(id_val, "tumor"), file = sub(bam_path$path_to_folder, ".", tumor_path, fixed = TRUE))
-
-            ## 2) DNA-normal BAM
-            normal_path <- grep(paste0(id_val, ".*\\.bam$"), bam_path$dna.normal_bam, value = TRUE)
-            normal_track <- list(name = paste0(id_val, "normal"), file = sub(bam_path$path_to_folder, ".", normal_path, fixed = TRUE))
-
-            list(tumor_track, normal_track)  # pořadí: tumor -> chimeric
-          }), recursive = FALSE              # nerozbalujeme úplně, zůstane list tracků
-        )
-
+        
+        message("Selected patients for IGV: ", paste(selected_patients, collapse = ", "))
+        
+        # Build tracks for selected patients
+        track_lists <- lapply(selected_patients, function(patient_id) {
+          tracks <- list()
+          
+          if (!patient_id %in% names(file_list)) {
+            message("No somatic files found for patient: ", patient_id)
+            return(tracks)
+          }
+          
+          patient_files <- file_list[[patient_id]]
+          
+          # Add tumor BAM track if available
+          if ("tumor" %in% names(patient_files) && length(patient_files$tumor) > 0) {
+            tumor_bam <- patient_files$tumor[grepl("\\.bam$", patient_files$tumor)][1]
+            if (!is.na(tumor_bam)) {
+              tracks <- c(tracks, list(list(
+                name = paste0(patient_id, " Tumor"),
+                file = tumor_bam
+              )))
+            }
+          }
+          
+          # Add normal BAM track if available  
+          if ("normal" %in% names(patient_files) && length(patient_files$normal) > 0) {
+            normal_bam <- patient_files$normal[grepl("\\.bam$", patient_files$normal)][1]
+            if (!is.na(normal_bam)) {
+              tracks <- c(tracks, list(list(
+                name = paste0(patient_id, " Normal"),
+                file = normal_bam
+              )))
+            }
+          }
+          
+          tracks
+        })
+        
+        bam_list <- do.call(c, track_lists)   # flatten list
+        
+        # Log assembled tracks
+        if (length(bam_list)) {
+          files <- vapply(bam_list, function(x) x$file, character(1L))
+          message("✔ Assigned somatic_bam (", length(bam_list), " tracks): ", paste(files, collapse = ", "))
+        } else {
+          message("✖ No tracks assembled for patients: ", paste(selected_patients, collapse = ", "))
+        }
+        
         shared_data$somatic.bam(bam_list)
-        message("✔ Assigned somatic_bam: ", paste(sapply(bam_list, `[[`, "file"), collapse = ", "))
-
+        shared_data$somatic.patients.igv(selected_patients)
         updateNavbarTabs(session = session$userData$parent_session, inputId = "navbarMenu", selected = session$userData$parent_session$ns("hidden_igv"))
       }
     })
+
 
     ###########################
     ## get / restore session ##

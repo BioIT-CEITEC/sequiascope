@@ -97,7 +97,7 @@ ui <- function(id, tissue_list, goi = FALSE) {
   do.call(tabBox, c(list(id = ns(tabbox_id), width = 12, collapsible = FALSE, selected = "genesOfinterest", headerBorder = FALSE), tabs))
 }
 
-server <- function(id, patient, shared_data, patient_files) {
+server <- function(id, patient, shared_data, patient_files, file_list) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     

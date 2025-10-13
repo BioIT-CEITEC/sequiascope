@@ -63,12 +63,12 @@ box::use(
   app/view/germline_var_call_table,
   app/view/somatic_var_call_table,
   app/view/expression_profile_table,
-#   app/view/IGV,
-#   app/logic/igv_helper[start_static_server,stop_static_server],
+  app/view/IGV,
+  app/logic/helper_igv[start_static_server,stop_static_server],
 #   app/view/networkGraph_cytoscape,
   app/logic/session_utils[load_session, save_session],
   app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data, get_fusion_prerun_status],
-  app/logic/helper_main[get_patients, get_files_by_patient, add_dataset_tabs, add_summary_panels],
+  app/logic/helper_main[get_patients, get_files_by_patient, add_dataset_tabs, add_summary_boxes, run_igv],
 )
 
 #####################################################
@@ -217,8 +217,8 @@ ui <- function(id){
                           box-sizing: border-box;
                         }
                     ")),
-                box(id = ns("igv_page"), title = "IGV Viewer",width = 12, collapsible = FALSE
-                    # IGV$igv_ui(ns("igv"))
+                box(id = ns("igv_page"), title = "IGV Viewer",width = 12, collapsible = FALSE,
+                    IGV$igv_ui(ns("igv"))
                 )
         )
       )
@@ -236,14 +236,17 @@ server <- function(id) {
     shared_data <- reactiveValues(
       somatic.variants = reactiveVal(NULL),
       somatic.patients  = reactiveVal(character(0)),
+      somatic.patients.igv = reactiveVal(NULL),
       somatic.bam = reactiveVal(NULL),
       somatic.overview = list(),
       germline.variants = reactiveVal(NULL),
       germline.patients  = reactiveVal(character(0)),
+      germline.patients.igv = reactiveVal(NULL),
       germline.bam = reactiveVal(NULL),
       germline.overview = list(),
       fusion.variants = reactiveVal(NULL),
       fusion.patients = reactiveVal(character(0)),
+      fusion.patients.igv = reactiveVal(NULL),
       fusion.bam = reactiveVal(NULL),
       fusion.overview = list(),
       expression.variants.goi = reactiveVal(NULL), #genes of interest
@@ -305,17 +308,45 @@ server <- function(id) {
       
       mounted_summary <- reactiveValues(mounted = character(0))
 
-      # # # ## Somatic
-      # add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
+      # ## Somatic
+      add_dataset_tabs(session, confirmed_paths, "somatic", shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
       # # # ## Germline
-      # add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
-      # # ## Fusion
-      # add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
+      add_dataset_tabs(session, confirmed_paths, "germline", shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
+      ## Fusion
+      add_dataset_tabs(session, confirmed_paths, "fusion", shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
       # # ## Expression
       add_dataset_tabs(session, confirmed_paths, "expression", shared_data, added_tab_values, "expression_tabset", "expr_", expression_profile_table, reactive(input$load_session_btn))
       ## Summary
-      add_summary_panels(session, output, shared_data, "summary_table", summary, mounted_summary)
+      add_summary_boxes(session, output, shared_data, "summary_table", summary, mounted_summary)
+      # IGV + server mount (ONCE)
+      ##### Spustíme statický server při startu celé aplikace
+      ##### start_static_server(dir = "/Users/katerinajuraskova/Desktop/sequiaViz/input_files/MOII_e117/primary_analysis/230426_MOII_e117_tkane/mapped")
 
+      if (is.null(shared_data$igv_server_started)) shared_data$igv_server_started <- reactiveVal(FALSE)
+      if (is.null(shared_data$igv_root)) shared_data$igv_root <- reactiveVal(NULL)
+      
+      if (!isTRUE(shared_data$igv_server_started())) {
+
+        root_path <- unique(confirmed_paths$root_path)
+        root_path <- sub("/+$", "", root_path)
+
+        start_static_server(root_path)
+        
+        shared_data$igv_root(root_path)  
+        shared_data$igv_server_started(TRUE)
+    
+          session$onSessionEnded(function() {
+            stop_static_server()
+          })
+      }
+      
+        IGV$igv_server("igv", shared_data, root_path)
+
+
+      
+      
+
+      
       observeEvent(input$save_session_btn, {
         shinyalert(
           title = "Confirm Save",
@@ -445,7 +476,7 @@ server <- function(id) {
 #       }
 # 
 #       # Optionally focus the whole Variant calling page
-      updateNavbarTabs(session, "navbarMenu", selected = ns("expression_profile"))
+      updateNavbarTabs(session, "navbarMenu", selected = ns("fusion_genes"))
       # updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
 
 # ##################
