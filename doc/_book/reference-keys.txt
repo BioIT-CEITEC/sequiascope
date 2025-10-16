@@ -1,0 +1,17 @@
+bam-file-patterns
+patterns-for-somatic-variant-calling
+patterns-for-germline-variant-calling
+patterns-for-fusion-detection
+examples-of-correct-files
+structure-for-patient-dz1601
+example-variants.tsv
+example-expression.tsv
+data-preparation-recommendations
+before-upload
+performance-optimization
+backup-and-versioning
+required-file-missing
+multiple-files-found
+missing-bam-or-bai
+missing-pdf-or-tsv
+fill-also-use-case-for-expression-files---more-tissues-than-files-or-more-files-then-tissues-troubles-with-matching-tissue-names

@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<title>Chapter 4 Common Issues and Troubleshooting | Data Upload Module</title>
+<meta name="author" content="SequiaViz Team">
+<meta name="description" content="4.1 Status Icons and Their Meanings  4.1.1 🟢 Green Icons  “Files found”: All required files are available “Paired files OK”: BAM and BAI files are complete pairs “Single file OK”: Required file...">
+<meta name="generator" content="bookdown 0.45 with bs4_book()">
+<meta property="og:title" content="Chapter 4 Common Issues and Troubleshooting | Data Upload Module">
+<meta property="og:type" content="book">
+<meta property="og:description" content="4.1 Status Icons and Their Meanings  4.1.1 🟢 Green Icons  “Files found”: All required files are available “Paired files OK”: BAM and BAI files are complete pairs “Single file OK”: Required file...">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Chapter 4 Common Issues and Troubleshooting | Data Upload Module">
+<meta name="twitter:description" content="4.1 Status Icons and Their Meanings  4.1.1 🟢 Green Icons  “Files found”: All required files are available “Paired files OK”: BAM and BAI files are complete pairs “Single file OK”: Required file...">
+<!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
+<script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.9.0.9000/transition.js"></script><script src="libs/bs3compat-0.9.0.9000/tabs.js"></script><script src="libs/bs3compat-0.9.0.9000/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
+<script src="libs/bs4_book-1.0.0/bs4_book.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- CSS --><style type="text/css">
+    
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  </style>
+</head>
+<body data-spy="scroll" data-target="#toc">
+
+<div class="container-fluid">
+<div class="row">
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book"><a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+
+    <div class="d-flex align-items-start justify-content-between">
+      <h1>
+        <a href="index.html" title="">Data Upload Module</a>
+      </h1>
+      <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
+    </div>
+
+    <div id="main-nav" class="collapse-lg">
+      <form role="search">
+        <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
+</form>
+
+      <nav aria-label="Table of contents"><h2>Table of contents</h2>
+        <ul class="book-toc list-unstyled">
+<li><a class="" href="index.html"><span class="header-section-number">1</span> About</a></li>
+<li><a class="" href="introduction.html"><span class="header-section-number">2</span> Introduction</a></li>
+<li><a class="" href="how-to-install-and-run.html">How to install and run</a></li>
+<li><a class="" href="introduction-1.html"><span class="header-section-number">3</span> Introduction</a></li>
+<li><a class="" href="how-to-install-and-run-1.html">How to install and run</a></li>
+<li><a class="" href="data-requirements.html">Data requirements</a></li>
+<li><a class="active" href="common-issues-and-troubleshooting.html"><span class="header-section-number">4</span> Common Issues and Troubleshooting</a></li>
+<li><a class="" href="bam-file-patterns.html"><span class="header-section-number">5</span> BAM File Patterns</a></li>
+<li><a class="" href="examples-of-correct-files.html"><span class="header-section-number">6</span> Examples of Correct Files</a></li>
+<li><a class="" href="data-preparation-recommendations.html"><span class="header-section-number">7</span> Data Preparation Recommendations</a></li>
+<li><a class="" href="contact-and-support.html"><span class="header-section-number">8</span> Contact and Support</a></li>
+</ul>
+
+        <div class="book-extra">
+          
+        </div>
+      </nav>
+</div>
+  </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><div id="common-issues-and-troubleshooting" class="section level1" number="4">
+<h1>
+<span class="header-section-number">4</span> Common Issues and Troubleshooting<a class="anchor" aria-label="anchor" href="#common-issues-and-troubleshooting"><i class="fas fa-link"></i></a>
+</h1>
+<div id="status-icons-and-their-meanings" class="section level2" number="4.1">
+<h2>
+<span class="header-section-number">4.1</span> Status Icons and Their Meanings<a class="anchor" aria-label="anchor" href="#status-icons-and-their-meanings"><i class="fas fa-link"></i></a>
+</h2>
+<div id="green-icons" class="section level3" number="4.1.1">
+<h3>
+<span class="header-section-number">4.1.1</span> 🟢 Green Icons<a class="anchor" aria-label="anchor" href="#green-icons"><i class="fas fa-link"></i></a>
+</h3>
+<ul>
+<li>
+<strong>“Files found”</strong>: All required files are available</li>
+<li>
+<strong>“Paired files OK”</strong>: BAM and BAI files are complete pairs</li>
+<li>
+<strong>“Single file OK”</strong>: Required file was found</li>
+</ul>
+</div>
+<div id="orange-icons" class="section level3" number="4.1.2">
+<h3>
+<span class="header-section-number">4.1.2</span> 🟠 Orange Icons<a class="anchor" aria-label="anchor" href="#orange-icons"><i class="fas fa-link"></i></a>
+</h3>
+<ul>
+<li>
+<strong>“Missing BAM or BAI”</strong>: BAM file or its index is missing</li>
+<li>
+<strong>“Missing PDF or TSV”</strong>: Incomplete Arriba pair (PDF/TSV)</li>
+<li>
+<strong>“Optional files not available”</strong>: Optional files are not available</li>
+</ul>
+</div>
+<div id="red-icons" class="section level3" number="4.1.3">
+<h3>
+<span class="header-section-number">4.1.3</span> 🔴 Red Icons<a class="anchor" aria-label="anchor" href="#red-icons"><i class="fas fa-link"></i></a>
+</h3>
+<ul>
+<li>
+<strong>“Required file missing”</strong>: Required file for analysis is missing</li>
+<li>
+<strong>“Multiple files found”</strong>: More files found than expected</li>
+</ul>
+</div>
+</div>
+<div id="common-errors-and-solutions" class="section level2" number="4.2">
+<h2>
+<span class="header-section-number">4.2</span> Common Errors and Solutions<a class="anchor" aria-label="anchor" href="#common-errors-and-solutions"><i class="fas fa-link"></i></a>
+</h2>
+<div id="required-file-missing" class="section level3" number="4.2.1">
+<h3>
+<span class="header-section-number">4.2.1</span> “Required file missing”<a class="anchor" aria-label="anchor" href="#required-file-missing"><i class="fas fa-link"></i></a>
+</h3>
+<p><strong>Cause</strong>: Required file for selected analysis type is missing<br><strong>Solution</strong>:
+- Check if the file exists in the patient directory
+- Verify correct file naming (must contain patient ID)
+- Make sure the file has the correct extension (.tsv, .xlsx)</p>
+</div>
+<div id="multiple-files-found" class="section level3" number="4.2.2">
+<h3>
+<span class="header-section-number">4.2.2</span> “Multiple files found”<a class="anchor" aria-label="anchor" href="#multiple-files-found"><i class="fas fa-link"></i></a>
+</h3>
+<p><strong>Cause</strong>: More files of the same type found for one patient<br><strong>Solution</strong>:
+- Remove or rename duplicate files
+- Make sure each patient has only one file of each type
+- Check BAM file patterns - they might be too general</p>
+</div>
+<div id="missing-bam-or-bai" class="section level3" number="4.2.3">
+<h3>
+<span class="header-section-number">4.2.3</span> “Missing BAM or BAI”<a class="anchor" aria-label="anchor" href="#missing-bam-or-bai"><i class="fas fa-link"></i></a>
+</h3>
+<p><strong>Cause</strong>: BAM file doesn’t have corresponding index (.bai)<br><strong>Solution</strong>:
+- Generate missing .bai files using <code>samtools index</code>
+- Make sure .bai files have correct naming
+- For <code>file.bam</code> there must be <code>file.bam.bai</code> or <code>file.bai</code></p>
+</div>
+<div id="missing-pdf-or-tsv" class="section level3" number="4.2.4">
+<h3>
+<span class="header-section-number">4.2.4</span> “Missing PDF or TSV”<a class="anchor" aria-label="anchor" href="#missing-pdf-or-tsv"><i class="fas fa-link"></i></a>
+</h3>
+<p><strong>Cause</strong>: Incomplete Arriba output<br><strong>Solution</strong>:
+- Make sure you have both files (.pdf and .tsv) from Arriba analysis
+- Check naming - both must contain patient ID</p>
+<hr>
+</div>
+</div>
+</div>
+  <div class="chapter-nav">
+<div class="prev"><a href="data-requirements.html">Data requirements</a></div>
+<div class="next"><a href="bam-file-patterns.html"><span class="header-section-number">5</span> BAM File Patterns</a></div>
+</div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
+      <ul class="nav navbar-nav">
+<li><a class="nav-link" href="#common-issues-and-troubleshooting"><span class="header-section-number">4</span> Common Issues and Troubleshooting</a></li>
+<li>
+<a class="nav-link" href="#status-icons-and-their-meanings"><span class="header-section-number">4.1</span> Status Icons and Their Meanings</a><ul class="nav navbar-nav">
+<li><a class="nav-link" href="#green-icons"><span class="header-section-number">4.1.1</span> 🟢 Green Icons</a></li>
+<li><a class="nav-link" href="#orange-icons"><span class="header-section-number">4.1.2</span> 🟠 Orange Icons</a></li>
+<li><a class="nav-link" href="#red-icons"><span class="header-section-number">4.1.3</span> 🔴 Red Icons</a></li>
+</ul>
+</li>
+<li>
+<a class="nav-link" href="#common-errors-and-solutions"><span class="header-section-number">4.2</span> Common Errors and Solutions</a><ul class="nav navbar-nav">
+<li><a class="nav-link" href="#required-file-missing"><span class="header-section-number">4.2.1</span> “Required file missing”</a></li>
+<li><a class="nav-link" href="#multiple-files-found"><span class="header-section-number">4.2.2</span> “Multiple files found”</a></li>
+<li><a class="nav-link" href="#missing-bam-or-bai"><span class="header-section-number">4.2.3</span> “Missing BAM or BAI”</a></li>
+<li><a class="nav-link" href="#missing-pdf-or-tsv"><span class="header-section-number">4.2.4</span> “Missing PDF or TSV”</a></li>
+</ul>
+</li>
+</ul>
+
+      <div class="book-extra">
+        <ul class="list-unstyled">
+          
+        </ul>
+</div>
+    </nav>
+</div>
+
+</div>
+</div> <!-- .container -->
+
+<footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>"<strong>Data Upload Module</strong>" was written by SequiaViz Team. It was last built on 2025-10-09.</p>
+  </div>
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>This book was built by the <a class="text-light" href="https://bookdown.org">bookdown</a> R package.</p>
+  </div>
+
+</div></div>
+</footer>
+</body>
+</html>

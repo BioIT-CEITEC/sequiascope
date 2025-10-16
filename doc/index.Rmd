@@ -1,0 +1,24 @@
+--- 
+title: "SequiaViz Documentation"
+author: "Kateřina Jurásková"
+date: "`r Sys.Date()`"
+site: bookdown::bookdown_site
+documentclass: book
+output:
+  bookdown::bs4_book:
+    bootswatch: dark
+    css: "custom-styles.css"
+
+---
+
+# Introduction {-}
+
+Welcome to SequiaViz documentation...
+
+# How to install and run {-}
+
+To install and run SequiaViz, follow these steps:
+
+1. Install the required R packages.
+2. Set up the directory structure.
+3. Upload your data files.

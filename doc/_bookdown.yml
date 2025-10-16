@@ -1,0 +1,17 @@
+book_filename: "documentation"
+rmd_files: [
+  "index.Rmd",
+  "data-requirements.Rmd",
+  "upload-data.Rmd",
+  "summary-report.Rmd",
+  "variant_calling.Rmd"
+]
+output_dir: "docs"
+delete_merged_file: true
+
+output:
+  bookdown::bs4_book:
+    theme:
+      bootswatch: dark
+      css: "custom-styles.css"
+

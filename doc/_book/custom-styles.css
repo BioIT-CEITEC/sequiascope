@@ -1,0 +1,64 @@
+
+/* Nadpisy */
+
+.section.level1 h1 {
+  font-size: 48px !important;
+}
+
+.section.level2 h2 {
+  font-size: 32px !important;
+  margin: 48px 0px 8px;
+}
+
+.section.level3 h3 {
+  font-size: 24px !important;
+  margin: 32px 0px 8px;
+}
+
+p {
+  color: #000000;
+  font-size: 16px;
+  margin: 0 0 8px;       /* nahoře=0, vpravo=0, dole=8px, vlevo=0 */
+}
+
+code {
+  color: #D63384;
+  background-color: transparent;
+}
+
+.table thead {
+  font-size: 14px;
+  padding: 8px 24px 8px;
+   th {
+      border-top: 0px;
+      border-bottom: 2px solid #000000;
+  }
+}
+
+pre {
+  font-size: 14px;
+  color: #212529;
+  background-color: #F8F9FA;
+  margin: 0 0 0 0;
+  padding: 12px 20px;
+}
+
+.example-table {
+  background: #f8f9fa;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 12px;
+  margin: 16px 0;
+  font-family: monospace;
+}
+.example-table thead th {
+  border-bottom: 1px solid #000000;
+}
+.example-table p {
+  font-family: monospace;
+  font-size: 14px;   /* můžeš doladit */
+}
+
+
+
