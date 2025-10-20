@@ -8,8 +8,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgeos-dev \
     libglpk-dev \
     libgit2-dev \
+    libwebp-dev \
+    libwebpdemux2 \
+    libwebpmux3 \
     build-essential \
     ca-certificates \
+    lsof \
+    curl \
   && rm -rf /var/lib/apt/lists/*
 
 # Node.js and NPM instalation (LTS 22)
@@ -24,7 +29,9 @@ COPY . /srv/shiny-server/sequiaViz
 
 # Install R dependencies
 RUN R -e "install.packages('remotes', repos='https://cloud.r-project.org')"
-RUN Rscript /srv/shiny-server/sequiaViz/Dependencies.R
+RUN R -e "install.packages('BiocManager', repos='https://cloud.r-project.org')"
+
+RUN Rscript /srv/shiny-server/sequiaViz/dependencies.R
 
 # Install NPM dependencies
 COPY package*.json ./
@@ -34,5 +41,5 @@ RUN node -v && npm -v #(check versions)
 
 EXPOSE 8080
 
-CMD ["R", "-e", "rhino::build_sass()"]
-CMD ["R", "-e", "shiny::shinyAppDir('.', options = list(launch.browser = TRUE))"]
+# CMD ["R", "-e", "rhino::build_sass()"]
+CMD ["R", "-e", "shiny::runApp('.', host='0.0.0.0', port=8080)"]

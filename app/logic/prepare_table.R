@@ -66,8 +66,7 @@ prepare_germline_table <- function(dt, all_colNames){
 }
 
 #' @export
-prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames){
- 
+prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames,  session = NULL){
   normalize_keys <- function(dt) {
     dt <- as.data.table(dt)
     if ("chrom1" %in% names(dt)) setnames(dt, c("chrom1","chrom2"), c("chr1","chr2"))
@@ -105,7 +104,7 @@ prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames){
     merge_dt[, `:=`( has_svg = !is.na(svg_path) & nzchar(svg_path),
                      has_png = !is.na(png_path) & nzchar(png_path))]
 
-    cols <- colFilter("fusion", all_colNames)
+    cols <- colFilter("fusion", all_colNames,  session = session)
     merge_dt[, `:=`(Visual_Check = "", Notes = "")]
     setcolorder(merge_dt, cols$default_columns)
     
@@ -182,7 +181,7 @@ prepare_goi_table <- function(dt, goi) {
 
 
 #' @export
-colFilter <- function(flag, all_column_var, tissues = NULL){
+colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
   
   if (flag == "somatic"){
     # Permanentně skryté sloupce
@@ -232,7 +231,7 @@ colFilter <- function(flag, all_column_var, tissues = NULL){
                            "position1","strand1","position2","strand2","arriba.site1",
                            "arriba.site2","starfus.splice_type","DB_count","DB_list")
     
-    map_list <- colnames_map_list(flag)
+    map_list <- colnames_map_list(flag, session = session)
     mapped_columns <- names(map_list)
     extra_columns <- setdiff(all_column_var, c(mapped_columns, hidden_columns))
     

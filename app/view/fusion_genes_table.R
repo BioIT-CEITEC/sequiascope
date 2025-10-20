@@ -110,7 +110,7 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
       message("[fusion] Loading input data for: ", file$fusion)
       data <- load_data(file$fusion, "fusion", selected_samples)
       manifest_dt <- read_fusion_manifest(selected_samples, www_dir = "www")
-      patient_dt <- prepare_fusion_genes_table(selected_samples, as.data.table(data), manifest_dt, colnames(data))
+      patient_dt <- prepare_fusion_genes_table(selected_samples, as.data.table(data), manifest_dt, colnames(data),session = list(ns = session$ns) )
 
       message(sprintf("[fusion] Rows: %d | has_svg: %d | has_png: %d",
                       nrow(patient_dt), sum(patient_dt$has_svg, na.rm = TRUE), sum(patient_dt$has_png, na.rm = TRUE)))
@@ -143,7 +143,7 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
       shared_data$fusion.overview[[ selected_samples ]] <- overview_dt
     })
 
-    map_list <- colnames_map_list("fusion",session = session) # gives list of all columns with their column definitions
+    map_list <- colnames_map_list("fusion",session = list(ns = session$ns)) # gives list of all columns with their column definitions
     mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     
     filter_state <- filterTab_server("filterTab_dropdown", colnames_list, data(), mapped_checkbox_names,  is_restoring = is_restoring_session)

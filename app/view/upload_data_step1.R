@@ -85,7 +85,9 @@ step1_server <- function(id, path, patients, datasets, tumor_pattern, normal_pat
     next1_btn <- reactiveVal(NULL)
     load_click <- reactiveVal(NULL)
     
-    wd <- c(home = getwd())
+    # wd <- c(home = getwd())
+    
+    wd <- c(home = getwd(), input_files = "/input_files")
     shinyDirChoose(input, "dir", roots = wd)
     
     observeEvent(input$dir, {

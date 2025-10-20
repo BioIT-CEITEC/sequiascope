@@ -1,0 +1,36 @@
+# R and Shiny specific files
+.Rhistory
+.RData
+.Rproj.user/
+*.log
+reactable.extras.R
+Untitled.R
+
+# Local environment configuration
+.Renviron
+.renv.lock
+.env
+
+# Cache files
+*.tar.gz
+*.zip
+
+# Other files
+*.bam
+*.bai
+*.xlsx
+*.xls
+*.tsv
+*temp_batch.txt
+!kegg_tab.tsv
+
+# renv and input data directories
+doc/
+renv/
+input_files/
+report_results/
+node_modules/
+sessions/
+tests/
+www/
+!www/manifests/

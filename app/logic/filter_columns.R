@@ -80,7 +80,7 @@ map_checkbox_names <- function(map_list, all_actual_columns = NULL){
 #       NA_character_
 #     }
 #   })
-#   
+# 
 #   map_display_names <- map_display_names[!is.na(map_display_names)]
 #   choices <- setNames(names(map_display_names), map_display_names)
 #   return(choices)
@@ -144,31 +144,31 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
   return(column_defs)
 }
 # generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
-#   
+# 
 #   # Definuj permanentně skryté sloupce podle tagu
 #   hide <- switch(tag,
 #                  "fusion" = c("sample", "png_path", "svg_path"),
 #                  "germline" = c("sample"),
 #                  "expression" = c("sample"),
 #                  character(0))
-#   
+# 
 #   if (length(hide) == 0) {
 #     message("No column has been selected for permanent hiding")
 #   }
-#   
+# 
 #   column_defs <- lapply(column_names, function(col) {
-#     
+# 
 #     # 1️⃣ Permanentně skryté sloupce
 #     if (col %in% hide) {
 #       return(colDef(show = FALSE))
 #     }
-#     
+# 
 #     # 2️⃣ Pokud je sloupec vybrán uživatelem
 #     if (col %in% selected_columns) {
-#       
+# 
 #       # Získat definici z map_list
 #       map_def <- map_list[[col]]
-#       
+# 
 #       # Nastavit header z map_def$name nebo map_def$header, fallback na col
 #       header_name <- if (!is.null(map_def$name)) {
 #         map_def$name
@@ -177,27 +177,28 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
 #       } else {
 #         col
 #       }
-#       
+# 
 #       # Pokud je definice v map_list, využij ji, doplň header pokud chybí
 #       if (!is.null(map_def)) {
 #         map_def$header <- header_name
 #         return(do.call(colDef, map_def))
 #       }
-#       
+# 
 #       # Fallback: není v map_list, ale je vybrán uživatelem
 #       return(colDef(show = TRUE, header = header_name))
 #     }
-#     
+# 
 #     # 3️⃣ Pokud není vybrán uživatelem, skryj
 #     colDef(show = FALSE)
 #   })
-#   
+# 
 #   names(column_defs) <- column_names
 #   return(column_defs)
 # }
 
 #' @export
 colnames_map_list <- function(tag, all_columns = NULL, session = NULL){
+  # ns <- if (!is.null(session) && !is.null(session$ns)) session$ns else function(x) x
   if (tag == "fusion"){
     map_list <- list(
       gene1 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 1"),

@@ -5,7 +5,7 @@ box::use(
   tools[file_ext],
   openxlsx[getSheetNames],
   readxl[read_xls, read_xlsx],
-  VariantAnnotation[readVcf],
+  # VariantAnnotation[readVcf],
   matrixStats[rowRanges]
 )
 
@@ -50,6 +50,8 @@ read_file_header <- function(file_path) {
     }
     # ---- XLS / XLSX ----
     if (grepl("\\.xlsx$", file_name, ignore.case = TRUE)) {
+      message("fusion data are loading!")
+      print("fusion data are loading 2!")
       return(names(read_xlsx(file_path, n_max = 0)))
     }
     # ---- CSV / TSV ----
@@ -72,8 +74,8 @@ read_by_extension <- function(file_path) {
     return(as.data.table(read_xlsx(file_path)))
   } else if (ext == "xls") {
     return(as.data.table(read_xls(file_path)))
-    vcf <- readVcf(file_path)
-    return(as.data.table(rowRanges(vcf)))
+    # vcf <- readVcf(file_path)
+    # return(as.data.table(rowRanges(vcf)))
   } else {
     stop(paste("Nepodporovaný formát:", ext))
   }
@@ -87,9 +89,9 @@ get_required_columns <- function(dataset_type) {
                 "fOne", "Consequence", "HGVSc", "HGVSp", "all_full_annot_name", "variant_type"),
     germline = c("var_name","variant_freq","Gene_symbol","coverage_depth","gene_region","gnomAD_NFE","clinvar_sig","CGC_Germline",
                  "trusight_genes","fOne","Consequence","HGVSc", "HGVSp","all_full_annot_name","variant_type"),
-    fusion = c("gene1","gene2","arriba.called","starfus.called","arriba.confidence","overall_support","position1","strand1",
-               "position2","strand2","arriba.site1","arriba.site2"),
-    expression = c("feature_name", "geneid", "pathway","log2FC","p_value","p_adj")
+    fusion = c("gene1","gene2","arriba.called","starfus.called","arriba.confidence","overall_support","pos1","strand1",
+               "pos2","strand2","arriba.site1","arriba.site2"),
+    expression = c("feature_name", "geneid", "all_kegg_paths_name","log2FC","p_value","p_adj")
   )
   
   return(required_cols[[dataset_type]])

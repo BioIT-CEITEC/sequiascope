@@ -49,7 +49,7 @@ ui <- function(id) {
 }
 
 
-server <- function(id, patient, shared_data) {
+server <- function(id, patient, shared_data, run) {
   moduleServer(id, function(input, output, session) {
 
     noNA_text <- function(x) ifelse(is.na(x) | x == "", "-", x)
@@ -362,7 +362,12 @@ server <- function(id, patient, shared_data) {
 
     
     # Cesta k výchozí šabloně
-    default_template_path <- paste0(getwd(),"/input_files/report_template.docx")
+    if (run == "docker") {
+      default_template_path <- paste0(getwd(),"/report_template.docx")
+    } else {
+      default_template_path <- paste0(getwd(),"/input_files/report_template.docx")
+    }
+
 
     # Reaktivní výraz pro získání cesty k šabloně
     template_path <- reactive({

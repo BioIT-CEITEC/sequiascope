@@ -4,7 +4,6 @@ remotes::install_version("reactable", version = "0.4.4")
 remotes::install_version("shinyjs", version = "2.1.0")
 remotes::install_version("bs4Dash", version = "2.3.5")
 remotes::install_version("htmltools", version = "0.5.8.1")
-remotes::install_version("BiocManager", version = "1.30.26")
 remotes::install_version("devtools", version = "2.4.5")
 remotes::install_version("plotly", version = "4.11.0")
 remotes::install_version("shinyWidgets", version = "0.9.0")
@@ -28,6 +27,5 @@ remotes::install_version("matrixStats", version = "1.5.0")
 remotes::install_version("jsonlite", version = "2.0.0")
 remotes::install_version("httr", version = "1.4.7")
 
-BiocManager::install(c(
-    "tools", "VariantAnnotation"
-))
+# BiocManager::install("VariantAnnotation")
+BiocManager::install("tools")

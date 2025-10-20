@@ -138,7 +138,7 @@ load_session <- function(file, shared_data, module_configs = NULL) {
     }
   }
   
-  invalidateLater(2000, getDefaultReactiveDomain())
+  # invalidateLater(2000, getDefaultReactiveDomain())
   return(invisible(NULL))
 }
 

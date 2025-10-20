@@ -64,7 +64,7 @@ box::use(
   app/view/somatic_var_call_table,
   app/view/expression_profile_table,
   app/view/IGV,
-  app/logic/helper_igv[start_static_server,stop_static_server],
+  # app/logic/helper_igv[start_static_server,stop_static_server],
   app/view/networkGraph_cytoscape,
   app/logic/session_utils[load_session, save_session, cleanup_old_sessions, create_session_cache],
   app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data, get_fusion_prerun_status],
@@ -276,6 +276,8 @@ server <- function(id) {
     shared_data$expression_modules <- reactiveVal(list())
     shared_data$expression_pending <- reactiveVal(list()) 
     
+    shared_data$run <- reactiveVal("docker")
+        
     # Track which tab values were added per dataset (so we can remove/replace on reconfirm)
     added_tab_values <- reactiveValues(
       somatic  = character(0),
@@ -422,14 +424,15 @@ server <- function(id) {
           root_path <- unique(confirmed_paths$root_path)
           root_path <- sub("/+$", "", root_path)
   
-          start_static_server(root_path)
+          # start_static_server(root_path)
           
           shared_data$igv_root(root_path)  
+          message("root_path in main: ", root_path)
           shared_data$igv_server_started(TRUE)
       
-          session$onSessionEnded(function() {
-            stop_static_server()
-          })
+          # session$onSessionEnded(function() {
+          #   stop_static_server()
+          # })
         }
         
         IGV$igv_server("igv", shared_data, root_path)

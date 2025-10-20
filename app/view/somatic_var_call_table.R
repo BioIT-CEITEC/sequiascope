@@ -1,11 +1,11 @@
 #app/view/somatic_var_call_table.R
 
 box::use(
-  shiny[NS, sliderInput, fluidRow, column, tagList, br, uiOutput, plotOutput, downloadButton, actionButton, numericInput, renderPlot, fluidPage, selectInput,
+  shiny[NS, sliderInput, fluidRow, column, tagList, br, uiOutput, plotOutput, downloadButton, numericInput, renderPlot, fluidPage, selectInput,
         icon,div,tabPanel,moduleServer,downloadHandler,observe, observeEvent,reactive,renderUI,updateSliderInput,updateNumericInput,req,isolate,is.reactive,
         reactiveVal,showModal,modalDialog,modalButton,isTruthy],
   reactable[colDef,reactableOutput,renderReactable,reactable,getReactableState,JS],
-  bs4Dash[box,tabsetPanel,updateTabItems,updateNavbarTabs],
+  bs4Dash[box,tabsetPanel,updateTabItems,updateNavbarTabs,actionButton],
   htmltools[tags, span,HTML],
   shinyWidgets[pickerInput,updatePickerInput,dropdownButton,prettyCheckboxGroup,updatePrettyCheckboxGroup,actionBttn,pickerOptions,dropdown],
   networkD3[sankeyNetwork,renderSankeyNetwork,sankeyNetworkOutput],
@@ -140,9 +140,11 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       req(data())
       map_checkbox_names(map_list, names(data()))
     })
-    
-    colnames_list <- colnames_list_A()
-    
+    colnames_list <- colnames_list_A() 
+    # colnames_list <- reactive({
+    #   if (is.reactive(colnames_list_A)) colnames_list_A() else colnames_list_A
+    # })
+
     filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names, is_restoring_session)
     
     ############
@@ -403,7 +405,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
     p <-reactiveVal()
 
     sankey_data <- reactive({
-      sankey_plot(filtered_data())
+      sankey_plot(filtered_data(), shared_data$run())
     })
     output$sankey_plot <- renderSankeyNetwork({
       p(sankeyNetwork(
@@ -516,6 +518,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
         }
         
         shared_data$somatic.bam(bam_list)
+        message("bam_list iin somoatic: ", bam_list)
         shared_data$somatic.patients.igv(selected_patients)
         updateNavbarTabs(session = session$userData$parent_session, inputId = "navbarMenu", selected = session$userData$parent_session$ns("hidden_igv"))
       }
