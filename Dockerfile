@@ -1,6 +1,27 @@
+# -----------------------------------------------------------
+# STAGE 1 — Node.js pro instalaci JS knihoven (Cytoscape, IGV)
+# -----------------------------------------------------------
+FROM node:22 AS frontend-builder
+WORKDIR /build
+
+# Zkopíruj pouze package.json a nainstaluj závislosti
+COPY ./package*.json ./
+RUN npm ci
+
+# Zkopíruj potřebné JS knihovny (Cytoscape, pluginy, IGV)
+RUN mkdir -p /dist/js && \
+    cp ./node_modules/cytoscape/dist/cytoscape.min.js /dist/js/ && \
+    cp ./node_modules/cytoscape-cola/cytoscape-cola.js /dist/js/ && \
+    cp ./node_modules/cytoscape-fcose/cytoscape-fcose.js /dist/js/ && \
+    cp ./node_modules/cytoscape-panzoom/cytoscape-panzoom.js /dist/js/ && \
+    cp ./node_modules/igv/dist/igv.min.js /dist/js/
+
+# -----------------------------------------------------------
+# STAGE 2 — Shiny aplikace (hlavní runtime)
+# -----------------------------------------------------------
 FROM rocker/shiny:latest
 
-# System dependencies for R and compilation
+# Systémové závislosti pro R a kompilaci
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libcurl4-openssl-dev \
     libssl-dev \
@@ -17,29 +38,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
   && rm -rf /var/lib/apt/lists/*
 
-# Node.js and NPM instalation (LTS 22)
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && \
-    apt-get install -y nodejs && \
-    node -v && npm -v
-
-# Setting working directory and copying
+# Vytvoř adresář a nastav pracovní prostředí
 RUN mkdir -p /srv/shiny-server/sequiaViz
 WORKDIR /srv/shiny-server/sequiaViz
+
+# Zkopíruj Shiny aplikaci
 COPY . /srv/shiny-server/sequiaViz
 
-# Install R dependencies
+# Zkopíruj předem připravené JS knihovny z Node buildu
+COPY --from=frontend-builder /dist/js ./app/static/js
+
+# Instalace R balíčků
 RUN R -e "install.packages('remotes', repos='https://cloud.r-project.org')"
 RUN R -e "install.packages('BiocManager', repos='https://cloud.r-project.org')"
-
 RUN Rscript /srv/shiny-server/sequiaViz/dependencies.R
 
-# Install NPM dependencies
-COPY package*.json ./
-RUN npm ci || npm install
-RUN node -v && npm -v #(check versions)
-
-
+# Nastavení portu a spuštění
 EXPOSE 8080
-
-# CMD ["R", "-e", "rhino::build_sass()"]
 CMD ["R", "-e", "shiny::runApp('.', host='0.0.0.0', port=8080)"]

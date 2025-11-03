@@ -14,10 +14,27 @@ string_cache <- new.env(parent = emptyenv())
 # Funkce pro získání interakcí mezi proteiny z STRING API
 #' @export
 get_string_interactions <- function(proteins, species = 9606, chunk_size = 100, delay = 0.2) {
-  # Funkce pro odesílání jednotlivých požadavků
+  # 🔑 VALIDACE: Zkontrolovat, že proteins je validní
+  if (is.null(proteins) || length(proteins) == 0) {
+    message("⚠️ get_string_interactions: No proteins provided, returning empty data.frame")
+    return(data.frame())
+  }
   
+  # Odstranit NA, NULL a prázdné stringy
+  proteins <- proteins[!is.na(proteins) & proteins != ""]
+  
+  if (length(proteins) == 0) {
+    message("⚠️ get_string_interactions: All proteins were invalid (NA or empty), returning empty data.frame")
+    return(data.frame())
+  }
+  
+  # Funkce pro odesílání jednotlivých požadavků
   cache_key <- paste(sort(proteins), collapse = "|")
-  if (exists(cache_key, envir = string_cache)) {
+  
+  # 🔑 BEZPEČNÁ KONTROLA cache - zkontrolovat, že cache_key je validní string
+  if (!is.character(cache_key) || length(cache_key) != 1 || cache_key == "") {
+    message("⚠️ get_string_interactions: Invalid cache_key, skipping cache check")
+  } else if (exists(cache_key, envir = string_cache)) {
     message("Using cached STRING interactions")
     return(get(cache_key, envir = string_cache))
   }
@@ -113,20 +130,6 @@ prepare_cytoscape_network <- function(interactions, tab, proteins = NULL) {
   node_data <- node_data[match(proteins, node_data$id, nomatch = 0), ]
   edges <- edges[edges$source %in% proteins & edges$target %in% proteins, ]
   
-  # json_data <- list(
-  #   elements = list(
-  #     nodes = lapply(seq_len(nrow(node_data)), function(i) {
-  #       list(data = as.list(node_data[i, ]))
-  #     }),
-  #     edges = lapply(seq_len(nrow(edges)), function(i) {
-  #       list(data = as.list(edges[i, ]))
-  #     })
-  #   )
-  # )
-  # 
-  # network_json <- toJSON(json_data, auto_unbox = TRUE)
-  # return(network_json)
-  
   json_data <- list(
     elements = list(
       nodes = lapply(seq_len(nrow(node_data)), function(i) {
@@ -142,16 +145,43 @@ prepare_cytoscape_network <- function(interactions, tab, proteins = NULL) {
 }
 
 #' @export
-get_pathway_list <- function(expr_tag, goi_dt = NULL){
-  if(expr_tag == "genes_of_interest") {
-    if(!is.null(goi_dt$pathway)) return(sort(unique(goi_dt$pathway)))
-  }
-  tryCatch({
-    dt <- fread("input_files/kegg_tab.tsv")
-    return(sort(unique(dt$kegg_paths_name)))
-    
-  }, error = function(e) {
-    return(message("Invalid expr_tag. Please use 'all_genes' or 'genes_of_interest'."))
-  })
+get_pathway_list <- function(expr_tag, goi_dt = NULL, run = NULL) {
 
+  # Bezpečná kontrola parametru run
+  if (!is.null(run) && length(run) > 0 && run == "docker") {
+    path <- "/input_files/kegg_tab.tsv"
+  } else {
+    path <- paste0(getwd(), "/input_files/kegg_tab.tsv")
+  }
+
+  
+  # Zpracování pro ALL GENES
+  if (identical(expr_tag, "all_genes")) {
+    if (!file.exists(path)) {
+      stop("Soubor ", path, " nebyl nalezen.")
+    }
+    dt <- fread(path)
+    return(sort(unique(dt$kegg_paths_name)))
+  }
+  
+  # Zpracování pro GENES OF INTEREST
+  if (identical(expr_tag, "genes_of_interest")) {
+    # 1️⃣ goi_dt existuje a má sloupec "pathway"
+    if (!is.null(goi_dt) && "pathway" %in% colnames(goi_dt)) {
+      return(sort(unique(goi_dt$pathway)))
+    }
+    
+    # 2️⃣ goi_dt neobsahuje pathway, použij KEGG tabulku
+    if (file.exists(path)) {
+      dt <- fread(path)
+      return(sort(unique(dt$kegg_paths_name)))
+    } else {
+      stop("Soubor ", path, " nebyl nalezen.")
+    }
+  }
+  
+  # Pokud expr_tag neodpovídá známým hodnotám
+  warning("Invalid expr_tag. Please use 'all_genes' or 'genes_of_interest'.")
+  return(character(0))
 }
+

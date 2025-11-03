@@ -3,12 +3,14 @@
 .RData
 .Rproj.user/
 *.log
-reactable.extras.R
-Untitled.R
+sequiaViz.Rproj
+app/reactable.extras.R
+app/Untitled.R
 
 # Local environment configuration
 .Renviron
 .renv.lock
+renv.lock
 .env
 
 # Cache files
@@ -34,3 +36,7 @@ sessions/
 tests/
 www/
 !www/manifests/
+_book/
+docker-compose.yml
+Dockefile
+Dockerfile-igv

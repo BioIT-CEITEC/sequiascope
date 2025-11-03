@@ -277,8 +277,8 @@ server <- function(id) {
     shared_data$expression_modules <- reactiveVal(list())
     shared_data$expression_pending <- reactiveVal(list()) 
     
-    # shared_data$run <- reactiveVal("docker")
-    shared_data$run <- reactiveVal("local")
+    # shared_data$run <- "docker"
+    shared_data$run <- "local"
     
     # Track which tab values were added per dataset (so we can remove/replace on reconfirm)
     added_tab_values <- reactiveValues(
@@ -550,9 +550,8 @@ server <- function(id) {
 #       }
 # 
       # Optionally focus the whole Variant calling page
-      updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
-
-
+      # updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
+      updateNavbarTabs(session, "navbarMenu", selected = ns("network_graph"))
   
     }, ignoreInit = TRUE)
     

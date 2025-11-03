@@ -1,184 +1,369 @@
 // Registrace layoutů `cola` a `fcose` probíhá v js/index.js
-//cytoscape.use(cytoscapePanzoom); 
-console.log("✅ cytoscape_init.js loaded");
+console.log("✅ cytoscape_init.js loaded (multi-patient version)");
 
+// Úložiště pro instance Cytoscape pro různé pacienty
+const cytoscapeInstances = {};
+const lastHighlightedNodes = {};
+const updatingFromR = {}; // Flag pro každého pacienta - zabrání zpětné vazbě
+const lastSentSelection = {}; // Poslední odeslaná selection pro každého pacienta - zabrání duplicitním updates
 
-let cy;
-let cySubset;
-let lastHighlightedNode = null;
+// Pomocná funkce pro získání patient ID z container ID
+function getPatientIdFromContainerId(containerId) {
+    // Očekává formát: "app-network_tab_DZ1601-cyContainer" nebo "app-network_tab_DZ1601-cySubsetContainer"
+    const match = containerId.match(/app-network_tab_([^-]+)-/);
+    return match ? match[1] : null;
+}
+
+// 🔑 DŮLEŽITÉ: Definice stylesheet jako funkce, aby se dala znovu použít
+function getCytoscapeStylesheet() {
+    return [
+        {
+            selector: 'node',
+            style: {
+                "text-valign": "center",
+                "text-halign": "center",
+                "font-size": "40",
+                "content": "data(label)",
+                "width": "mapData(degree, 0, 20, 100, 300)",
+                "height": "mapData(degree, 0, 20, 100, 300)"
+            }
+        },
+        {
+            selector: 'node[log2FC<=0]',
+            style: {
+                'label': 'data(name)',
+                "background-color": "mapData(log2FC, -10, 0, blue, white)"
+            }
+        },
+        {
+            selector: 'node[log2FC>0]',
+            style: {
+                'label': 'data(name)',
+                "background-color": "mapData(log2FC, 0, 10, white, red)"
+            }
+        },
+        {
+            selector: 'node:selected',
+            style: {
+                'label': 'data(name)',
+                'background-color': '#B8E788'
+            }
+        },
+        {
+            selector: 'node.highlighted',
+            style: {
+                'background-color': 'yellow',
+                'border-color': 'yellow',
+                'border-width': '4px'
+            }
+        },
+        {
+            selector: 'node.somVariantBorder',
+            style: {
+                'border-width': 16,
+                'border-color': 'green',
+                'border-style': 'solid',
+            }
+        },
+        {
+            selector: 'node.germVariantBorder',
+            style: {
+                'border-width': 16,
+                'border-color': 'purple',
+                'border-style': 'solid',
+            }
+        },
+        {
+            selector: 'node.fusionBorder',
+            style: {
+                "outline-width": 12,
+                "outline-color": "orange",
+                "outline-offset": 4,
+                "outline-style": "solid",
+            }
+        },
+        {
+            selector: 'edge',
+            style: {
+                'curve-style': 'bezier',
+                'width': 3,
+                'line-color': '#999',
+                'opacity': 0.7
+            }
+        }
+    ];
+}
 
 // Společná funkce pro inicializaci Cytoscape grafu
-function initializeCytoscape(containerId, elementsData, isSubset = false) {
+function initializeCytoscape(containerId, data, isSubset = false) {
     const container = document.getElementById(containerId);
     if (!container) {
-        console.error(`Kontejner s ID ${containerId} nebyl nalezen.`);
+        console.error(`❌ Kontejner s ID ${containerId} nebyl nalezen.`);
         return null;
     }
+    const elementsData = data.elements
+    const patientId = data.patientId
+    console.log(`✅ Initializing Cytoscape for patient: ${patientId}, container: ${containerId}, isSubset: ${isSubset}`);
 
     const cytoscapeInstance = cytoscape({
         container: container,
         elements: elementsData,
-        style: [
-            {
-                selector: 'node',
-                style: {
-                    "text-valign": "center",
-                    "text-halign": "center",
-                    "font-size": "40",
-                  //  "border-color": "purple",
-                    "content": "data(label)",
-                  //  "border-width": "1px",
-                    "width": "mapData(degree, 0, 20, 100, 300)",
-                    "height": "mapData(degree, 0, 20, 100, 300)"
-                }
-            },
-            {
-                selector: 'node[log2FC<=0]',
-                style: {
-                    'label': 'data(name)',
-                    "background-color": "mapData(log2FC, -10, 0, blue, white)"
-                }
-            },
-            {
-                selector: 'node[log2FC>0]',
-                style: {
-                    'label': 'data(name)',
-                    "background-color": "mapData(log2FC, 0, 10, white, red)"
-                }
-            },
-            {
-                selector: 'node:selected',
-                style: {
-                    'label': 'data(name)',
-                    'background-color': '#B8E788'
-                }
-            },
-            {
-                selector: 'node.highlighted',
-                style: {
-                    'background-color': 'yellow',
-                    'border-color': 'yellow',
-                    'border-width': '4px'
-                }
-            },
-            {
-                selector: 'node.somVariantBorder',
-                style: {
-                    // Vnitřní hrana
-                    'border-width': 16,                // Šířka vnitřní hrany
-                    'border-color': 'green',         // Barva vnitřní hrany
-                    'border-style': 'solid',          // Styl vnitřní hrany
-                }
-            },
-            {
-                selector: 'node.germVariantBorder',
-                style: {
-                    // Vnitřní hrana
-                    'border-width': 16,                // Šířka vnitřní hrany
-                    'border-color': 'purple',         // Barva vnitřní hrany
-                    'border-style': 'solid',          // Styl vnitřní hrany
-                }
-            },
-            {
-                selector: 'node.fusionBorder',
-                style: {
-                    // Vnější hrana
-                    "outline-width": 12,              // Šířka vnější hrany
-                    "outline-color": "orange",        // Barva vnější hrany
-                    "outline-offset": 4,              // Vzdálenost od vnitřní hrany
-                    "outline-style": "solid",         // Styl vnější hrany
-                }
-            },
-            {
-                selector: 'edge',
-                style: {
-                    'curve-style': 'bezier'
-                }
-            }
-        ],
-        layout: { name: 'cola' },  // Výchozí layout
-        multiselect: false
+        style: getCytoscapeStylesheet(),  // 🔑 Použít funkci pro stylesheet
+        layout: { name: 'cola' },
+        selectionType: 'additive'  // 🔑 Umožnit výběr více uzlů najednou
     });
-    
 
     cytoscapeInstance.on('click', (event) => {
-      if (event.target === cytoscapeInstance) {         // click on the background
-        console.log("Background deselection is forbidden.");
-        cytoscapeInstance.nodes().unselectify();
-      } else {
-        cytoscapeInstance.nodes().selectify();
-      }
+        if (event.target === cytoscapeInstance) {
+            console.log("Background deselection is forbidden.");
+            cytoscapeInstance.nodes().unselectify();
+        } else {
+            cytoscapeInstance.nodes().selectify();
+        }
     });
 
-    // Sledování výběru a odznačení uzlů
+    // Sledování výběru a odznačení uzlů (pouze pro hlavní graf)
     if (!isSubset) {
-
         let selectionTimeout;
+        // 🔑 Použít globální objekt místo lokální proměnné (kvůli update method)
+        const patientId = data.patientId;
+        if (!lastSentSelection[patientId]) {
+            lastSentSelection[patientId] = [];
+        }
         
         cytoscapeInstance.on('select unselect', 'node', function(evt) {
             clearTimeout(selectionTimeout);
             selectionTimeout = setTimeout(() => {
+                // 🔑 KLÍČOVÁ OPRAVA: Ignorovat změny když aktualizujeme z R
+                if (updatingFromR[patientId]) {
+                    console.log("⏭️ Skipping cySelectedNodes update - updating from R");
+                    return;
+                }
+                
                 const selectedNodes = cytoscapeInstance.$('node:selected').map(node => node.data('id'));
+                
+                // 🔑 NOVÁ KONTROLA: Neposílat pokud se selection nezměnila
+                if (arraysEqual(selectedNodes, lastSentSelection[patientId])) {
+                    console.log("⏭️ Selection unchanged, skipping Shiny update");
+                    return;
+                }
+                
                 console.log("Vybrané uzly:", selectedNodes);
                 
-                Shiny.setInputValue(ns + 'cySelectedNodes', selectedNodes, { priority: "event" });
+                // Získat správný namespace pro tento graf
+                const ns = getNamespaceForContainer(containerId);
+                if (ns) {
+                    Shiny.setInputValue(ns + 'cySelectedNodes', selectedNodes, { priority: "event" });
+                    lastSentSelection[patientId] = selectedNodes.slice(); // Uložit kopii
+                }
             }, 200);
         });
+    }
 
-            // Synchronizace vybraných uzlů s hlavním grafem
-        Shiny.addCustomMessageHandler('update-selected-from-gene-list', function(data) {
-            let selectedNodes = data.selected_nodes;
+    return cytoscapeInstance;
+}
+
+// Pomocná funkce pro získání namespace z containerId pro Shiny input
+function getNamespaceForContainer(containerId) {
+    // Formát: "app-network_tab_MR1507-cyContainer"
+    // Vrátit: "app-network_tab_MR1507-" (s trailing dash pro Shiny input)
+    const match = containerId.match(/(app-network_tab_[^-]+)-/);
+    return match ? match[1] + '-' : null;
+}
+
+// Pomocná funkce pro porovnání polí
+function arraysEqual(array1, array2) {
+    if (array1.length !== array2.length) return false;
+    return array1.every((value, index) => array2.includes(value));
+}
+
+// ========== SHINY MESSAGE HANDLERS ==========
+
+// Handler pro inicializaci nebo update hlavního grafu
+Shiny.addCustomMessageHandler('cy-init', function(data) {
+    const startTime = performance.now();
+    console.log('⏱️ [cy-init] START: Received cy-init data:', data);
+    console.log('⏱️ Data size: Nodes =', data.elements.nodes.length, ', Edges =', data.elements.edges.length);
+    
+    const containerId = data.containerId;
+    const instanceKey = `${data.patientId}_main`;
+    
+    // Helper function to signal completion
+    const signalComplete = (totalTime) => {
+        console.log(`⏱️ [cy-init] TOTAL TIME: ${(totalTime / 1000).toFixed(2)}s`);
+        const ns = getNamespaceForContainer(containerId);
+        if (ns) {
+            console.log('📤 Sending cy_render_complete signal to R');
+            Shiny.setInputValue(ns + 'cy_render_complete', Math.random(), { priority: "event" });
+        }
+    };
+    
+    if (!cytoscapeInstances[instanceKey]) {
+        console.log('⏱️ [cy-init] Creating NEW instance...');
+        const createStart = performance.now();
         
-            if (typeof selectedNodes === 'string') {
-                selectedNodes = [selectedNodes];
-            } else if (!Array.isArray(selectedNodes)) {
-                console.warn("Expected an array for selected_nodes, received:", selectedNodes);
-                return;
-            }
+        cytoscapeInstances[instanceKey] = initializeCytoscape(containerId, data);
         
-            console.log("Selected nodes to update:", selectedNodes);
+        const createEnd = performance.now();
+        console.log(`⏱️ [cy-init] Instance created in ${((createEnd - createStart) / 1000).toFixed(2)}s`);
         
-            const currentlySelectedNodes = cy.$('node:selected').map(node => node.data('id'));
+        const nodes = cytoscapeInstances[instanceKey].nodes().length;
+        const edges = cytoscapeInstances[instanceKey].edges().length;
+        console.log(`📊 New instance - Nodes: ${nodes}, Edges: ${edges}`);
         
-            if (arraysEqual(selectedNodes, currentlySelectedNodes)) {
-                console.log("Selection is already up to date. No changes needed.");
-                return;
-            }
+        // 🔑 Signal completion after a short delay (layout is running)
+        setTimeout(() => {
+            signalComplete(performance.now() - startTime);
+        }, 100);
         
-            cy.batch(() => {
-                // Nejdříve odznačit všechny
-                cy.nodes(':selected').unselect();
-                
-                // Pak označit požadované - použít selector string
-                if (selectedNodes.length > 0) {
-                    const selector = selectedNodes.map(id => `#${id}`).join(', ');
-                    const nodesToSelect = cy.nodes(selector);
-                    
-                    if (nodesToSelect.length > 0) {
-                        nodesToSelect.select();
-                        console.log("Nodes selected:", selectedNodes);
-                    } else {
-                        console.warn("No matching nodes found for:", selectedNodes);
-                    }
-                }
+    } else {
+        console.log('⏱️ [cy-init] UPDATING existing instance...');
+        const updateStart = performance.now();
+        
+        const cy = cytoscapeInstances[instanceKey];
+        
+        // 🔑 VYČISTIT lastSentSelection - nová pathway, nový stav
+        lastSentSelection[data.patientId] = [];
+        console.log('🧹 Cleared lastSentSelection cache');
+        
+        // 🔑 RYCHLÁ AKTUALIZACE: Batch update pro lepší performance
+        const batchStart = performance.now();
+        cy.batch(() => {
+            // Odstranit staré elementy
+            cy.elements().remove();
+            
+            // Přidat nové elementy
+            cy.add(data.elements);
+            
+            // 🔑 KRITICKÉ: IHNED nastavit edge styles (UVNITŘ batch!)
+            cy.edges().style({
+                'width': 3,
+                'line-color': '#999',
+                'opacity': 0.7,
+                'curve-style': 'bezier'
             });
         });
+        const batchEnd = performance.now();
+        console.log(`⏱️ [cy-init] Batch update completed in ${((batchEnd - batchStart) / 1000).toFixed(2)}s`);
+        
+        // 🔑 Spustit layout (bez animace pro rychlost)
+        const layoutStart = performance.now();
+        const layout = cy.layout({ name: 'cola', animate: false });
+        
+        layout.on('layoutstop', () => {
+            const layoutEnd = performance.now();
+            console.log(`⏱️ [cy-init] Layout completed in ${((layoutEnd - layoutStart) / 1000).toFixed(2)}s`);
+            
+            // 🔑 Signal R that rendering is complete
+            signalComplete(performance.now() - startTime);
+        });
+        
+        layout.run();
+        
+        const nodes = cy.nodes().length;
+        const edges = cy.edges().length;
+        console.log(`📊 Updated instance - Nodes: ${nodes}, Edges: ${edges}, edge styles applied`);
+    }
 
+    // 🔑 NEZNOVU vybírat previouslySelectedNodes - R pošle správnou selection!
+    // R pošle update-selected-from-gene-list s KOMPLETNÍ selection včetně uzlů mimo graf
+    // (viz R kód: session$sendCustomMessage("update-selected-from-gene-list", ...))
+});
 
-        function arraysEqual(array1, array2) {
-            if (array1.length !== array2.length) return false;
-            return array1.every((value, index) => array2.includes(value));
+// Handler pro podgraf
+Shiny.addCustomMessageHandler('cy-subset', function(data) {
+    console.log('Received cy-subset data:', data);
+    
+    const containerId = data.containerId;
+    const patientId = data.patientId;
+    
+    if (!patientId) {
+        console.error('Cannot determine patient ID from containerId:', containerId);
+        return;
+    }
+
+    const instanceKey = `${patientId}_subset`;
+
+    if (!cytoscapeInstances[instanceKey]) {
+        cytoscapeInstances[instanceKey] = initializeCytoscape(containerId, data, true);
+    } else {
+        cytoscapeInstances[instanceKey].batch(() => {
+            cytoscapeInstances[instanceKey].elements().remove();
+            cytoscapeInstances[instanceKey].add(data.elements);
+        });
+
+        cytoscapeInstances[instanceKey].resize();
+        // 🔑 NEJDŘÍVE layout
+        cytoscapeInstances[instanceKey].layout({ name: 'cola', animate: false }).run();
+        // 🔑 PAK stylesheet
+        cytoscapeInstances[instanceKey].style(getCytoscapeStylesheet());
+    }
+});
+
+// Handler pro synchronizaci výběru
+Shiny.addCustomMessageHandler('update-selected-from-gene-list', function(data) {
+    const patientId = data.patientId;
+    let selectedNodes = data.selected_nodes;
+    
+    if (typeof selectedNodes === 'string') {
+        selectedNodes = [selectedNodes];
+    } else if (!Array.isArray(selectedNodes)) {
+        console.warn("Expected an array for selected_nodes, received:", selectedNodes);
+        return;
+    }
+    
+    console.log("📥 update-selected-from-gene-list for patient", patientId, ":", selectedNodes);
+    
+    const instanceKey = `${patientId}_main`;
+    const cy = cytoscapeInstances[instanceKey];
+    
+    if (!cy) {
+        console.warn("No Cytoscape instance found for patient:", patientId);
+        return;
+    }
+    
+    const currentlySelectedNodes = cy.$('node:selected').map(node => node.data('id'));
+    
+    if (arraysEqual(selectedNodes, currentlySelectedNodes)) {
+        console.log("✓ Selection already up to date");
+        return;
+    }
+    
+    // 🔑 KLÍČOVÁ OPRAVA: Nastavit flag PŘED změnou selection
+    updatingFromR[patientId] = true;
+    console.log("🔒 Set updatingFromR flag for", patientId);
+    
+    cy.batch(() => {
+        cy.nodes(':selected').unselect();
+        
+        if (selectedNodes.length > 0) {
+            const selector = selectedNodes.map(id => `#${id}`).join(', ');
+            const nodesToSelect = cy.nodes(selector);
+            
+            if (nodesToSelect.length > 0) {
+                nodesToSelect.select();
+                console.log("✅ Nodes selected:", selectedNodes);
+            } else {
+                console.warn("⚠️ No matching nodes found for:", selectedNodes);
+            }
         }
+    });
+    
+    // 🔑 AKTUALIZOVAT lastSentSelection aby byl synchronizovaný s R
+    lastSentSelection[patientId] = selectedNodes.slice();
+    
+    // 🔑 Resetovat flag po krátké prodlevě (aby se stihly všechny eventy)
+    setTimeout(() => {
+        updatingFromR[patientId] = false;
+        console.log("🔓 Reset updatingFromR flag for", patientId);
+    }, 500);
+});
 
-//////////////////////
-        // Přidání handleru pro přidání vnitřních hran uzlům s germline variantami
-
-// Řádek ~169, nahradit celou funkci:
-
+// Handler pro variant borders
 Shiny.addCustomMessageHandler('variant-border', function(data) {
     console.log('Received data for variant-border:', data);
 
-    if (!data || !data.type || !Array.isArray(data.nodes)) {
+    if (!data || !data.type || !Array.isArray(data.nodes) || !data.patientId) {
         console.warn("Invalid data provided to variant-border handler.");
         return;
     }
@@ -196,15 +381,20 @@ Shiny.addCustomMessageHandler('variant-border', function(data) {
         return;
     }
 
-    // ✅ NOVÝ KÓD - Batch operace místo jednotlivých removeClass/addClass
-    cytoscapeInstance.batch(() => {
-        // Odstranit třídu ze všech uzlů najednou
-        cytoscapeInstance.nodes(`.${className}`).removeClass(className);
+    const instanceKey = `${data.patientId}_main`;
+    const cy = cytoscapeInstances[instanceKey];
+    
+    if (!cy) {
+        console.warn("No Cytoscape instance found for patient:", data.patientId);
+        return;
+    }
+
+    cy.batch(() => {
+        cy.nodes(`.${className}`).removeClass(className);
         
         if (data.nodes.length > 0) {
-            // ✅ Vytvořit selector string místo iterace
             const selector = data.nodes.map(gene => `[name = "${gene}"]`).join(', ');
-            const nodesToStyle = cytoscapeInstance.nodes(selector);
+            const nodesToStyle = cy.nodes(selector);
             
             if (nodesToStyle.length > 0) {
                 nodesToStyle.addClass(className);
@@ -216,161 +406,123 @@ Shiny.addCustomMessageHandler('variant-border', function(data) {
     });
 });
 
-//////////////////////
+// Handler pro highlight node
+Shiny.addCustomMessageHandler('cy-add-node-selection', function(data) {
+    const patientId = data.patientId;
+    const instanceKey = `${patientId}_main`;
+    const cy = cytoscapeInstances[instanceKey];
+    
+    if (!cy) {
+        console.warn("No Cytoscape instance found for patient:", patientId);
+        return;
+    }
+    
+    const selector = `[name = "${data.gene.gene}"]`;
+    const nodeToHighlight = cy.nodes(selector).first();
 
-        Shiny.addCustomMessageHandler('cy-add-node-selection', function(data) {
-      
-            const selector = `[name = "${data.gene.gene}"]`;
-            const nodeToHighlight = cytoscapeInstance.nodes(selector).first();
+    if (nodeToHighlight.length > 0) {
+        const lastHighlighted = lastHighlightedNodes[patientId];
         
-            if (nodeToHighlight.length > 0) {
-                if (lastHighlightedNode && lastHighlightedNode.same(nodeToHighlight)) {
-                    lastHighlightedNode.removeClass('highlighted');
-                    lastHighlightedNode = null;
-                    console.log("Node unhighlighted:", nodeToHighlight.data('id'));
-                } else {
-       
-                    cytoscapeInstance.batch(() => {
-                        if (lastHighlightedNode) {
-                            lastHighlightedNode.removeClass('highlighted');
-                        }
-                        nodeToHighlight.addClass('highlighted');
-                    });
-                    
-                    console.log("Node highlighted:", nodeToHighlight.data('id'));
-                    lastHighlightedNode = nodeToHighlight;
+        if (lastHighlighted && lastHighlighted.same(nodeToHighlight)) {
+            lastHighlighted.removeClass('highlighted');
+            lastHighlightedNodes[patientId] = null;
+            console.log("Node unhighlighted:", nodeToHighlight.data('id'));
+        } else {
+            cy.batch(() => {
+                if (lastHighlighted) {
+                    lastHighlighted.removeClass('highlighted');
                 }
-            } else {
-                console.error("Node not found for gene:", data.gene);
-            }
-        });
-        
-        // Handler pro "Select first neighbors"
-        Shiny.addCustomMessageHandler('select-first-neighbors', function(data) {
-            // Získání aktuálně vybraných uzlů
-            const selectedNodes = cytoscapeInstance.$(':selected');
-            if (selectedNodes.length === 0) {
-                console.warn("Nebyl vybrán žádný uzel.");
-                return;
-            }
+                nodeToHighlight.addClass('highlighted');
+            });
+            
+            console.log("Node highlighted:", nodeToHighlight.data('id'));
+            lastHighlightedNodes[patientId] = nodeToHighlight;
+        }
+    } else {
+        console.error("Node not found for gene:", data.gene);
+    }
+});
+
+// Handler pro select first neighbors
+Shiny.addCustomMessageHandler('select-first-neighbors', function(data) {
+    const patientId = data.patientId;
+    const instanceKey = `${patientId}_main`;
+    const cy = cytoscapeInstances[instanceKey];
     
-            // Najdeme sousedy (closed neighbourhood)
-            const neighbors = selectedNodes.neighborhood().add(selectedNodes); // Přidání původních uzlů
+    if (!cy) {
+        console.warn("No Cytoscape instance found for patient:", patientId);
+        return;
+    }
     
-            // Označení sousedních uzlů
-            neighbors.nodes().select();
-    
-            // Výpis do konzole pro ladění
-            console.log("Vybrané uzly a jejich sousedi (closed neighbourhood):", neighbors.nodes().map(n => n.data('id')));
-        });
+    const selectedNodes = cy.$(':selected');
+    if (selectedNodes.length === 0) {
+        console.warn("Nebyl vybrán žádný uzel.");
+        return;
     }
 
-    return cytoscapeInstance;
-}
+    const neighbors = selectedNodes.neighborhood().add(selectedNodes);
+    neighbors.nodes().select();
 
+    console.log("Vybrané uzly a jejich sousedi:", neighbors.nodes().map(n => n.data('id')));
+});
 
+// Handler pro fit selected nodes
 Shiny.addCustomMessageHandler('fit-selected-nodes', function(data) {
+    const patientId = data.patientId;
+    const instanceKey = `${patientId}_main`;
+    const cy = cytoscapeInstances[instanceKey];
+    
+    if (!cy) {
+        console.warn("No Cytoscape instance found for patient:", patientId);
+        return;
+    }
+    
     if (data.nodes && data.nodes.length > 0) {
-        // Vycentruje na konkrétní vybrané uzly
         const nodesToFit = cy.nodes().filter(function(node) {
             return data.nodes.includes(node.data('id'));
         });
 
         if (nodesToFit.length > 0) {
-            cy.fit(nodesToFit, 50); // 50 je padding kolem vybraných uzlů
+            cy.fit(nodesToFit, 50);
             console.log("Fitting view to selected nodes:", data.nodes);
         } else {
             console.warn("No matching nodes found to fit.");
         }
     } else {
-        // Vycentruje na celý graf
-        cy.fit(50); // 50 je padding kolem všech uzlů
+        cy.fit(50);
         console.log("Fitting view to the entire graph.");
     }
 });
 
-// Handler for plotting main Network (graph)
-Shiny.addCustomMessageHandler('cy-init', function(data) {
-    console.log('Received data for main graph:', data);
-
-    const previouslySelectedNodes = cy ? cy.$('node:selected').map(node => node.data('id')) : [];
-
-    if (!cy) {
-        cy = initializeCytoscape(cyContainerId, data.elements);
-    } else {
-        cy.batch(() => {
-            cy.elements().remove();
-            cy.add(data.elements);
-        });
-
-        cy.layout({ name: 'cola', animate: true, fit: true }).run();
-    }
-
-    // Znovu označit uzly
-    if (previouslySelectedNodes.length > 0) {
-        // ✅ Použít selector string místo filter
-        const selector = previouslySelectedNodes.map(id => `#${id}`).join(', ');
-        cy.nodes(selector).select();
-        console.log("Nodes re-selected:", previouslySelectedNodes);
-    }
-});
-
-
-// Handler for plotting subNetwork (subgraph)
-Shiny.addCustomMessageHandler('cy-subset', function(data) {
-    console.log('Received data for subset graph:', data);
-    
-    if (!cySubset) {
-        cySubset = initializeCytoscape(cySubsetContainerId, data.elements, true);
-    } else {
-      /*
-        cySubset.elements().remove();
-        cySubset.add(data.elements);
-        cySubset.layout({ name: 'cola' }).run();
-        */
-        cySubset.batch(() => {
-            cySubset.elements().remove();   // smaže starý subset
-            cySubset.add(data.elements);    // přidá nový
-        });
-
-        cySubset.style().update();          // vynutí redraw (canvas-bug)
-        cySubset.resize();                  // přepočítá viewport
-
-        cySubset.layout({ name: 'cola', animate: false }).run(); 
-    }
-});
-
-
-// Highlight row by clicking 
+// Handler pro highlight row
 Shiny.addCustomMessageHandler('highlight-row', function(data) {
-
     const table = document.querySelector('.Reactable .rt-tbody');
     if (!table) return;
     
-    // Odstranit předchozí highlight pomocí CSS třídy místo inline style
     const previousHighlight = table.querySelector('.row-highlighted');
     if (previousHighlight) {
         previousHighlight.classList.remove('row-highlighted');
     }
     
-    // Najít řádek s konkrétním genem
     const rows = table.querySelectorAll('.rt-tr-group .rt-tr');
     for (const row of rows) {
         const geneNameCell = row.querySelector('.rt-td:nth-child(2)');
         if (geneNameCell && geneNameCell.textContent.trim() === data.gene.gene) {
             row.classList.add('row-highlighted');
             console.log("Highlighting row for gene:", data.gene.gene);
-            break; // Ukončit po nalezení
+            break;
         }
     }
 });
 
-
-// Handler for layout change
-Shiny.addCustomMessageHandler('cy-layout', function(layout) {
+// Handler pro změnu layoutu
+Shiny.addCustomMessageHandler('cy-layout', function(data) {
+    const patientId = data.patientId;
+    const layout = data.layout;
+    const instanceKey = `${patientId}_main`;
+    const cy = cytoscapeInstances[instanceKey];
+    
     if (cy) {
         cy.layout({ name: layout }).run();
     }
 });
-
-

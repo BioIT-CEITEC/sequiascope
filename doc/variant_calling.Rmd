@@ -27,7 +27,7 @@ All variant data are displayed using the `reactable` package, providing fully in
 To clear sorting, hold `Shift` and click again — the order cycles through **ascending → descending → unsorted**.
 :::
 
-### Filtering Menu
+### Filtering Menu {-}
 
 While the interactive table provides basic filtering capabilities, the dedicated filtering menu offers more sophisticated filtering options for parameters that require specific logic:
 
@@ -56,7 +56,7 @@ Apply filters **before** reviewing or marking variants. Working with a filtered 
 :::
 
 
-### Variant Selection
+### Variant Selection {-}
 
 The module allows you to curate variants of interest through an intuitive selection workflow:
 
@@ -75,7 +75,7 @@ knitr::include_graphics("./screenshots/variant-calling-pathogenic.png")
 ```
 
 
-### Data Export
+### Data Export {-}
 
 Export your variant data in multiple formats for downstream analysis or reporting:
 

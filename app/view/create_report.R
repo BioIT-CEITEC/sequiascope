@@ -363,7 +363,8 @@ server <- function(id, patient, shared_data, run) {
     
     # Cesta k výchozí šabloně
     if (run == "docker") {
-      default_template_path <- paste0(getwd(),"/report_template.docx")
+      # default_template_path <- paste0(getwd(),"/report_template.docx")
+      default_template_path <- "/report_template.docx"
     } else {
       default_template_path <- paste0(getwd(),"/input_files/report_template.docx")
     }

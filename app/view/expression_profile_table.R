@@ -148,7 +148,7 @@ server <- function(id, patient, shared_data, patient_files, file_list) {
       colnames_list = colnames_list,
       patient = patient,
       expression_var = shared_data$expression.variants.all,
-      pathway_list = get_pathway_list("all_genes"),
+      pathway_list = get_pathway_list("all_genes", run = shared_data$run),
       expr_tag = "all_genes",
       suffix = ""
     )
@@ -164,7 +164,7 @@ server <- function(id, patient, shared_data, patient_files, file_list) {
         colnames_list = colnames_list,
         patient = patient,
         expression_var = shared_data$expression.variants.goi,
-        pathway_list = get_pathway_list("genes_of_interest",prepare_goi_dt()),
+        pathway_list = get_pathway_list("genes_of_interest",prepare_goi_dt(), run = shared_data$run),
         expr_tag = "genes_of_interest",
         suffix = "_goi"
       )
@@ -195,7 +195,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   
   map_list <- colnames_map_list("expression", colnames_list$all_columns)
   mapped_checkbox_names <- map_checkbox_names(map_list)
-  
+
   filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), colnames_list, data, mapped_checkbox_names, tissue_list, pathway_list, is_restoring_session)
   
   selected_tissues_final <- reactiveVal(tissue_list)
