@@ -15,13 +15,14 @@ box::use(
   stats[setNames],
 )
 box::use(
-  app/logic/load_data[get_inputs,load_data],
+  app/logic/load_data[load_data],
   app/logic/prepare_table[prepare_fusion_genes_table], 
   app/logic/waiters[use_spinner],
-  app/logic/reactable_helpers[create_clinvar_filter,create_consequence_filter,update_fusion_data],
+  app/logic/helper_reactable[create_clinvar_filter,create_consequence_filter,update_fusion_data],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
   app/logic/session_utils[create_session_handlers, register_module, safe_extract, ch],
-  app/logic/helper_main[get_files_by_patient]
+  app/logic/helper_main[get_files_by_patient],
+  app/logic/export_functions[get_table_download_handler]
 )
 
 ##############  pozn  #####################
@@ -144,7 +145,12 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
     })
 
     map_list <- colnames_map_list("fusion",session = list(ns = session$ns)) # gives list of all columns with their column definitions
-    mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
+    # mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
+    mapped_checkbox_names <- reactive({
+      req(data())
+      req(colnames_list)
+      map_checkbox_names(map_list, colnames_list$all_columns)
+    })
     
     filter_state <- filterTab_server("filterTab_dropdown", colnames_list, data(), mapped_checkbox_names,  is_restoring = is_restoring_session)
     
@@ -183,7 +189,12 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
                             align = "center",
                             sortNALast = TRUE
                           ),
-                          defaultSorted = list("arriba.confidence" = "asc","arriba.called" = "desc","starfus.called" = "desc"),
+                          defaultSorted = {
+                            # Dynamicky vytvoř defaultSorted jen pro sloupce které existují
+                            sort_spec <- list("arriba.confidence" = "asc", "arriba.called" = "desc", "starfus.called" = "desc")
+                            existing_sort <- sort_spec[names(sort_spec) %in% names(dt)]
+                            if (length(existing_sort) > 0) existing_sort else NULL
+                          },
                           details = function(index) {
                             svg_file <- dt$svg_path[index]
                             png_file <- dt$png_path[index]
@@ -468,7 +479,6 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
         # 2) Postavte seznam tracků bezpečně
         track_lists <- lapply(ids, function(id_val) {
           # pokud máte zvlášť vektory pro fuze a chimeric, použijte je
-          # upravte názvy slotů podle toho, co vrací get_inputs("bam_file")
           fuze_vec <- bam_path$rna.fuze_bam %||% bam_path$rna.tumor_bam   # fallback, když slot neexistuje
           chim_vec <- bam_path$rna.chimeric_bam
     
@@ -507,6 +517,17 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
       }
     })
 
+    ###########################
+    ## Download handler ######
+    ###########################
+    output$Table_download <- get_table_download_handler(
+      input = input,
+      patient = selected_samples,
+      data = data,
+      filtered_data = reactive(fusion_data_to_render()),
+      suffix = ""
+    )
+    
     ###########################
     ## get / restore session ##
     ###########################
@@ -569,8 +590,11 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
     
     # Funkce pro update column choices
     update_column_choices <- function() {
+      req(mapped_checkbox_names())
+      
       # Seřaď choices podle názvů
-      col_choices_ordered <- mapped_checkbox_names[order(names(mapped_checkbox_names))]
+      checkbox_names <- mapped_checkbox_names()
+      col_choices_ordered <- checkbox_names[order(names(checkbox_names))]
       
       # Normalizuj current selection
       current_selection <- isolate(input$colFilter_checkBox)
@@ -612,14 +636,16 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
     # ===== EVENT HANDLERS =====
     
     observeEvent(input$show_all, {
-      all_values <- ch(unname(mapped_checkbox_names))
+      req(mapped_checkbox_names())
+      all_values <- ch(unname(mapped_checkbox_names()))
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
     
     observeEvent(input$show_default, {
+      req(mapped_checkbox_names())
       default_values <- normalize_column_selection(
         selection = colnames_list$default_columns,
-        choices_map = mapped_checkbox_names,
+        choices_map = mapped_checkbox_names(),
         default_cols = colnames_list$default_columns
       )
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
@@ -675,9 +701,9 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
 filterTab_ui <- function(id){
   ns <- NS(id)
   tagList(
-    tags$head(tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
-                               .dropdown-toggle::after {display: none !important;}
-                               .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
+    tags$head(tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+                               button:has(.download-button) .dropdown-toggle::after {display: none !important;}
+                               button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
     ),
     dropdownButton(
       label = NULL,

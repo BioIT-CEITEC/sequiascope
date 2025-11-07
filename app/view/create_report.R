@@ -9,9 +9,6 @@ box::use(
   utils[str],
   openxlsx[read.xlsx]
 )
-box::use(
-  app/logic/load_data[get_inputs]
-)
 
 myReport_theme <- function(ft) {
   ft |>

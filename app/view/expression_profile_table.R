@@ -2,7 +2,8 @@
 
 box::use(
   shiny[moduleServer, NS, tagList, fluidRow, fluidPage, column, tabPanel, reactive, req, observe, div, observeEvent, reactiveVal, icon, splitLayout, h4, bindEvent,conditionalPanel,isTruthy,
-        updateSelectInput, selectInput, numericInput, actionButton, renderPlot, plotOutput, uiOutput, renderUI, verbatimTextOutput, renderPrint, reactiveValues, isolate,downloadButton],
+        updateSelectInput, selectInput, numericInput, actionButton, renderPlot, plotOutput, uiOutput, renderUI, verbatimTextOutput, renderPrint, reactiveValues, isolate,
+        downloadButton,is.reactive],
   reactable,
   bs4Dash[box,tabBox],
   reactable[colDef, reactableOutput, renderReactable, reactable, getReactableState, colGroup, JS],
@@ -12,7 +13,7 @@ box::use(
                awesomeCheckboxGroup, pickerInput, updatePickerInput],
   data.table[rbindlist, dcast.data.table, as.data.table, melt.data.table, copy],
   grDevices[colorRampPalette],
-  pheatmap[pheatmap],
+  # pheatmap[pheatmap],
   stats[setNames],
   magrittr[`%>%`],
   shinyalert[shinyalert,useShinyalert],
@@ -23,12 +24,13 @@ box::use(
 box::use(
   app/logic/plots[prepare_barPlot_data, create_barPlot, prepare_volcano, volcanoPlot, ggvolcanoPlot, classify_volcano_genes],
   app/logic/waiters[use_spinner],
-  app/logic/load_data[get_inputs, load_data],
-  app/logic/reactable_helpers[custom_colGroup_setting],
-  app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
+  app/logic/load_data[load_data],
+  app/logic/helper_reactable[custom_colGroup_setting],
+  app/logic/filter_columns[map_checkbox_names, colnames_map_list, generate_columnsDef],
   app/logic/prepare_table[prepare_expression_table, prepare_goi_table, set_pathway_colors],
-  app/logic/networkGraph_helper[get_pathway_list],
-  app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch]
+  app/logic/helper_networkGraph[get_pathway_list],
+  app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch],
+  app/logic/export_functions[get_table_download_handler]
 )
 
 ui <- function(id, tissue_list, goi = FALSE) {
@@ -41,14 +43,27 @@ ui <- function(id, tissue_list, goi = FALSE) {
   if (isTRUE(goi)) {
     tabs <- c(tabs, list(
       tabPanel(title = "Genes of Interest", value = "genesOfinterest",
-               tagList(tags$head(tags$style(HTML("#download_btn { background-color: transparent; border: 1px solid transparent; margin-top: -1px; }
-                                            #download_btn:hover { box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15); }"))),
+               tagList(tags$head(tags$style(HTML("
+                   button[id$='download_btn_goi'].btn.dropdown-toggle { 
+                     background-color: transparent !important; 
+                     background: transparent !important;
+                     border: none !important;
+                     box-shadow: none !important;
+                     transition: box-shadow 0.3s ease;
+                   }
+                   button[id$='download_btn_goi'].btn.dropdown-toggle:hover { 
+                     background-color: transparent !important;
+                     background: transparent !important;
+                     border: none !important;
+                     box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
+                   }
+                 "))),
                        fluidRow(
                          div(style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
-                             dropdownButton(inputId = ns("download_btn"),label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
+                             dropdownButton(inputId = ns("download_btn_goi"),label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
                                             selectInput(ns("export_data_table_goi"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                                             selectInput(ns("export_format_table_goi"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
-                                            downloadButton(ns("Table_download_goi"), "Download")),
+                                            downloadButton(ns("table_download_goi"), "Download")),
                              filterTab_ui(ns("filterTab_dropdown_goi"), tissue_list))
                        )),
                use_spinner(reactableOutput(ns("goi_expression_table"))),
@@ -69,12 +84,27 @@ ui <- function(id, tissue_list, goi = FALSE) {
   # All Genes tab - always available
   tabs <- c(tabs, list(
     tabPanel(title = "All Genes", value = "allGenes",
+             tagList(tags$head(tags$style(HTML("
+                   button[id$='download_btn'].btn.dropdown-toggle { 
+                     background-color: transparent !important; 
+                     background: transparent !important;
+                     border: none !important;
+                     box-shadow: none !important;
+                     transition: box-shadow 0.3s ease;
+                   }
+                   button[id$='download_btn'].btn.dropdown-toggle:hover { 
+                     background-color: transparent !important;
+                     background: transparent !important;
+                     border: none !important;
+                     box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
+                   }
+                 ")))),
              fluidRow(
-               div(style = "width: 100%; text-align: right;",
-                   dropdownButton(label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
+               div(style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
+                   dropdownButton(inputId = ns("download_btn"), label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
                                   selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                                   selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
-                                  downloadButton(ns("Table_download"), "Download")),
+                                  downloadButton(ns("table_download"), "Download")),
                    filterTab_ui(ns("filterTab_dropdown"), tissue_list))
              ),
              use_spinner(reactableOutput(ns("expression_table"))),
@@ -102,7 +132,52 @@ server <- function(id, patient, shared_data, patient_files, file_list) {
     
     observe({
       req(tissue_list)
-      overview_dt <- data.table(tissues = unique(tissue_list))
+      # Rozhodnout, zda použít GOI nebo all genes data
+      dt <- if (has_goi() && !is.null(prepare_goi_dt())) prepare_goi_dt() else data()
+
+      req(dt)
+      req(tissue_list())
+      
+      # Sbírat unikátní geny a pathways napříč všemi tkáněmi
+      all_deregulated_genes <- character(0)
+      all_altered_pathways <- character(0)
+      
+      for (tissue in tissue_list()) {
+        log2fc_col <- paste0("log2FC_", tissue)
+        pval_col <- paste0("p_value_", tissue)
+        padj_col <- paste0("p_adj_", tissue)
+        
+        # Kontrola, zda sloupce existují
+        if (!all(c(log2fc_col, pval_col, padj_col) %in% names(dt))) {
+          next
+        }
+        
+        # Deregulated genes: |log2FC| > 1 AND p_value < 0.05 AND p_adj < 0.05
+        deregulated_genes <- dt[abs(as.numeric(get(log2fc_col))) > 1 & as.numeric(get(pval_col)) < 0.05 & as.numeric(get(padj_col)) < 0.05]
+        
+        # Přidat geneid do seznamu (použijeme geneid pro uniqueN)
+        if (nrow(deregulated_genes) > 0 && "geneid" %in% names(deregulated_genes)) {
+          all_deregulated_genes <- c(all_deregulated_genes, deregulated_genes$geneid)
+        }
+        
+        # Altered pathways: p_value < 0.05 AND p_adj < 0.05
+        altered_pathway_genes <- dt[as.numeric(get(pval_col)) < 0.05 & as.numeric(get(padj_col)) < 0.05]
+        
+        # Rozdělit pathways (můžou být oddělené čárkou)
+        if (nrow(altered_pathway_genes) > 0 && "pathway" %in% names(altered_pathway_genes)) {
+          pathways_split <- unlist(strsplit(altered_pathway_genes$pathway, ",\\s*"))
+          pathways_split <- pathways_split[nzchar(pathways_split)]  # Odstranit prázdné
+          all_altered_pathways <- c(all_altered_pathways, pathways_split)
+        }
+      }
+      
+            # Spočítat unikátní hodnoty napříč všemi tkáněmi
+      overview_dt <- data.table(
+        tissues = paste(unique(tissue_list()), collapse = ", "),
+        for_review_expr = uniqueN(all_deregulated_genes),
+        altered_pathways = uniqueN(all_altered_pathways)
+      )
+      
       shared_data$expression.overview[[ patient ]] <- overview_dt
     })
     
@@ -136,8 +211,8 @@ server <- function(id, patient, shared_data, patient_files, file_list) {
     })
     
     data <- reactive(prepare_data()$dt)
-    tissue_list <- prepare_data()$tissues
-    colnames_list <- prepare_data()$columns
+    tissue_list <- reactive(prepare_data()$tissues)
+    colnames_list <- reactive(prepare_data()$columns)
     
     # 1. ALL GENES
     all_genes_logic <- create_expression_logic(
@@ -193,20 +268,61 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   
   is_restoring_session <- reactiveVal(FALSE)
   
-  map_list <- colnames_map_list("expression", colnames_list$all_columns)
-  mapped_checkbox_names <- map_checkbox_names(map_list)
-
-  filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), colnames_list, data, mapped_checkbox_names, tissue_list, pathway_list, is_restoring_session)
+  # Helper pro získání hodnot - zvládne reactive i static
+  get_tissue_list <- reactive({
+    if (is.reactive(tissue_list)) tissue_list() else tissue_list
+  })
   
-  selected_tissues_final <- reactiveVal(tissue_list)
-  selected_pathway_final <- reactiveVal(pathway_list)
-  selected_columns <- reactiveVal(colnames_list$default_columns)
-  selected_genes <- reactiveVal(data.frame(patient = character(), feature_name = character(), geneid = character()))
+  get_colnames_list <- reactive({
+    if (is.reactive(colnames_list)) colnames_list() else colnames_list
+  })
+  
+  # map_list musí být reactive pro dynamické aktualizace sloupců
+  map_list <- reactive({
+    req(get_colnames_list())
+    req(data())
+    colnames_map_list("expression", get_colnames_list()$all_columns)
+  })
+  
+  # mapped_checkbox_names <- map_checkbox_names(map_list)
+  mapped_checkbox_names <- reactive({
+    req(data())
+    req(get_colnames_list())
+    req(map_list())
+    map_checkbox_names(map_list(), get_colnames_list()$all_columns)
+  })
 
-  tissue_filters_final <- setNames(
-    lapply(tissue_list, function(t) reactiveVal(character(0))), 
-    tissue_list
-  )
+  filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), get_colnames_list, data, mapped_checkbox_names, get_tissue_list, pathway_list, is_restoring_session)
+  
+  selected_tissues_final <- reactiveVal(NULL)
+  selected_pathway_final <- reactiveVal(pathway_list)
+  selected_columns <- reactiveVal(NULL)
+  selected_genes <- reactiveVal(data.frame(patient = character(), feature_name = character(), geneid = character()))
+  
+  # Inicializuj hodnoty když jsou data připravená
+  observe({
+    req(get_tissue_list())
+    req(get_colnames_list())
+    if (is.null(selected_tissues_final())) {
+      selected_tissues_final(get_tissue_list())
+    }
+    if (is.null(selected_columns())) {
+      selected_columns(get_colnames_list()$default_columns)
+    }
+  })
+
+  tissue_filters_final <- reactiveValues()
+  
+  # Inicializuj tissue_filters_final když jsou tissues dostupné
+  observe({
+    req(get_tissue_list())
+    tissues <- get_tissue_list()
+    for (t in tissues) {
+      if (is.null(tissue_filters_final[[t]])) {
+        tissue_filters_final[[t]] <- character(0)
+      }
+    }
+  })
   
   defaults_applied <- reactiveVal(FALSE)
   
@@ -219,9 +335,10 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       selected_pathway_final(filter_state$selected_pathway())
       selected_columns(filter_state$selected_columns())
       
-      for (tissue in tissue_list) {
+      req(get_tissue_list())
+      for (tissue in get_tissue_list()) {
         tissue_filter <- filter_state[[paste0("tissue_filter_", tissue)]]
-        if (!is.null(tissue_filter)) tissue_filters_final[[tissue]](tissue_filter())
+        if (!is.null(tissue_filter)) tissue_filters_final[[tissue]] <- tissue_filter()
       }
       defaults_applied(TRUE)
     }
@@ -239,8 +356,9 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       df <- df[grepl(pattern, pathway)]
     }
 
-    for (t in tissue_list) {
-      filters <- tissue_filters_final[[t]]()
+    req(get_tissue_list())
+    for (t in get_tissue_list()) {
+      filters <- tissue_filters_final[[t]]
       if (!length(filters)) next
       
       if ("log2FC > 1" %in% filters) {
@@ -275,7 +393,8 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   column_defs <- reactive({
     req(data())
     req(selected_columns())
-    generate_columnsDef(names(data()), selected_columns(), "expression", map_list)
+    req(map_list())
+    generate_columnsDef(names(data()), selected_columns(), "expression", map_list())
   })
   
   table_name <- if (suffix == "_goi") "goi_expression_table" else "expression_table"
@@ -441,14 +560,29 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     selected_pathway_final(filter_state$selected_pathway())
     selected_columns(filter_state$selected_columns())
     
-    for (t in tissue_list) {
+    req(get_tissue_list())
+    for (t in get_tissue_list()) {
       r <- filter_state[[paste0("tissue_filter_", t)]]
-      if (!is.null(r)) tissue_filters_final[[t]](isolate(r()))
+      if (!is.null(r)) tissue_filters_final[[t]] <- isolate(r())
     }
   })
   
   plot_id <- if (suffix == "") "plot" else paste0("plot", suffix)
-  plot_server(plot_id, patient, data, expr_tag, tissue_list)
+  plot_server(plot_id, patient, data, expr_tag, get_tissue_list)
+  
+  ###########################
+  ## Download handlers     ##
+  ###########################
+  
+  download_button_id <- if (suffix == "_goi") "table_download_goi" else "table_download"
+  
+  session$output[[download_button_id]] <- get_table_download_handler(
+    input = session$input,
+    patient = patient,
+    data = data,
+    filtered_data = filtered_data,
+    suffix = suffix
+  )
   
   ###########################
   ## get / restore session ##
@@ -461,9 +595,13 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     selected_genes = selected_genes
   )
   
-  for (tissue in tissue_list) {
-    selected_inputs_list[[paste0("tissue_filter_", tissue)]] <- tissue_filters_final[[tissue]]
-  }
+  # Inicializuj tissue filters do selected_inputs_list
+  observe({
+    req(get_tissue_list())
+    for (tissue in get_tissue_list()) {
+      selected_inputs_list[[paste0("tissue_filter_", tissue)]] <- tissue_filters_final[[tissue]]
+    }
+  })
   
   session_handlers <- create_session_handlers(
     selected_inputs = selected_inputs_list,
@@ -486,6 +624,19 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
   moduleServer(id, function(input, output, session) {
     
     sanitize <- function(x) gsub("[^A-Za-z0-9]+", "_", x)
+    
+    # Helper pro získání hodnot - zvládne reactive i static
+    get_tissue_list <- reactive({
+      if (is.reactive(tissue_list)) tissue_list() else tissue_list
+    })
+    
+    get_colnames_list <- reactive({
+      if (is.reactive(colnames_list)) colnames_list() else colnames_list
+    })
+    
+    get_checkbox_names <- reactive({
+      if (is.reactive(mapped_checkbox_names)) mapped_checkbox_names() else mapped_checkbox_names
+    })
     
     # ===== HELPER FUNCTIONS =====
     
@@ -515,7 +666,11 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
     }
     
     observe({
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
+      req(get_checkbox_names())
+      req(get_colnames_list())
+      checkbox_names <- get_checkbox_names()
+      
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = checkbox_names[order(checkbox_names)], selected = get_colnames_list()$default_columns,
                                 prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
       updatePickerInput(session, "filter_pathway", choices = pathway_list, selected = character(0),
                         options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))
@@ -526,31 +681,42 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
     # ===== EVENT HANDLERS =====
     
     observeEvent(input$show_all, {
-      all_values <- ch(unname(mapped_checkbox_names))
+      req(mapped_checkbox_names())
+      all_values <- ch(unname(mapped_checkbox_names()))
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
     
     observeEvent(input$show_default, {
+      req(get_checkbox_names())
+      req(get_colnames_list())
       default_values <- normalize_column_selection(
-        selection = colnames_list$default_columns,
-        choices_map = mapped_checkbox_names,
-        default_cols = colnames_list$default_columns
+        selection = get_colnames_list()$default_columns,
+        choices_map = get_checkbox_names(),
+        default_cols = get_colnames_list()$default_columns
       )
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
     })
     
-    tissue_ids <- setNames(sapply(tissue_list, sanitize, USE.NAMES = FALSE), tissue_list)
+    tissue_ids_reactive <- reactive({
+      req(get_tissue_list())
+      setNames(sapply(get_tissue_list(), sanitize, USE.NAMES = FALSE), get_tissue_list())
+    })
     
-    tissue_reactives <- setNames(
-      lapply(tissue_list, function(t) {
-        t_raw <- t; t_id <- tissue_ids[[t]]; force(t_raw); force(t_id)
-        reactive({
-          val <- input[[paste0("select_filter_", t_id)]]
-          if (is.null(val)) character(0) else as.character(val)
-        })
-      }),
-      paste0("tissue_filter_", tissue_list)  # jméno reaktivu necháme s „raw“ názvem tkáně
-    )
+    tissue_reactives <- reactive({
+      req(get_tissue_list())
+      req(tissue_ids_reactive())
+      tissue_ids <- tissue_ids_reactive()
+      setNames(
+        lapply(get_tissue_list(), function(t) {
+          t_raw <- t; t_id <- tissue_ids[[t]]; force(t_raw); force(t_id)
+          reactive({
+            val <- input[[paste0("select_filter_", t_id)]]
+            if (is.null(val)) character(0) else as.character(val)
+          })
+        }),
+        paste0("tissue_filter_", get_tissue_list())  # jméno reaktivu necháme s „raw" názvem tkáně
+      )
+    })
     
     
     restore_ui_inputs <- function(state) {
@@ -589,10 +755,32 @@ filterTab_ui <- function(id, tissue_list){
   choices_list <- c("log2FC > 1", "log2FC < -1", "p-value < 0.05", "p-adj < 0.05")
   
   tagList(
-    tags$head(tags$style(HTML(".sw-dropdown .action-button #my-filter-btn {background-color: transparent; border: none; margin-top: -1px;}
-                               .dropdown-toggle::after {display: none !important;}
+    tags$head(tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+                               button:has(.download-button) .dropdown-toggle::after {display: none !important;}
+                               button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
+                               .sw-dropdown .action-button #my-filter-btn {background-color: transparent; border: none; margin-top: -1px;}
                                .dropdown {position: relative; z-index: 2000;}
-                               .bttn-material-circle {box-shadow: 0 0 0 0;}"))),
+                               .bttn-material-circle {box-shadow: 0 0 0 0 !important;}
+                               .bttn-material-circle:hover {
+                                 box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
+                                 background-color: transparent !important;
+                                 border: none !important;
+                               }
+                               .bttn-material-circle:focus {
+                                 box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
+                                 background-color: transparent !important;
+                                 border: none !important;
+                                 outline: none !important;
+                               }
+                               .sw-dropdown-content {
+                                 min-width: 1100px !important;
+                                 width: auto !important;
+                                 max-width: 90vw !important;
+                               }
+                               .my-filter-btn .sw-dropdown-in {
+                                 min-width: 1100px !important;
+                                 width: auto !important;
+                               }"))),
     dropdown(
       style = "material-circle",
       label = NULL,
@@ -601,31 +789,32 @@ filterTab_ui <- function(id, tissue_list){
       size = "md",
       # width = "480px",
       icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
-      fluidRow(style = "display: flex; align-items: stretch; max-width: 90rem;",
-               column(6,
-                      box(width = 12, title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",
-                          fluidRow(#class = "filterTab-select-tissue",
-                            checkboxGroupButtons(ns("select_tissue"),"Tissues:",choices = tissue_list,selected = tissue_list,individual = TRUE)),
-                          fluidRow(#class = "filter_pathway",
-                            pickerInput(ns("filter_pathway"), "Pathways",choices = character(0), multiple = TRUE,
-                                        options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "90%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))),
-                          tags$span("Tissue values:", style = "font-size: 1rem; font-weight: bold; isplay: inline-block; margin-bottom: .5rem;"),
-                          tagList(lapply(tissue_list, function(tissue) {
-                            tid <- sanitize(tissue)
-                            fluidRow(
-                              column(2, h6(tissue),style = "display: flex; align-items: center;"),
-                              column(10, checkboxGroupButtons(ns(paste0("select_filter_", tid)), NULL, choices = choices_list, selected = character(0), individual = TRUE))
-                            )}))
-                      )),
-               column(6,
-                      box(width = 12, title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
-                          div(style = "flex: 1; min-width: 300px;",
-                              div(class = "two-col-checkbox-group",
-                                  prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL,choices = character(0))),
-                              div(style = "display: flex; gap: 10px; width: 100%;",
-                                  actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
-                                  actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))))
-               )),
+      fluidRow(style = "display: flex; align-items: stretch; min-width: 1150px;",
+               column(6, style = "display: flex; flex-direction: column;",
+                      div(style = "flex: 1; display: flex; flex-direction: column;",
+                          box(width = 12, title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "flex: 1; display: flex; flex-direction: column;",
+                              fluidRow(#class = "filterTab-select-tissue",
+                                checkboxGroupButtons(ns("select_tissue"),"Tissues:",choices = tissue_list,selected = tissue_list,individual = TRUE)),
+                              fluidRow(#class = "filter_pathway",
+                                pickerInput(ns("filter_pathway"), "Pathways",choices = character(0), multiple = TRUE,
+                                            options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "90%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))),
+                              fluidRow(tags$span("Tissue values:",style = "font-size: 1rem; font-weight: bold;"),lapply(tissue_list, function(tissue) {
+                                tid <- sanitize(tissue)
+                                fluidRow(style = "display: flex; justify-content: space-between;",
+                                  column(2.5, h6(tissue),style = "display: flex; align-items: center; padding-left: 15px;"),
+                                  column(9.5, checkboxGroupButtons(ns(paste0("select_filter_", tid)), NULL, choices = choices_list, selected = character(0), individual = TRUE))
+                                )}))
+                          ))),
+               column(6, style = "display: flex; flex-direction: column;",
+                      div(style = "flex: 1; display: flex; flex-direction: column;",
+                          box(width = 12, title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,style = "flex: 1; display: flex; flex-direction: column;",
+                              div(style = "flex: 1; min-width: 300px; display: flex; flex-direction: column; justify-content: space-between;",
+                                  div(class = "two-col-checkbox-group", style = "margin-bottom: 15px;",
+                                      prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL,choices = character(0))),
+                                  div(style = "display: flex; gap: 10px; width: 100%;",
+                                      actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
+                                      actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;")))
+                          )))),
       div(style = "display: flex; justify-content: center;", 
           actionBttn(ns("confirm_btn"), "Apply changes", style = "stretch", color = "success"))
     )
@@ -645,10 +834,16 @@ plot_ui <- function(id){
 plot_server <- function(id, patient, data, expr_flag, tissue_names) {
   moduleServer(id, function(input, output, session) {
     
+    # Helper pro získání tissue names - zvládne reactive i static
+    get_tissue_names <- reactive({
+      if (is.reactive(tissue_names)) tissue_names() else tissue_names
+    })
+    
     ### render ui ###
     
     output$selected_plot_ui <- renderUI({
       ns <- session$ns
+      req(get_tissue_names())
       
       width_px <- if (expr_flag == "all_genes") "600px" else "600px"
       height_px <- if (expr_flag == "all_genes") "800px" else "1500px"
@@ -657,7 +852,7 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
         div(class = "collapsible-box",
             box(width = 12, closable = FALSE, collapsible = TRUE, collapsed = TRUE, title = tags$div(style = "padding-top: 8px;","Volcano plot"),
                 column(6, div(class = "filterTab-select-tissue",
-                              radioGroupButtons(ns("selected_tissue"), "Choose a tissue :", choices = tissue_names, justified = TRUE))),
+                              radioGroupButtons(ns("selected_tissue"), "Choose a tissue :", choices = get_tissue_names(), justified = TRUE))),
                 fluidRow(
                   column(6, use_spinner(plotlyOutput(outputId = ns("volcanoPlot_blood")))),
                   column(1,),
@@ -666,49 +861,49 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
                   column(1, numericInput(ns("top_n"), "Gene labels:", value = 0, min = 0, step = 1))
                 )
             )
-        ),
-        div(class = "collapsible-box",
-            box(width = 12, closable = FALSE,collapsible = TRUE, collapsed = TRUE, title = tags$div(style = "padding-top: 8px;","Heatmap"),
-                use_spinner(plotOutput(outputId = ns("heatmapPlot"), width = width_px, height = height_px)))
         )
+        # div(class = "collapsible-box",
+        #     box(width = 12, closable = FALSE,collapsible = TRUE, collapsed = TRUE, title = tags$div(style = "padding-top: 8px;","Heatmap"),
+        #         use_spinner(plotOutput(outputId = ns("heatmapPlot"), width = width_px, height = height_px)))
+        # )
       )
     })
     
-    # 🔥 Heatmap rendering
-    
-    #####
-    # This heatmap is for top 20 expressed genes, selected for each tissue independently. Infinit values and NA's where set to 0. In this example, there is no negative log2FC present.
-    # Other possibilities:
-    #      1. top 20 genes general
-    #      2. top 20 up-regulated or top 20 down-regulated
-    # I should also set some treshold for number of tissues displayed in heatmap.
-    #####
-    
-    output$heatmapPlot <- renderPlot({
-      req(heatmap_matrix())
-      
-      min_val <- min(heatmap_matrix(), na.rm = TRUE)
-      max_val <- max(heatmap_matrix(), na.rm = TRUE)
-      
-      if (min_val >= 0) {
-        custom_palette <- colorRampPalette(c("white", "red"))(255)
-      } else if (max_val <= 0) {
-        custom_palette <- colorRampPalette(c("blue", "white"))(255)
-      } else {
-        custom_palette <- colorRampPalette(c("blue", "white", "red"))(255)
-      }
-      
-      plot_titul <- if (expr_flag == "all_genes") "Top 20 selected genes" else "All genes of interest"
-      
-      pheatmap(heatmap_matrix(),
-               scale = "none",
-               cluster_rows = TRUE,
-               cluster_cols = TRUE,
-               show_rownames = TRUE,
-               color = custom_palette,
-               main = plot_titul)
-    })
-    # # 🌋 Volcano plot rendering
+    # # Heatmap rendering
+    # 
+    # #####
+    # # This heatmap is for top 20 expressed genes, selected for each tissue independently. Infinit values and NA's where set to 0. In this example, there is no negative log2FC present.
+    # # Other possibilities:
+    # #      1. top 20 genes general
+    # #      2. top 20 up-regulated or top 20 down-regulated
+    # # I should also set some treshold for number of tissues displayed in heatmap.
+    # #####
+    # 
+    # output$heatmapPlot <- renderPlot({
+    #   req(heatmap_matrix())
+    #   
+    #   min_val <- min(heatmap_matrix(), na.rm = TRUE)
+    #   max_val <- max(heatmap_matrix(), na.rm = TRUE)
+    #   
+    #   if (min_val >= 0) {
+    #     custom_palette <- colorRampPalette(c("white", "red"))(255)
+    #   } else if (max_val <= 0) {
+    #     custom_palette <- colorRampPalette(c("blue", "white"))(255)
+    #   } else {
+    #     custom_palette <- colorRampPalette(c("blue", "white", "red"))(255)
+    #   }
+    #   
+    #   plot_titul <- if (expr_flag == "all_genes") "Top 20 selected genes" else "All genes of interest"
+    #   
+    #   pheatmap(heatmap_matrix(),
+    #            scale = "none",
+    #            cluster_rows = TRUE,
+    #            cluster_cols = TRUE,
+    #            show_rownames = TRUE,
+    #            color = custom_palette,
+    #            main = plot_titul)
+    # })
+    # # Volcano plot rendering
     
     output$ggvolcanoPlot <- renderPlot({
       req(data())
@@ -729,47 +924,47 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
     
     
     
-    heatmap_matrix <- reactive({
-      req(data())  # Ujisti se, že data jsou dostupná
-      
-      data_dt <- as.data.table(data())
-      
-      if(expr_flag == "all_genes"){
-        p_adj_cols <- grep("^p_adj_", names(data_dt), value = TRUE)
-        data_dt[, (p_adj_cols) := lapply(.SD, as.numeric), .SDcols = p_adj_cols]
-        
-        # Vybrat top 20 genů pro každou tkáň
-        top_20_by_tissue <- lapply(p_adj_cols, function(col) {
-          data_dt[get(col) > 0][order(get(col)), .(
-            geneid, feature_name,
-            tissue = gsub("^p_adj_", "", col),
-            log2FC = get(gsub("p_adj", "log2FC", col)),
-            p_adj = get(col)
-          )][1:20]
-        })
-        
-        top_20_dt <- unique(rbindlist(top_20_by_tissue))
-        heatmap_data <- dcast.data.table(top_20_dt, geneid + feature_name ~ tissue, value.var = "log2FC", fill = NA)
-        
-        
-      } else {
-        log2FC_cols <- grep("^log2FC_", names(data_dt), value = TRUE)
-        long_data <- melt.data.table(data_dt, id.vars = c("geneid", "feature_name"), measure.vars = log2FC_cols, variable.name = "tissue", value.name = "log2FC")
-        long_data[, tissue := gsub("^log2FC_", "", tissue)]
-        heatmap_data <- dcast.data.table(long_data, geneid + feature_name ~ tissue, value.var = "log2FC", fill = NA)
-        
-      }
-      
-      
-      heatmap_matrix <- as.matrix(heatmap_data[, -c("geneid", "feature_name"), with = FALSE])
-      heatmap_matrix <- apply(heatmap_matrix, 2, as.numeric)
-      rownames(heatmap_matrix) <- heatmap_data$feature_name
-      
-      # Ošetření NA hodnot
-      heatmap_matrix[is.na(heatmap_matrix)] <- 0
-      
-      return(heatmap_matrix)
-    })
+    # heatmap_matrix <- reactive({
+    #   req(data())  # Ujisti se, že data jsou dostupná
+    #   
+    #   data_dt <- as.data.table(data())
+    #   
+    #   if(expr_flag == "all_genes"){
+    #     p_adj_cols <- grep("^p_adj_", names(data_dt), value = TRUE)
+    #     data_dt[, (p_adj_cols) := lapply(.SD, as.numeric), .SDcols = p_adj_cols]
+    #     
+    #     # Vybrat top 20 genů pro každou tkáň
+    #     top_20_by_tissue <- lapply(p_adj_cols, function(col) {
+    #       data_dt[get(col) > 0][order(get(col)), .(
+    #         geneid, feature_name,
+    #         tissue = gsub("^p_adj_", "", col),
+    #         log2FC = get(gsub("p_adj", "log2FC", col)),
+    #         p_adj = get(col)
+    #       )][1:20]
+    #     })
+    #     
+    #     top_20_dt <- unique(rbindlist(top_20_by_tissue))
+    #     heatmap_data <- dcast.data.table(top_20_dt, geneid + feature_name ~ tissue, value.var = "log2FC", fill = NA)
+    #     
+    #     
+    #   } else {
+    #     log2FC_cols <- grep("^log2FC_", names(data_dt), value = TRUE)
+    #     long_data <- melt.data.table(data_dt, id.vars = c("geneid", "feature_name"), measure.vars = log2FC_cols, variable.name = "tissue", value.name = "log2FC")
+    #     long_data[, tissue := gsub("^log2FC_", "", tissue)]
+    #     heatmap_data <- dcast.data.table(long_data, geneid + feature_name ~ tissue, value.var = "log2FC", fill = NA)
+    #     
+    #   }
+    #   
+    #   
+    #   heatmap_matrix <- as.matrix(heatmap_data[, -c("geneid", "feature_name"), with = FALSE])
+    #   heatmap_matrix <- apply(heatmap_matrix, 2, as.numeric)
+    #   rownames(heatmap_matrix) <- heatmap_data$feature_name
+    #   
+    #   # Ošetření NA hodnot
+    #   heatmap_matrix[is.na(heatmap_matrix)] <- 0
+    #   
+    #   return(heatmap_matrix)
+    # })
     
     
   })

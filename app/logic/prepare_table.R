@@ -5,7 +5,7 @@ box::use(
   shiny[observe],
   openxlsx[read.xlsx],
   scales[scientific_format],
-  stats[setNames],
+  stats[setNames,as.formula],
   stringi[stri_trans_totitle],
 )
 box::use(
@@ -13,11 +13,6 @@ box::use(
   app/logic/prepare_arriba_pictures[pdf2png],
   app/logic/filter_columns[colnames_map_list]
 )
-
-#' @export
-get_tissue_list <- function(){
-  
-}
 
 #' @export
 prepare_somatic_table <- function(dt, all_colNames){
@@ -56,7 +51,12 @@ prepare_germline_table <- function(dt, all_colNames){
   fast_lookup_column(dt, "clinvar_sig", "clinvar_trimws", clean_clinvar_sig)
   
   cols <- colFilter("germline",all_colNames)
-  setcolorder(dt,cols$default_columns)
+  cols <- filter_existing_columns(cols, names(dt))
+
+  # Teď můžeme bezpečně použít setcolorder - všechny sloupce v default_columns existují
+  if (length(cols$default_columns) > 0) {
+    setcolorder(dt, cols$default_columns)
+  }
   
   message(paste0("Germline varcall, pacient ",unique(dt$sample)," (prepare_table script)"))
   list(
@@ -104,9 +104,16 @@ prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames, 
     merge_dt[, `:=`( has_svg = !is.na(svg_path) & nzchar(svg_path),
                      has_png = !is.na(png_path) & nzchar(png_path))]
 
-    cols <- colFilter("fusion", all_colNames,  session = session)
     merge_dt[, `:=`(Visual_Check = "", Notes = "")]
-    setcolorder(merge_dt, cols$default_columns)
+    
+    # Volej colFilter s PŮVODNÍM all_colNames - hidden_columns se automaticky odfiltrují
+    cols <- colFilter("fusion", all_colNames, session = session)
+    cols <- filter_existing_columns(cols, names(merge_dt))
+    
+    # Teď můžeme bezpečně použít setcolorder - všechny sloupce v default_columns existují
+    if (length(cols$default_columns) > 0) {
+      setcolorder(merge_dt, cols$default_columns)
+    }
     
     message(paste0("Fusion genes, pacient ", unique(merge_dt$sample), " (prepare_table script)"))
     list(
@@ -121,32 +128,39 @@ prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames, 
 prepare_expression_table <- function(combined_dt) {
 
   tissues <- unique(combined_dt$tissue)
-  base_cols <- colnames(combined_dt)
   
-  # sloupce pro UI (all/default) odvodíme JEŠTĚ na longu (base_cols)
-  cols <- colFilter("expression", base_cols, tissues)
- 
-  # wide
+  # Použij jen ID sloupce které skutečně existují v datech
+  id_cols_wanted <- c("sample", "feature_name", "geneid", "refseq_id", "type", 
+                      "all_kegg_gene_names", "gene_definition", "pathway", "num_of_paths")
+  id_cols <- intersect(id_cols_wanted, names(combined_dt))
+  
+  # Převeď long → wide format
+  # Formula: všechny ID sloupce ~ tissue, pro hodnoty log2FC, p_value, p_adj
   wide_dt <- dcast(
     combined_dt,
-    sample + feature_name + geneid + refseq_id + type + all_kegg_gene_names +
-      gene_definition + pathway + num_of_paths ~ tissue,
-    value.var = c("log2FC","p_value","p_adj")
+    as.formula(paste(paste(id_cols, collapse = " + "), "~ tissue")),
+    value.var = c("log2FC", "p_value", "p_adj")
   )
 
   # pomocné metriky
   wide_dt[, mean_log2FC := rowMeans(.SD, na.rm = TRUE), .SDcols = patterns("^log2FC_")]
   
-  # cílové pořadí sloupců – vezmeme defaulty + zbývající „log2FC_/p_value_/p_adj_“ dle tissues
+  # Teď získáme sloupce pro UI (all/default) na WIDE datech
+  cols <- colFilter("expression", names(wide_dt), tissues)
+  
+  # Filtruj sloupce - ponechej jen ty co existují ve wide_dt
+  cols <- filter_existing_columns(cols, names(wide_dt))
+  
+  # Přeuspořádej sloupce podle default_columns (jako ostatní moduly)
+  if (length(cols$default_columns) > 0) {
+    setcolorder(wide_dt, cols$default_columns)
+  }
+  
+  # Formátování tissue-specifických sloupců
   log2FC_cols <- paste0("log2FC_", tissues)
   p_value_cols <- paste0("p_value_", tissues)
-  p_adj_cols   <- paste0("p_adj_", tissues)
-  column_order <- c(cols$default_columns, as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
-  column_order <- intersect(column_order, names(wide_dt))  # jistota
+  p_adj_cols <- paste0("p_adj_", tissues)
   
-  wide_dt <- wide_dt[, ..column_order]
-  
-  # formátování (ponechá NA)
   if (length(intersect(log2FC_cols, names(wide_dt)))) {
     wide_dt[, (intersect(log2FC_cols, names(wide_dt))) :=
               lapply(.SD, function(x) formatC(x, format = "fg")), .SDcols = intersect(log2FC_cols, names(wide_dt))]
@@ -221,7 +235,7 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
     all_column_names <- setdiff(all_column_names, hidden_columns)
     
   } else if (flag == "fusion"){
-    hidden_columns <- c("sample", "chr1", "chr2", "pos1", "pos2", "png_path", "svg_path")
+    hidden_columns <- c("sample", "chr1", "chr2", "pos1", "pos2", "png_path", "svg_path", "has_png", "has_svg")
     
     # Speciální sloupce pro fusion
     special_columns <- c("Visual_Check","Notes","position1","position2")
@@ -252,7 +266,7 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
     default_selection <- c("sample", "feature_name", "geneid", "pathway", 
                            "mean_log2FC", tissue_cols)
     
-    map_list <- colnames_map_list(flag)
+    map_list <- colnames_map_list(flag,tissues = tissues)
     mapped_columns <- names(map_list)
     extra_columns <- setdiff(all_column_var, c(mapped_columns, hidden_columns))
     

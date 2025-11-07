@@ -19,6 +19,7 @@
 *.xls
 *.tsv
 *temp_batch.txt
+app/view/reactable.extras_module.R
 
 # renv and input data directories
 renv/

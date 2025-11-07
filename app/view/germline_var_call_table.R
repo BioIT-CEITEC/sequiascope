@@ -26,12 +26,13 @@ box::use(
 )
 
 box::use(
-  app/logic/load_data[get_inputs,load_data],
+  app/logic/load_data[load_data],
   app/logic/prepare_table[prepare_germline_table],
   app/logic/waiters[use_spinner],
-  app/logic/reactable_helpers[selectFilter,minRangeFilter,filterMinValue,create_clinvar_filter,create_consequence_filter],
+  app/logic/helper_reactable[selectFilter,minRangeFilter,filterMinValue,create_clinvar_filter,create_consequence_filter],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
-  app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch]
+  app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch],
+  app/logic/export_functions[get_table_download_handler]
 )
 
 
@@ -99,7 +100,12 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
     colnames_list <- prepare_data()$columns
     
     map_list <- colnames_map_list("germline") # gives list of all columns with their column definitions
-    mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
+    # mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
+    mapped_checkbox_names <- reactive({
+      req(data())
+      req(colnames_list)
+      map_checkbox_names(map_list, colnames_list$all_columns)
+    })
     
     # start <- Sys.time()
     filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names, is_restoring = is_restoring_session)
@@ -184,6 +190,14 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       filtered_data <- filtered_data() # tvoje data pro hlavní tabulku
       pathogenic_variants <- selected_variants() # seznam variant, které byly označeny jako patogenní
 
+      # Dynamicky vytvoř defaultSorted jen pro sloupce které existují
+      sort_cols <- c("CGC_Germline", "trusight_genes", "fOne")
+      existing_sort_cols <- intersect(sort_cols, names(filtered_data))
+      default_sorted <- if (length(existing_sort_cols) > 0) {
+        as.list(setNames(rep("desc", length(existing_sort_cols)), existing_sort_cols))
+      } else {
+        NULL
+      }
 
       tbl <- reactable(
         as.data.frame(filtered_data),
@@ -197,7 +211,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
         highlight = TRUE,
         outlined = TRUE,
         defaultColDef = colDef(align = "center", sortNALast = TRUE),
-        defaultSorted = list("CGC_Germline" = "desc", "trusight_genes" = "desc", "fOne" = "desc"),
+        defaultSorted = default_sorted,
         rowStyle = if (!is.null(pathogenic_variants) && nrow(pathogenic_variants) > 0) {
             function(index) {
               gene_in_row <- filtered_data$Gene_symbol[index]
@@ -480,6 +494,17 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
     
     
     ###########################
+    ## Download handler ######
+    ###########################
+    output$Table_download <- get_table_download_handler(
+      input = input,
+      patient = selected_samples,
+      data = data,
+      filtered_data = filtered_data,
+      suffix = ""
+    )
+    
+    ###########################
     ## get / restore session ##
     ###########################
     session_handlers <- create_session_handlers(
@@ -618,8 +643,11 @@ filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_
     
     # Column choices
     update_column_choices <- function() {
+      req(mapped_checkbox_names())
+      
       # Seřaď podle LABELŮ (names)
-      col_choices_ordered <- mapped_checkbox_names[order(names(mapped_checkbox_names))]
+      checkbox_names <- mapped_checkbox_names()
+      col_choices_ordered <- checkbox_names[order(names(checkbox_names))]
       
       current_selection <- isolate(input$colFilter_checkBox)
       default_selection <- if (!initialized() || is.null(current_selection) || length(current_selection) == 0) {
@@ -670,13 +698,15 @@ filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_
     
     # ===== HANDLERY =====
     observeEvent(input$show_all, {
-      all_values <- ch(unname(mapped_checkbox_names))
+      req(mapped_checkbox_names())
+      all_values <- ch(unname(mapped_checkbox_names()))
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
     observeEvent(input$show_default, {
+      req(mapped_checkbox_names())
       default_values <- normalize_column_selection(
         selection   = colnames_list$default_columns,
-        choices_map = mapped_checkbox_names,
+        choices_map = mapped_checkbox_names(),
         default_cols = colnames_list$default_columns
       )
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
@@ -747,9 +777,9 @@ filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_
 filterTab_ui <- function(id){
   ns <- NS(id)
   tagList(
-    tags$head(tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
-                               .dropdown-toggle::after {display: none !important;}
-                               .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
+    tags$head(tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+                               button:has(.download-button) .dropdown-toggle::after {display: none !important;}
+                               button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
     ),
     dropdownButton(
       label = NULL,

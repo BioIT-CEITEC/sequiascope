@@ -2,13 +2,14 @@ box::use(
   shiny[NS,tagList,fileInput,moduleServer,observe,reactive,textOutput,updateTextInput,renderText,req,textInput,observeEvent,textAreaInput,column,fluidRow,reactiveVal,
         isTruthy,actionButton,icon,updateTextAreaInput,uiOutput,renderUI,bindEvent,fluidPage,radioButtons,verbatimTextOutput,renderPrint,reactiveValuesToList,showNotification,
         outputOptions,conditionalPanel,reactiveValues,isolate],
-  htmltools[tags,HTML,div,span,h2,h4,br],
+  htmltools[tags,HTML,div,span,h2,h3,h4,br],
   shinyFiles[shinyDirButton,shinyDirChoose,parseDirPath,getVolumes],
   shinyWidgets[prettySwitch,updatePrettySwitch,pickerInput,updatePickerInput, dropdownButton,tooltipOptions,radioGroupButtons],
   bs4Dash[addPopover,box,updateNavbarTabs],
   stringi[stri_detect_regex],
   stringr[str_detect,regex],
   shinyalert[shinyalert],
+  waiter[waiter_show, waiter_hide, spin_fading_circles],
   # shinyjs[useShinyjs,runjs],
 )
 # 
@@ -39,19 +40,19 @@ ui <- function(id) {
 server <- function(id, shared_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    step <- reactiveVal(1)
-    patients <- reactiveVal(character(0))
-    path     <- reactiveVal(NULL)
-    datasets <- reactiveVal(character(0))
-    tumor_pattern <- reactiveValues(somatic = NULL, fusion = NULL, chimeric = NULL, arriba = NULL)
-    normal_pattern  <- reactiveValues(somatic = NULL, germline = NULL)
-    tissues <- reactiveVal(NULL)
-    #####
-    # patients <- reactiveVal(c("DZ1601"))
-    ## path     <- reactiveVal("/home/katka/BioRoots/sequiaViz/input_files/MOII_e117")
-    ## path     <- reactiveVal("/Users/katerinajuraskova/Desktop/sequiaViz/input_files/MOII_e117")
-    # path <- reactiveVal("/input_files/MOII_e117")   # cesta v Dockeru
     
+    step <- reactiveVal(1)
+    # patients <- reactiveVal(character(0))
+    # path     <- reactiveVal(NULL)
+    # datasets <- reactiveVal(character(0))
+    # tumor_pattern <- reactiveValues(somatic = NULL, fusion = NULL, chimeric = NULL, arriba = NULL)
+    # normal_pattern  <- reactiveValues(somatic = NULL, germline = NULL)
+    # tissues <- reactiveVal(NULL)
+    #####
+    # patients <- reactiveVal(c("DZ1601","MR1507"))
+    # path     <- reactiveVal("/home/katka/BioRoots/sequiaViz/input_files/MOII_e117")
+    # # path     <- reactiveVal("/Users/katerinajuraskova/Desktop/sequiaViz/input_files/MOII_e117")
+    # # path <- reactiveVal("/input_files/MOII_e117")   # cesta v Dockeru
     # datasets <- reactiveVal(c("somatic","germline","fusion","expression")) #
     # tumor_pattern <- reactiveValues(somatic = NULL, fusion = "fuze", chimeric = "chimeric", arriba = NULL)
     # normal_pattern  <- reactiveValues(somatic = "krev", germline = "krev")
@@ -147,9 +148,20 @@ server <- function(id, shared_data) {
         cancelButtonText  = "Cancel",
         callbackR = function(ok) {
           if (isTRUE(ok)) {
+            # Show waiter - id = NA for fullscreen
+            waiter_show(
+              id = NA,
+              html = tagList(
+                spin_fading_circles(),
+                h3("Loading session data...", style = "color: white; margin-top: 20px;")
+              ),
+              color = "rgba(0, 0, 0, 0.8)"
+            )
+            
             session_base <- "sessions"
             
             if (!dir.exists(session_base)) {
+              waiter_hide(id = NA)
               showNotification("❌ No sessions directory found!", type = "error")
               return()
             }
@@ -157,6 +169,7 @@ server <- function(id, shared_data) {
             session_dirs <- list.dirs(session_base, full.names = TRUE, recursive = FALSE)
             
             if (length(session_dirs) == 0) {
+              waiter_hide(id = NA)
               showNotification("❌ No session directories found!", type = "error")
               return()
             }
@@ -165,6 +178,7 @@ server <- function(id, shared_data) {
             session_file <- file.path(latest_session, "session_data.json")
             
             if (!file.exists(session_file)) {
+              waiter_hide(id = NA)
               showNotification(paste("❌ Session file not found:", session_file), type = "error")
               return()
             }
@@ -175,6 +189,7 @@ server <- function(id, shared_data) {
             
             load_session(session_file, shared_data)
             
+            waiter_hide(id = NA)
             showNotification("✅ Session successfully loaded.", type = "message")
             step(2)
           } else {

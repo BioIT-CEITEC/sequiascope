@@ -96,20 +96,20 @@ get_status_icon <- function(color, simple = FALSE, reason = "unknown") {
   
   if (simple) {
     simple_icons <- list(
-      "red" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><i class="fas fa-times" style="color: #dc3545; font-size: 14px;"></i></span>'),
-      "orange" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><i class="fas fa-exclamation" style="color: #fd7e14; font-size: 14px;"></i></span>'),
-      "green" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><i class="fas fa-check" style="color: #28a745; font-size: 14px;"></i></span>'),
-      "gray" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><i class="fas fa-minus" style="color: #6c757d; font-size: 14px;"></i></span>')
+      "red" = paste0('<i class="fas fa-times" style="color: #dc3545; font-size: 14px;" title="', tooltip_text, '"></i>'),
+      "orange" = paste0('<i class="fas fa-exclamation" style="color: #fd7e14; font-size: 14px;" title="', tooltip_text, '"></i>'),
+      "green" = paste0('<i class="fas fa-check" style="color: #28a745; font-size: 14px;" title="', tooltip_text, '"></i>'),
+      "gray" = paste0('<i class="fas fa-minus" style="color: #6c757d; font-size: 14px;" title="', tooltip_text, '"></i>')
     )
     
     return(if (!is.null(simple_icons[[color]])) simple_icons[[color]] else simple_icons[["red"]])
     
   } else {
     icons <- list(
-      "red" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><div style="width: 20px; height: 20px; background-color: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;"><i class="fas fa-times" style="color: white; font-size: 10px;"></i></div></span>'),
-      "orange" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><div style="width: 20px; height: 20px; background-color: #fd7e14; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;"><i class="fas fa-exclamation" style="color: white; font-size: 10px;"></i></div></span>'),
-      "green" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><div style="width: 20px; height: 20px; background-color: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;"><i class="fas fa-check" style="color: white; font-size: 10px;"></i></div></span>'),
-      "gray" = paste0('<span class="status-tooltip" data-tooltip="', tooltip_text, '"><div style="width: 20px; height: 20px; background-color: #6c757d; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;"><i class="fas fa-minus" style="color: white; font-size: 10px;"></i></div></span>')
+      "red" = paste0('<div style="width: 20px; height: 20px; background-color: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-times" style="color: white; font-size: 10px;"></i></div>'),
+      "orange" = paste0('<div style="width: 20px; height: 20px; background-color: #fd7e14; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-exclamation" style="color: white; font-size: 10px;"></i></div>'),
+      "green" = paste0('<div style="width: 20px; height: 20px; background-color: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-check" style="color: white; font-size: 10px;"></i></div>'),
+      "gray" = paste0('<div style="width: 20px; height: 20px; background-color: #6c757d; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-minus" style="color: white; font-size: 10px;"></i></div>')
     )
     
     return(if (!is.null(icons[[color]])) icons[[color]] else icons[["red"]])

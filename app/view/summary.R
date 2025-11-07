@@ -20,47 +20,91 @@ box::use(
 
 
 
-ui <- function(id){
+ui <- function(id, dataset_availability = NULL){
   ns <- NS(id)
-  hasData <- TRUE
+  
+  # Helper function to get icon based on availability
+  get_icon_html <- function(dataset_name) {
+    if (is.null(dataset_availability) || isTRUE(dataset_availability[[dataset_name]])) {
+      HTML('<span class="icon icon-available" title="Analysis available"><i class="fa-solid fa-circle-check"></i></span>')
+    } else {
+      HTML('<span class="icon icon-unavailable" title="Analysis not available"><i class="fa-solid fa-circle-xmark"></i></span>')
+    }
+  }
+  
+  # Helper function to get box class based on availability
+  get_box_class <- function(dataset_name, base_class) {
+    if (is.null(dataset_availability) || isTRUE(dataset_availability[[dataset_name]])) {
+      base_class
+    } else {
+      paste(base_class, "no-data")
+    }
+  }
+  
   tagList(
+    tags$head(
+      tags$style(HTML("
+        .somatic-infobox .category {
+          color: #7ac143;
+          font-size: 23px;
+          font-weight: bold;
+        }
+        .germline-infobox .category {
+          color: #45818e;
+          font-size: 23px;
+          font-weight: bold;
+        }
+        .fusion-infobox .category {
+          color: #f1c232;
+          font-size: 23px;
+          font-weight: bold;
+        }
+        .expression-infobox .category {
+          color: #3c78d8;
+          font-size: 23px;
+          font-weight: bold;
+        }
+        .summary-box.no-data .elevation-2 {
+          background-color: #f5f5f5 !important;
+          border: 2px solid #d0d0d0 !important;
+        }
+        .summary-box.no-data .category {
+          color: #6c757d !important;
+        }
+      "))
+    ),
     fluidRow(
       column(12,
          fluidRow(
       # div(class = "container-of-summary-boxes",
-          div(class = "summary-box somatic-infobox",
+          div(class = get_box_class("somatic", "summary-box somatic-infobox"),
               box(elevation = 2, collapsible = FALSE, headerBorder = FALSE,width = 12,
                 title = span("Somatic var call", class = "category"),
                 tags$div(textOutput(ns("TMB"))),
                 tags$div(textOutput(ns("for_review_som"))),
-                icon = HTML('<span class="icon icon-green" title="Analysis available"><i class="fa-solid fa-circle-check"></i></span>'),
-                style = "height:136px; overflow:auto;")
+                style = "height:140px; overflow:auto;")
           ),
-          div(class = "summary-box germline-infobox", #class = paste("summary-box germline-infobox", if(!hasData) "no_data" else ""),
+          div(class = get_box_class("germline", "summary-box germline-infobox"),
             box(elevation = 2, collapsible = FALSE, headerBorder = FALSE,width = 12,
               title = span("Germline var call", class = "category"),
               tags$div(textOutput(ns("clinvar_N_germ"))),
               tags$div(textOutput(ns("for_review_germ"))),
-              icon = HTML('<span class="icon icon-gray" title="Analysis not available"><i class="fa-solid fa-circle-check"></i></span>'), #fa-circle-xmark
               style = "height:140px; overflow:auto;")
             ),
-          div(class = "summary-box fusion-infobox",
+          div(class = get_box_class("fusion", "summary-box fusion-infobox"),
             box(elevation = 2, collapsible = FALSE, headerBorder = FALSE,width = 12,
               title = span("Fusion genes", class = "category"),
               tags$div(textOutput(ns("high_confidence"))),
               tags$div(textOutput(ns("potencially_fused"))),
-              icon = HTML('<span class="icon icon-green" title="Analysis available"><i class="fa-solid fa-circle-check"></i></span>'),
-              style = "height:136px; overflow:auto;")
+              style = "height:140px; overflow:auto;")
           ),
-          div(class = "summary-box expression-infobox",
+          div(class = get_box_class("expression", "summary-box expression-infobox"),
             box(elevation = 2, collapsible = FALSE, headerBorder = FALSE, color = "teal",width = 12,
               title = span("Expression profile", class = "category"),
               tags$div(textOutput(ns("tissues"))),
-              tags$div(class = "item", "Over-expressed genes: "),
-              tags$div(class = "item", "Under-expressed genes: "),
-              tags$div(class = "item", "Altered pathways: "),
-              icon = HTML('<span class="icon icon-green" title="Analysis available"><i class="fa-solid fa-circle-check"></i></span>'),
-              style = "height:136px; overflow:auto;")
+              tags$div(textOutput(ns("for_review_expr"))),
+              tags$div(textOutput(ns("altered_pathways"))),
+              style = "height:140px; overflow:auto;")
           )
         )
       )
@@ -82,7 +126,7 @@ ui <- function(id){
   )
 }
 
-server <- function(id, patient, shared_data){ #,active_tab
+server <- function(id, patient, shared_data, dataset_availability = NULL){ #,active_tab
   moduleServer(id, function(input, output, session){
 
 #     #####################
@@ -92,10 +136,34 @@ server <- function(id, patient, shared_data){ #,active_tab
     output$tissues <- renderText({
       if (is.null(patient)) return("Tissue comparison: Not available")
       overview_exp  <- shared_data$expression.overview[[ patient ]]
-      tissue_N <- unique(na.omit(trimws(overview_exp$tissues)))
-      if (!length(tissue_N)) return("Tissue comparison: NA")
-      if (length(tissue_N) == 1 && tissue_N[1] == "none") return("Tissue comparison: 0")
-      paste0("Tissue comparison: ", sum(tissue_N != "none"))
+      if (is.null(overview_exp$tissues) || !nzchar(overview_exp$tissues)) return("Tissue comparison: NA")
+      
+      # Rozdělit tkáně čárkou a spočítat
+      tissue_list <- trimws(unlist(strsplit(overview_exp$tissues, ",")))
+      tissue_list <- tissue_list[tissue_list != "none" & nzchar(tissue_list)]
+      
+      if (!length(tissue_list)) return("Tissue comparison: 0")
+      paste0("Tissue comparison: ", length(tissue_list))
+    })
+    
+    output$for_review_expr <- renderText({
+      if (is.null(patient)) return("Deregulated genes: Not available")
+      overview_expr  <- shared_data$expression.overview[[ patient ]]
+      if (is.null(overview_expr$for_review_expr)) {
+        return("Deregulated genes: NA")
+      } else {
+        paste("Deregulated genes:", overview_expr$for_review_expr)
+      }
+    })
+    
+    output$altered_pathways <- renderText({
+      if (is.null(patient)) return("Pathways for review: Not available")
+      overview_expr  <- shared_data$expression.overview[[ patient ]]
+      if (is.null(overview_expr$altered_pathways)) {
+        return("Pathways for review: NA")
+      } else {
+        paste("Pathways for review:", overview_expr$altered_pathways)
+      }
     })
     
     output$for_review_som <- renderText({
@@ -302,7 +370,7 @@ server <- function(id, patient, shared_data){ #,active_tab
                              tags$p(sprintf("Arriba site: %s", fusion$arriba.site2))),
                       column(3,
                              tags$p(),
-                             tags$p(sprintf("Frame: %s", "inframe or out-of-frame")),
+                             # tags$p(sprintf("Frame: %s", "inframe or out-of-frame")),
                              tags$p(sprintf("Coverage: %s", fusion$overall_support))),
                       column(3)
                     )))})

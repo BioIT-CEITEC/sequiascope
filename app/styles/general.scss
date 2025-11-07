@@ -23,6 +23,10 @@
    color: #74C0FC; 
    margin-bottom: 0; 
    padding-bottom: 0;
+   background-color: transparent !important;
+   background: transparent !important;
+   border: none !important;
+   box-shadow: none !important;
 }
 
 
@@ -55,4 +59,4 @@
   margin-bottom: -1px;  
 }
 
-.patient-tabs .tab-content { padding-top: .5rem; }
+.patient-tabs .tab-content { padding-top: 0; }

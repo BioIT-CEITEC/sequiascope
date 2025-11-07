@@ -23,11 +23,10 @@ box::use(
   app/logic/vaf_plot[generate_vaf],
   app/logic/sankey_plot[sankey_plot],
   app/logic/waiters[use_spinner],
-  app/view/selected_variants[render_selected_variants_ui,render_selected_variants_table,handle_delete_variant, handle_confirm_selected],
-  app/view/export_functions[get_table_download_handler,get_sankey_download_handler,get_hist_download_handler],
-  app/logic/load_data[get_inputs,load_data],
+  app/logic/export_functions[get_table_download_handler,get_sankey_download_handler,get_hist_download_handler],
+  app/logic/load_data[load_data],
   app/logic/prepare_table[prepare_somatic_table,colFilter],
-  app/logic/reactable_helpers[create_clinvar_filter,create_consequence_filter],
+  app/logic/helper_reactable[create_clinvar_filter,create_consequence_filter],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
   app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch]
 )
@@ -138,7 +137,8 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
     # mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     mapped_checkbox_names <- reactive({
       req(data())
-      map_checkbox_names(map_list, names(data()))
+      req(colnames_list_A())
+      map_checkbox_names(map_list, colnames_list_A()$all_columns)
     })
     colnames_list <- colnames_list_A() 
     # colnames_list <- reactive({
@@ -213,6 +213,14 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       message("🟢 Rendering Reactable for somatic")
       filtered_data <- filtered_data()
       pathogenic_variants <- selected_variants() # seznam variant, které byly označeny jako patogenní
+      # Dynamicky vytvoř defaultSorted jen pro sloupce které existují
+      sort_cols <- c("fOne", "CGC_Somatic")
+      existing_sort_cols <- intersect(sort_cols, names(filtered_data))
+      default_sorted <- if (length(existing_sort_cols) > 0) {
+        as.list(setNames(rep("desc", length(existing_sort_cols)), existing_sort_cols))
+      } else {
+        NULL
+      }
 
       reactable(
         as.data.frame(filtered_data),
@@ -226,7 +234,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
         highlight = TRUE,
         outlined = TRUE,
         defaultColDef = colDef(align = "center", sortNALast = TRUE),
-        defaultSorted = list("fOne" = "desc", "CGC_Somatic" = "desc"),
+        defaultSorted = default_sorted,
         rowStyle = if (!is.null(pathogenic_variants) && nrow(pathogenic_variants) > 0) {
           function(index) {
             gene_in_row <- filtered_data$Gene_symbol[index]
@@ -829,9 +837,9 @@ filterTab_ui <- function(id) {
         #                .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
         #               #app-somatic_var_call_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
         #               "))
-      tags$style(HTML(".dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right;margin-top -1px;}
-                       .dropdown-toggle::after {display: none !important;}
-                       .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
+      tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+                       button:has(.download-button) .dropdown-toggle::after {display: none !important;}
+                       button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
     ),
     dropdownButton(
       label = NULL,

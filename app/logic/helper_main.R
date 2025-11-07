@@ -1,12 +1,13 @@
 # app/logic/helper_main.R
 
 box::use(
-  shiny[reactiveVal,removeTab,appendTab,NS,onFlushed,updateTabsetPanel,tabPanel, reactive, observe, renderUI, uiOutput, tagList, div, span, HTML, icon, tags],
+  shiny[reactiveVal,removeTab,appendTab,NS,onFlushed,updateTabsetPanel,tabPanel, reactive, observe, observeEvent, renderUI, uiOutput, tagList, div, span, HTML, icon, tags, isTruthy],
   bs4Dash[bs4Card],
   stats[setNames],
 )
 box::use(
-  app/view/create_report
+  app/view/create_report,
+  app/logic/waiters[hide_waiter]
 )
 
 #' @export
@@ -78,6 +79,14 @@ add_summary_boxes <- function(session,
     if (!length(pats)) return(div("Žádní pacienti k zobrazení."))
     
     tagList(lapply(pats, function(sample) {
+      # Check dataset availability for this patient
+      dataset_availability <- list(
+        somatic = sample %in% shared_data$somatic.patients(),
+        germline = sample %in% shared_data$germline.patients(),
+        fusion = sample %in% shared_data$fusion.patients(),
+        expression = sample %in% shared_data$expression.patients()
+      )
+      
       bs4Card(
         title = tagList(
           tags$head(tags$style(HTML(
@@ -90,7 +99,7 @@ add_summary_boxes <- function(session,
         icon = icon("person"),
         collapsible = FALSE,
         width = 12,
-        summary_module$ui(ns(paste0("summary_table_", sample)))
+        summary_module$ui(ns(paste0("summary_table_", sample)), dataset_availability)
       )
     }))
   })
@@ -102,11 +111,23 @@ add_summary_boxes <- function(session,
     new_pats <- setdiff(pats, already)
     
     lapply(new_pats, function(sample) {
-      summary_module$server(paste0("summary_table_", sample), sample, shared_data)
+      # Check dataset availability for this patient
+      dataset_availability <- list(
+        somatic = sample %in% shared_data$somatic.patients(),
+        germline = sample %in% shared_data$germline.patients(),
+        fusion = sample %in% shared_data$fusion.patients(),
+        expression = sample %in% shared_data$expression.patients()
+      )
+      
+      summary_module$server(paste0("summary_table_", sample), sample, shared_data, dataset_availability)
       create_report$server(paste0("create_report_", sample), sample, shared_data, shared_data$run)
     })
     
-    if (length(new_pats)) mounted_ref$mounted <- union(already, new_pats)
+    if (length(new_pats)) {
+      mounted_ref$mounted <- union(already, new_pats)
+      # Hide waiter after summary boxes are mounted
+      hide_waiter("main-app")
+    }
   })
   
   invisible(NULL)
@@ -181,11 +202,6 @@ add_dataset_tabs <- function(session,
       select = FALSE
     )
     
-    # Create reactive to track if THIS specific tab is active
-    is_active <- reactive({
-      input[[tabset_input_id]] == tab_value
-    })
-    
     # Start server for this patient
     if (identical(dataset_name, "fusion") && !is.null(load_session_btn)) { # just for fusion dataset
       module_obj$server(
@@ -196,14 +212,24 @@ add_dataset_tabs <- function(session,
         file_list,
         load_session_btn)
     } else if (identical(dataset_name, "network")) {
-      module_obj$server(
-        paste0(dataset_name, "_tab_", patient_id),
-        patient_id, 
-        shared_data, 
-        patient_files,
-        file_list,
-        tabset_input_id,
-        tab_value)
+      # LAZY LOADING: Initialize network graph only when user clicks on it
+      # Skip initialization - will be triggered only when user navigates to this tab
+      initialized <- reactiveVal(FALSE)
+      observeEvent(session$input[[tabset_input_id]], {
+        current_tab <- session$input[[tabset_input_id]]
+        if (!initialized() && !is.null(current_tab) && current_tab == tab_value) {
+          message("🚀 Lazy initializing network graph for patient: ", patient_id)
+          module_obj$server(
+            paste0(dataset_name, "_tab_", patient_id),
+            patient_id, 
+            shared_data, 
+            patient_files,
+            file_list,
+            tabset_input_id,
+            tab_value)
+          initialized(TRUE)
+        }
+      }, ignoreInit = TRUE)  # CRITICAL: Don't trigger on initialization
     } else {
       module_obj$server(paste0(dataset_name, "_tab_", patient_id),
                         patient_id, 

@@ -8,7 +8,7 @@ box::use(
 
 #' @export
 use_spinner <- function(ui_element){
-  spinner <- withSpinner(ui_element,type=3,color = "#060606",color.background = "#EEEEEE" )
+  spinner <- withSpinner(ui_element,type=3,color = "#74c0fc",color.background = "#EEEEEE" )
   return(spinner)
 }
 

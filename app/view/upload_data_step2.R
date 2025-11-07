@@ -12,7 +12,8 @@ box::use(
 )
 
 box::use(
-  app/logic/helper_upload_data[create_dataset_data,create_reactable,validate_datasets_status,build_confirmed_paths, validate_all_columns, create_column_error_message]
+  app/logic/helper_upload_data[create_dataset_data,create_reactable,validate_datasets_status,build_confirmed_paths, validate_all_columns, create_column_error_message],
+  app/logic/waiters[show_waiter, hide_waiter]
 )
 
 # DZ1601,MR1507,P001
@@ -254,7 +255,9 @@ step2_ui <- function(id) {
         }
 
         confirmed_paths_state(build_confirmed_paths(data, path()))  # NO RED, NO ORANGE: pass data directly
-        # showModal(modalDialog("Your selection has been confirmed! All files are ready for analysis.", easyClose = TRUE))
+        
+        # Show waiter after confirming - will be hidden when summary/expression profile loads
+        show_waiter("main-app", "Loading data and preparing modules...")
         
       })
 

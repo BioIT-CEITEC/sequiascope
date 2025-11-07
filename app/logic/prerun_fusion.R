@@ -11,7 +11,6 @@ box::use(
 
 box::use(
   app/logic/prepare_arriba_pictures[pdf2png],
-  app/logic/load_data[get_inputs],
   app/logic/helper_main[get_patients,get_files_by_patient],
 )
 

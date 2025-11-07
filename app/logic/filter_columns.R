@@ -12,7 +12,7 @@ box::use(
 )
 
 box::use(
-  app/logic/prepare_table[colFilter,get_tissue_list]
+  app/logic/prepare_table[colFilter]
 )
 
 
@@ -46,9 +46,16 @@ map_checkbox_names <- function(map_list, all_actual_columns = NULL){
   
   map_display_names <- map_display_names[!is.na(map_display_names)]
   
-  # Pokud jsou poskytnuty skutečné sloupce, přidej extra sloupce
+  # Pokud jsou poskytnuty skutečné sloupce, filtruj mapované a přidej extra sloupce
   if (!is.null(all_actual_columns)) {
     mapped_columns <- names(map_display_names)
+    
+    # Filtruj mapované sloupce - ponechej jen ty, co existují v datech
+    existing_mapped <- intersect(mapped_columns, all_actual_columns)
+    filtered_map_display_names <- map_display_names[existing_mapped]
+    
+    # Najdi extra sloupce (v datech, ale nejsou v map_list)
+    # all_actual_columns UŽ jsou vyfiltrované (bez hidden columns) z colFilter
     extra_columns <- setdiff(all_actual_columns, mapped_columns)
     
     if (length(extra_columns) > 0) {
@@ -56,10 +63,10 @@ map_checkbox_names <- function(map_list, all_actual_columns = NULL){
       extra_display_names <- sapply(extra_columns, format_column_name)
       names(extra_display_names) <- extra_columns
       
-      # Zkombinuj mapované a extra sloupce
-      all_display_names <- c(map_display_names, extra_display_names)
+      # Zkombinuj mapované (filtrované) a extra sloupce
+      all_display_names <- c(filtered_map_display_names, extra_display_names)
     } else {
-      all_display_names <- map_display_names
+      all_display_names <- filtered_map_display_names
     }
   } else {
     all_display_names <- map_display_names
@@ -92,7 +99,7 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
   
   # Definuj permanentně skryté sloupce podle tagu
   hide <- switch(tag,
-                 "fusion" = c("sample", "png_path", "svg_path"),
+                 "fusion" = c("sample", "png_path", "svg_path", "has_png", "has_svg"),
                  "germline" = c("sample"),
                  "somatic" = c("sample"),
                  "expression" = c("sample"),
@@ -197,7 +204,7 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
 # }
 
 #' @export
-colnames_map_list <- function(tag, all_columns = NULL, session = NULL){
+colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues = NULL) {
   # ns <- if (!is.null(session) && !is.null(session$ns)) session$ns else function(x) x
   if (tag == "fusion"){
     map_list <- list(
@@ -446,7 +453,7 @@ colnames_map_list <- function(tag, all_columns = NULL, session = NULL){
       
       # 2️⃣ Dynamické sloupce podle tkání a typů
       dynamic_columns <- list()
-      tissue_list <- get_tissue_list()
+      tissue_list <- tissues
       num_columns <- length(all_columns)
       log2fc_indices <- which(grepl("^log2FC_", all_columns))
       

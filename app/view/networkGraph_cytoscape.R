@@ -4,9 +4,9 @@
 box::use(
   shiny[NS, moduleServer, observeEvent, observe, tagList, fluidPage, fluidRow, column, textInput, updateTextInput, actionButton, selectInput, reactive, req,reactiveVal,conditionalPanel,
         verbatimTextOutput, renderPrint,renderText,textOutput,htmlOutput,uiOutput,renderUI,icon,textAreaInput,updateTextAreaInput,isolate,isTruthy,debounce,getDefaultReactiveDomain,
-        outputOptions],
+        outputOptions,insertUI],
   httr[GET, status_code, content],
-  bs4Dash[updateTabItems,addPopover],
+  bs4Dash[updateTabItems,addPopover,updateNavbarTabs],
   htmltools[h3, h4, h6, tags, div,HTML,p],
   jsonlite[fromJSON, toJSON,read_json],
   # cyjShiny[cyjShinyOutput, renderCyjShiny, cyjShiny, dataFramesToJSON, selectNodes,setNodeAttributes,selectFirstNeighbors,fit,fitSelected,clearSelection,getSelectedNodes],
@@ -27,7 +27,7 @@ box::use(
 box::use(
   app/logic/load_data[load_data],
   app/logic/waiters[use_spinner, use_waiter, show_waiter, hide_waiter],
-  app/logic/networkGraph_helper[get_string_interactions,prepare_cytoscape_network,get_pathway_list],
+  app/logic/helper_networkGraph[get_string_interactions,prepare_cytoscape_network,get_pathway_list],
   app/view/networkGraph_tables,
 
 )
@@ -42,8 +42,6 @@ ui <- function(id, tissue_list, patient) {
   use_waiter()  # 🔑 Aktivovat waiter pro loading screens
 
   tagList(
-    # tags$head(tags$script(HTML(sprintf("var cyContainerId = '%s'; var cySubsetContainerId = '%s';",
-    #                                     ns("cyContainer"), ns("cySubsetContainer"))))),
     fluidRow(
       column(6,  # 🔑 Levá polovina - hlavní graf
         fluidRow(
@@ -102,9 +100,9 @@ ui <- function(id, tissue_list, patient) {
                 prettySwitch(ns("selectedGermVariants"), label = "Add germline variants", status = "primary", slim = TRUE),
                 prettySwitch(ns("selectedFusions"), label = "Add fusions", status = "primary", slim = TRUE)
         ))),
-       fluidRow(
-        column(12, networkGraph_tables$selectedTab_UI(ns("tab")))
-       )
+        fluidRow(
+          column(6, networkGraph_tables$selectedTab_UI(ns("tab")))
+        )
       ),
       column(1),
       column(5,  # 🔑 Pravá polovina - podgraf + ovládací prvky
@@ -411,6 +409,7 @@ server <- function(id, patient, shared_data, patient_files, file_list, tabset_in
     })
 
     observe({
+      req(active())  # 🔑 CRITICAL: Only run when tab is active
       current_nodes <- synchronized_nodes()
       req(input$interaction_sources)  # 🔑 Trigger při změně sources
       
@@ -453,12 +452,15 @@ server <- function(id, patient, shared_data, patient_files, file_list, tabset_in
 
     # Debug: sledovat změny input$cySelectedNodes
     observe({
+      req(active())  # 🔑 Only debug when tab is active
       message("👀 input$cySelectedNodes changed: ", paste(input$cySelectedNodes %||% "NULL", collapse = ", "))
     })
     
     observeEvent(list(input$cySelectedNodes, input$confirm_new_genes_btn, 
                       input$confirm_remove_genes_btn, input$clearSelection_btn, 
                       new_genes_var(), remove_genes_var()), {
+                        
+                        req(active())  # 🔑 CRITICAL: Only sync when tab is active
                         
                         message("=== SYNC NODES START ===")
                         message("🔍 TRIGGER CHECK:")
@@ -822,23 +824,29 @@ server <- function(id, patient, shared_data, patient_files, file_list, tabset_in
       somatic = list(
         input_id = "selectedSomVariants",
         column = "var_name",
+        value = "somatic",
         filter = function(dt) dt[var_name == "somatic", unique(Gene_symbol)],
         alert_text = "You don't have any somatic variants selected as possibly oncogenic.",
-        tab = "variants"
+        tab = "variants",
+        box = "somatic"
       ),
       germline = list(
         input_id = "selectedGermVariants",
         column = "var_name",
+        value = "germline",
         filter = function(dt) dt[var_name == "germline", unique(Gene_symbol)],
         alert_text = "No germline variants are currently selected as possibly pathogenic.",
-        tab = "variants"
+        tab = "variants",
+        box = "germline"
       ),
       fusion = list(
         input_id = "selectedFusions",
         column = "fusion",
+        value = "yes",
         filter = function(dt) dt[!is.na(fusion), unique(Gene_symbol)],
         alert_text = "No fusion genes are currently selected.",
-        tab = "fusion_genes"
+        tab = "fusion_genes",
+        box = NULL
       )
     )
     
@@ -850,46 +858,77 @@ server <- function(id, patient, shared_data, patient_files, file_list, tabset_in
                           req(active())
                           req(selected_dt())
                           
-                          if (!config$column %in% names(selected_dt())) {
-                            if (isTruthy(input[[config$input_id]])) {
-                              updatePrettySwitch(session, config$input_id, value = FALSE)
-                              shinyalert(
-                                title = "No data available",
-                                text = config$alert_text,
-                                type = "warning",
-                                confirmButtonText = "OK",
-                                showCancelButton = TRUE,
-                                cancelButtonText = "Go to page",
-                                callbackR = function(value) {}
-                              )
-                            }
+                          # Check if switch is being turned ON
+                          if (!isTruthy(input[[config$input_id]])) {
+                            # Switch OFF - just remove borders
+                            message("Removing ", type, " border")
                             session$sendCustomMessage("variant-border", list(type = type, nodes = character(0), patientId = patient))
                             return()
                           }
                           
+                          # Switch ON - validate data availability
+                          # First check if dataset exists at all
+                          dataset_exists <- switch(type,
+                            somatic = length(shared_data$somatic.patients()) > 0,
+                            germline = length(shared_data$germline.patients()) > 0,
+                            fusion = length(shared_data$fusion.patients()) > 0,
+                            FALSE
+                          )
+                          
+                          if (!dataset_exists) {
+                            # NO DATA AVAILABLE - dataset doesn't exist
+                            updatePrettySwitch(session, config$input_id, value = FALSE)
+                            shinyalert(
+                              title = "No data available",
+                              text = paste0("Dataset for ", type, " is not available for this patient."),
+                              type = "warning",
+                              confirmButtonText = "OK",
+                              showCancelButton = FALSE
+                            )
+                            return()
+                          }
+                          
+                          # Dataset exists - now check if there are selected variants/fusions
                           sel_dt <- as.data.table(selected_dt())
                           nodes <- as.character(config$filter(sel_dt))
                           
-                          if (isTruthy(input[[config$input_id]])) {
-                            if (length(nodes) == 0) {
-                              updatePrettySwitch(session, config$input_id, value = FALSE)
-                              shinyalert(
-                                title = "No selection found",
-                                text = config$alert_text,
-                                type = "warning",
-                                confirmButtonText = "OK",
-                                showCancelButton = TRUE,
-                                cancelButtonText = "Go to page",
-                                callbackR = function(value) {}
-                              )
-                            } else {
-                              message("Adding ", type, " border for ", length(nodes), " nodes")
-                              session$sendCustomMessage("variant-border", list(type = type, nodes = as.list(nodes), patientId = patient))
-                            }
-                          } else {
-                            message("Removing ", type, " border")
-                            session$sendCustomMessage("variant-border", list(type = type, nodes = character(0), patientId = patient))
+                          if (length(nodes) == 0) {
+                            # NO SELECTION FOUND - data exists but nothing selected
+                            updatePrettySwitch(session, config$input_id, value = FALSE)
+                            shinyalert(
+                              title = "No selection found",
+                              text = config$alert_text,
+                              type = "warning",
+                              confirmButtonText = "OK",
+                              showCancelButton = TRUE,
+                              cancelButtonText = "Go to page",
+                              callbackR = function(value) {
+                                if (isFALSE(value)) {
+                                  # User clicked "Go to page"
+                                  parent_ns <- session$userData$parent_session$ns
+                                  updateNavbarTabs(
+                                    session = session$userData$parent_session,
+                                    inputId = "navbarMenu",
+                                    selected = parent_ns(config$tab)
+                                  )
+                                  
+                                  # Navigate to specific box for variants
+                                  if (!is.null(config$box)) {
+                                    session$userData$parent_session$sendCustomMessage(
+                                      "scroll-to-box",
+                                      list(box = config$box)
+                                    )
+                                  }
+                                }
+                              }
+                            )
+                            # Don't send variant-border message - switch is already OFF
+                            return()
                           }
+                          
+                          # All checks passed - add borders
+                          message("Adding ", type, " border for ", length(nodes), " nodes")
+                          session$sendCustomMessage("variant-border", list(type = type, nodes = as.list(nodes), patientId = patient))
                         })
     })
     
@@ -914,24 +953,16 @@ server <- function(id, patient, shared_data, patient_files, file_list, tabset_in
     networkGraph_tables$tab_server("tab", tissue_dt, subTissue_dt, selected_nodes = synchronized_nodes, selected_dt, patient)
     
     # Inicializace Bootstrap popoverů pomocí JavaScriptu + CSS pro z-index
-    shiny::insertUI(
+    insertUI(
       selector = "head",
       where = "beforeEnd",
       ui = tags$head(
-        tags$style(HTML("
-          .popover {
-            z-index: 999999 !important;
-          }
-        ")),
-        tags$script(HTML("
-          $(document).ready(function(){
-            $('[data-toggle=\"popover\"]').popover({
-              container: 'body'
-            });
-          });
-        "))
-      )
-    )
+        tags$style(HTML(".popover { z-index: 999999 !important; }")),
+        tags$script(HTML("$(document).ready(function(){
+                            $('[data-toggle=\"popover\"]').popover({
+                              container: 'body' });
+                          });"))
+      ))
     
   })
 }

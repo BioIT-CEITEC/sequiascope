@@ -77,10 +77,23 @@
   float: right;
   text-align: left !important;
   padding-top: 8px;
+  
+  // Fix dropdown width to contain all content
+  .sw-content {
+    min-width: 1200px !important;
+    width: auto !important;
+  }
+  
+  .dropdown-menu {
+    min-width: 1200px !important;
+    width: auto !important;
+  }
 }
 
 .my-filter-btn .fa-filter {
   font-size: 16px;
+  background: transparent !important;
+  border: none !important;
 }
 .my-filter-btn::before {
   font-size: 10px;

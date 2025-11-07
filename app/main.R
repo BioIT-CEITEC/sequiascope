@@ -38,7 +38,7 @@ box::use(
   shinyWidgets[pickerInput,prettySwitch,dropdown],
   shinyjs[useShinyjs, runjs,toggle,hide,show],
   utils[str],
-  waiter[spin_1],
+  waiter[spin_1, useWaiter, waiter_show, waiter_hide, waiter_update, spin_fading_circles],
   # jsonlite[read_json,write_json],
   # fresh[create_theme,bs4dash_vars,bs4dash_yiq,bs4dash_layout,bs4dash_sidebar_light,bs4dash_status,bs4dash_color]s
   # promises[future_promise,`%...!%`,`%...>%`,catch],
@@ -69,6 +69,8 @@ box::use(
   app/logic/session_utils[load_session, save_session, cleanup_old_sessions, create_session_cache],
   app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data, get_fusion_prerun_status],
   app/logic/helper_main[get_patients, get_files_by_patient, add_dataset_tabs, add_summary_boxes],
+  app/logic/helper_waiter[show_waiter_with_progress, update_waiter_progress, wait_for_summary_rendered, get_waiter_js],
+  app/logic/navigation_lock[lock_navigation, unlock_navigation, get_navigation_lock_css, get_navigation_lock_js],
 )
 
 #####################################################
@@ -79,6 +81,7 @@ box::use(
 ui <- function(id){
   ns <- NS(id)
   useShinyjs()
+  useWaiter()
   tags$head(
     tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
     tags$style(HTML("#app-plots_tabBox_box {box-shadow: none !important; border: none !important;}")))
@@ -103,57 +106,50 @@ ui <- function(id){
         tags$li(class = "dropdown", actionButton(ns("save_session_btn"), label = NULL, icon = icon("save"), title = "Save session",class = "session-btn")))),
     sidebar = dashboardSidebar(disable = TRUE),
     body = dashboardBody(#style = "background-color: white;",
-      tags$head(tags$script(src = "static/js/app.min.js"),
-                tags$script(src = "static/js/cytoscape_init.js")),
+      tags$head(
+        tags$script(src = "static/js/app.min.js"),
+        tags$script(src = "static/js/cytoscape_init.js"),
+        get_waiter_js(),
+        get_navigation_lock_css(),
+        get_navigation_lock_js(),
+        tags$script(HTML("
+          Shiny.addCustomMessageHandler('scroll-to-box', function(message) {
+            // Get the namespace prefix from the current URL or use default
+            var nsPrefix = '';
+            
+            // Switch to appropriate tab in variant_calling_tabs (bs4Dash tabBox)
+            if (message.box === 'somatic' || message.box === 'germline') {
+              // Find the tabBox element by ID
+              var tabBoxId = $('[id$=\"variant_calling_tabs\"]').attr('id');
+              if (tabBoxId) {
+                // Extract namespace
+                nsPrefix = tabBoxId.replace('variant_calling_tabs', '');
+                
+                // Use bs4Dash's tab switching mechanism
+                var tabId = nsPrefix + 'variant_calling_tabs';
+                var tabValue = message.box; // 'somatic' or 'germline'
+                
+                // Find and click the appropriate tab link
+                $('a[data-value=\"' + tabValue + '\"]').tab('show');
+              }
+            }
+            
+            // Scroll to the box after a short delay (to ensure tab is rendered)
+            setTimeout(function() {
+              var boxClass = message.box + '-box';
+              var element = $('.' + boxClass);
+              if (element.length > 0) {
+                $('html, body').animate({
+                  scrollTop: element.offset().top - 100
+                }, 500);
+              }
+            }, 300);
+          });
+        "))
+      ),
       tabItems(
         tabItem(tabName = ns("upload_data"),
           fluidPage(
-            # tags$head(
-              # # look & feel pro zamknuté záložky
-              # tags$style(HTML(".app-tab-locked {
-              #                   pointer-events: none;
-              #                   opacity: 0.5; cursor: not-allowed !important;}")),
-              # # robustní lock/unlock + click guard
-              # tags$script(HTML("(function(){
-              #                     var menuLocked = true;
-              #                     var allowedValue = null;
-              # 
-              #                     Shiny.addCustomMessageHandler('lockMenuExcept', function(msg){
-              #                       // msg: { lock: bool, allowValue: 'ns(tabName)', menuId: 'ns(navbarMenu)' }
-              #                       menuLocked = !!msg.lock;
-              #                       allowedValue = msg.allowValue;
-              # 
-              #                       // Zamkni/odemkni všechny odkazy s data-value (funguje pro nav-link i dropdown-item)
-              #                       var anchors = document.querySelectorAll('a.nav-link[data-value], a.dropdown-item[data-value]');
-              #                       anchors.forEach(function(a){
-              #                         var v = a.getAttribute('data-value');
-              #                         if (!v) return;
-              #                         if (menuLocked && v !== allowedValue) {
-              #                           a.classList.add('app-tab-locked');
-              #                           a.setAttribute('aria-disabled', 'true');
-              #                           a.setAttribute('tabindex', '-1');
-              #                         } else {
-              #                           a.classList.remove('app-tab-locked');
-              #                           a.removeAttribute('aria-disabled');
-              #                           a.removeAttribute('tabindex');
-              #                         }
-              #                       });
-              #                     });
-              # 
-              #                     // Tvrdý click guard i když by třída selhala
-              #                     document.addEventListener('click', function(e){
-              #                       var t = e.target.closest('a.nav-link[data-value], a.dropdown-item[data-value]');
-              #                       if (!t) return;
-              #                       if (menuLocked) {
-              #                         var v = t.getAttribute('data-value');
-              #                         if (v && v !== allowedValue) {
-              #                           e.preventDefault();
-              #                           e.stopImmediatePropagation();
-              #                           return false;
-              #                         }
-              #                       }
-              #                     }, true); // capture fáze pro jistotu
-              #                   })();"))),
             upload_data$ui(ns("upload_data_table")))
         ),
         tabItem(tabName = ns("summary"),
@@ -291,6 +287,14 @@ server <- function(id) {
     
     observe({ session$sendCustomMessage("initRadioSync", list()) })
     
+    # Flag to track if waiter was already hidden after data load
+    waiter_hidden <- reactiveVal(FALSE)
+    
+    # Lock navigation on app start - only Upload data is accessible
+    observe({
+      lock_navigation(session, ns("upload_data"))
+    })
+    
     #######################################################################################
     #### upload data module - lock all other tabs until data is uploaded and confirmed ####
     #######################################################################################
@@ -312,14 +316,24 @@ server <- function(id) {
     })
 
     observeEvent(upload$confirmed_paths(), {
+      # Unlock all navigation tabs after successful data confirmation
+      unlock_navigation(session)
+      
+      # Show waiter with progress bar at the start
+      show_waiter_with_progress(session)
+      
       confirmed_paths <- upload$confirmed_paths()   # make visible to helper above; or pass as arg
       mounted_summary <- reactiveValues(mounted = character(0))
       
+      
+      update_waiter_progress(session, 10, "Initializing...")
       
       somatic_patients <- get_patients(confirmed_paths, "somatic")
       germline_patients <- get_patients(confirmed_paths, "germline")
       fusion_patients <- get_patients(confirmed_paths, "fusion")
       expression_patients <- get_patients(confirmed_paths, "expression")
+      
+      update_waiter_progress(session, 15, "Checking session...")
       
       session_dir <- isolate(shared_data$session_dir())
 
@@ -351,6 +365,8 @@ server <- function(id) {
       # Vytvoř nový cache POUZE pokud NENÍ load session
       if (!isTRUE(shared_data$is_loading_session())) {
 
+        update_waiter_progress(session, 20, "Preparing session...")
+        
         # Cleanup old sessions
         cleanup_old_sessions("sessions", days = 7)
         
@@ -365,57 +381,70 @@ server <- function(id) {
         }
 
         if (length(somatic_patients) > 0) {
+          update_waiter_progress(session, 25, "Creating somatic cache...")
           # Create somatic cache
-          withProgress(message = "Creating cache for somatic variants...", {
-            create_session_cache(
-              all_files = get_files_by_patient(confirmed_paths, "somatic"),
-              all_patients = somatic_patients,
-              session_dir = new_session_dir,
-              variant_type = "somatic"
-            )
-          })
+          create_session_cache(
+            all_files = get_files_by_patient(confirmed_paths, "somatic"),
+            all_patients = somatic_patients,
+            session_dir = new_session_dir,
+            variant_type = "somatic"
+          )
+          update_waiter_progress(session, 40, "Somatic cache complete")
         } else {
           message("⏭️  Skipping somatic cache - no data available")
+          update_waiter_progress(session, 40, "No somatic data")
         }
         
 
         
         if (length(germline_patients) > 0) {
+          update_waiter_progress(session, 45, "Creating germline cache...")
           # Create germline cache
-          withProgress(message = "Creating cache for germline variants...", {
-            create_session_cache(
-              all_files = get_files_by_patient(confirmed_paths, "germline"),
-              all_patients = germline_patients,
-              session_dir = new_session_dir,
-              variant_type = "germline"
-            )
-          })
+          create_session_cache(
+            all_files = get_files_by_patient(confirmed_paths, "germline"),
+            all_patients = germline_patients,
+            session_dir = new_session_dir,
+            variant_type = "germline"
+          )
+          update_waiter_progress(session, 60, "Germline cache complete")
         } else {
           message("⏭️  Skipping germline cache - no data available")
+          update_waiter_progress(session, 60, "No germline data")
         }
         
       } else {
         message("✅ Using existing cache from: ", session_dir)
         shared_data$is_loading_session(FALSE)
         message("🔄 Reset is_loading_session to FALSE")
+        update_waiter_progress(session, 60, "Using existing cache")
       }
       
+      update_waiter_progress(session, 65, "Loading somatic data...")
       # ## Somatic
       if (length(somatic_patients) > 0)  add_dataset_tabs(session, confirmed_paths, "somatic", somatic_patients, shared_data, added_tab_values, "somatic_tabset", "som_", somatic_var_call_table)
-        # # # ## Germline
+        
+      update_waiter_progress(session, 70, "Loading germline data...")
+      # # # ## Germline
       if (length(germline_patients) > 0) add_dataset_tabs(session, confirmed_paths, "germline", germline_patients, shared_data, added_tab_values, "germline_tabset", "germ_", germline_var_call_table)
-        ## Fusion
+        
+      update_waiter_progress(session, 75, "Loading fusion data...")
+      ## Fusion
       if (length(fusion_patients) > 0) add_dataset_tabs(session, confirmed_paths, "fusion", fusion_patients, shared_data, added_tab_values, "fusion_tabset", "fus_", fusion_genes_table, reactive(input$load_session_btn))
-        # # ## Expression & network graph
+        
+      update_waiter_progress(session, 80, "Loading expression data...")
+      # # ## Expression & network graph
       if (length(expression_patients) > 0) {
         add_dataset_tabs(session, confirmed_paths, "expression", expression_patients, shared_data, added_tab_values, "expression_tabset", "expr_", expression_profile_table, reactive(input$load_session_btn))
+        update_waiter_progress(session, 85, "Loading network graph...")
         add_dataset_tabs(session, confirmed_paths, "network", expression_patients, shared_data, added_tab_values, "network_graph", "net_", networkGraph_cytoscape)
       }
 
-        ## Summary
+      update_waiter_progress(session, 90, "Creating summary...")
+      ## Summary
       add_summary_boxes(session, output, shared_data, "summary_table", summary, mounted_summary)
   
 
+      update_waiter_progress(session, 95, "Initializing IGV...")
       # ## IGV + static server mount (ONCE)
       if (length(somatic_patients) > 0 || length(germline_patients) > 0 || length(fusion_patients) > 0){
         if (is.null(shared_data$igv_server_started)) shared_data$igv_server_started <- reactiveVal(FALSE)
@@ -550,10 +579,31 @@ server <- function(id) {
 #       }
 # 
       # Optionally focus the whole Variant calling page
-      # updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
-      updateNavbarTabs(session, "navbarMenu", selected = ns("network_graph"))
+      update_waiter_progress(session, 98, "Finalizing...")
+
+      # updateNavbarTabs(session, "navbarMenu", selected = ns("expression_profile"))
+      
+      # Wait for UI to switch tabs and render Summary
+      update_waiter_progress(session, 100, "Complete!")
+      updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
+      
+      # Request JS to notify when Summary is fully rendered (with proper namespace)
+      wait_for_summary_rendered(session, ns)
+      
+      # Reset flag for this data load
+      waiter_hidden(FALSE)
   
     }, ignoreInit = TRUE)
+    
+    # Hide waiter when Summary tab is fully rendered
+    observeEvent(input$summary_rendered, {
+      # Only hide waiter once per data load
+      if (!waiter_hidden()) {
+        message("✅ Summary tab fully rendered - hiding waiter")
+        waiter_hide(id = NA)
+        waiter_hidden(TRUE)
+      }
+    })
     
   })
 }

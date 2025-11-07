@@ -23,9 +23,7 @@ selectedTab_UI <- function(id){
         border: none;
         height: 155px;
       }
-      .row-highlighted {
-          background-color: #FFFF99 !important;
-      }
+      .row-highlighted { background-color: #FFFF99 !important; }
     "))),
     
     div(

@@ -7,6 +7,26 @@ cytoscape.use(fcose);
 
 window.cytoscape = cytoscape;
 
+// Initialize Bootstrap tooltips with faster delay
+$(document).ready(function() {
+  // Enable tooltips with shorter delay
+  $('[title]').tooltip({
+    delay: { show: 100, hide: 100 }
+  });
+  
+  // Re-initialize tooltips when new elements are added
+  const observer = new MutationObserver(function() {
+    $('[title]:not([data-bs-original-title])').tooltip({
+      delay: { show: 100, hide: 100 }
+    });
+  });
+  
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true
+  });
+});
+
 export function initRadioSync() {
   console.log("initRadioSync loaded");
 
