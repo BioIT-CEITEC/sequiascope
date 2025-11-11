@@ -1,12 +1,17 @@
+### bookdown::render_book("doc/")
 book_filename: "documentation"
 rmd_files: [
   "index.Rmd",
-  "data-requirements.Rmd",
-  "upload-data.Rmd",
-  "summary-report.Rmd",
-  "variant_calling.Rmd"
+  "01-data-requirements.Rmd",
+  "02-upload-data.Rmd",
+  "03-common-features.Rmd",
+  "04-summary-report.Rmd",
+  "05-variant-calling.Rmd",
+  "06-fusion-genes.Rmd",
+  "07-expression_profile.Rmd",
+  "08-network-graph.Rmd"
 ]
-output_dir: "/home/katka/BioRoots/sequiaViz/docs"
+output_dir: "../docs"
 delete_merged_file: true
 
 output:

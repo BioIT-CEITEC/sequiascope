@@ -1,0 +1,123 @@
+---
+output:
+  bookdown::bs4_book:
+    bootswatch: dark
+    css: "custom-styles.css"
+---
+
+# Upload data {-}
+
+This module serves as the starting point for the SequiaViz application. Before uploading data, ensure that your input files and directories are properly formatted according to the specifications outlined in chapter [Data Requirements](#data-requirements) and section below.
+
+## Step 1: Directory, patient and dataset selection {-}
+1. **Select main directory** containing data for all patients. 
+
+   In example bellow, the **main directory** is `project_root`, which contains subdirectories for each patient (`patient_001`, ..., `patient_N`) and general files like `genes_of_interest.tsv` and `mutation_loads.tsv`.
+
+   If you select a broader directory, such as `user`, it may contain unnecessary files that could interfere with the tool’s ability to select correct files. To avoid this, it is recommended to select the most specific directory possible, such as `project_root`.
+
+```
+home/
+└── user/
+    └── project_root/
+        ├── genes_of_interest.tsv                     # table of genes of interest
+        ├── mutation_loads.tsv                        # tumor mutational burden table
+        ├── patient_001/
+        │   ├── somatic_variants.tsv                  # somatic variants table
+        │   ├── germline_variants.tsv                 # germline variants table
+        │   ├── fusions.tsv                           # detected gene fusions table
+        │   ├── tumor.bam                             # tumor DNA BAM
+        │   ├── tumor.bam.bai                         # index for tumor DNA BAM
+        │   ├── normal.bam                            # normal DNA BAM
+        │   ├── normal.bam.bai                        # index for normal DNA BAM
+        │   ├── fusion.bam                            # tumor RNA BAM
+        │   ├── fusion.bam.bai                        # index for tumor RNA BAM
+        │   ├── chimeric.bam                          # chimeric BAM
+        │   ├── chimeric.bam.bai                      # index for chimeric BAM
+        │   ├── arriba_report.pdf                     # arriba report
+        │   ├── arriba_results.tsv                    # arriba result table
+        │   └── expression.tsv                        # gene expression table
+        └── patient_N/
+            └── ... 
+```    
+2. **Add patient IDs** 
+
+   Enter one or more patient IDs. If you have multiple IDs, you can input them all at once, separated by commas or new lines.
+
+3. **Select dataset types** you want to visualize. 
+
+   For each dataset, you can define specific patterns to identify relevant files:
+   - **Set patterns** for BAM files (e.g., "tumor", "FFPE", "normal", "ctrl", "chimeric"). If no pattern is set, BAM and BAI files will not be searched for.
+   - **Set reference tissues** for expression analysis (e.g., "blood", "blood_vessel", "liver"). If no tissue is specified, the tool will search for a file named `expression.tsv`.
+
+   If a dataset is not selected, its files will be ignored.
+   
+::: {.alert .alert-info}
+**Note:** In case of more words in tissue names (e.g., "blood vessel"), use underscores instead of spaces (e.g., "blood_vessel"). Also, in Validation step, make extra sure, that correct file was paired to correct tissue.
+:::
+
+## Step 2: Validation and confirmation {-}
+1. The application **searches** the selected directory and identifies all relevant files.
+2. It **displays an overview** of the files found for each patient and selected dataset.
+3. It **marks problems** using colored icons:
+   - 🟢 **Green**: All required files are found (e.g., variant file, fusion file, expression file).
+   - 🟠 **Orange**: Optional files are missing (e.g., BAM files for IGV visualization). You can continue without these files, but some features will be unavailable.
+   - 🔴 **Red**: Required files are missing or there are too many files. You must resolve these issues before proceeding. See the Common Errors and Solutions section below for help.
+4. **Confirm configuration** to continue
+
+::: {.alert .alert-info}
+**Note:** If you realize in Step 2 that you made a mistake in Step 1, you can go back to Step 1 using the **Back** to Selection button and adjust your configuration. If you didn’t make a mistake but notice that some files are missing, you can add them to the directory or rename them as needed. Then, use the **Refresh** button to search for files again.
+:::
+
+::: {.alert .alert-success}
+**Tip:** If you have previously worked on a configuration and saved the session, you can upload it directly using the **Load Session** button. This will allow the application to skip the Selection and Validation steps and load the configuration from the saved file.
+:::
+
+::: {.alert .alert-warning}
+**Caution:** If present, the `genes_of_interest.tsv` and `mutation_loads.tsv` files will appear as detected files for each patient, even though only one file is shared among all patients.
+:::
+
+## Common Errors and Solutions {-}
+
+#### **"Required file missing"** {-}
+**Cause**: A required file for the selected dataset type is missing.  
+**Solution**:
+
+- Verify that the file exists in the patient directory.
+- Check the file name to ensure it includes the patient ID (pay special attention to case sensitivity).
+- Confirm that the file has the correct extension (e.g., `.tsv`, `.xlsx`).
+
+#### **"Multiple files found"** {-}
+**Cause**: Multiple files of the same type were found for a single patient.  
+**Solution**:
+
+- Remove or rename duplicate files.
+- Ensure that each patient has only one file of each type.
+- Review BAM file patterns to ensure they are not too general.
+
+#### **"Missing BAM or BAI"** {-}
+**Cause**: A BAM file is missing its corresponding index file (.bai).  
+**Solution**:
+
+- Generate the missing `.bai` file using the command `samtools index`.
+- Ensure that the `.bai` file is named correctly.
+- For example, if the BAM file is `file.bam`, the index file must be `file.bam.bai` or `file.bai`.
+
+#### **"Missing PDF or TSV"** {-}
+**Cause**: The output from the Arriba analysis is incomplete.  
+**Solution**:
+
+- Ensure that both the `.pdf` and `.tsv` files from the Arriba analysis are present.
+- Verify that both files include the string "arriba" in their names and have the correct extensions (`.tsv`, `.pdf`).
+
+
+**FILL ALSO USE CASE FOR EXPRESSION FILES - MORE TISSUES THAN FILES OR MORE FILES THEN TISSUES --> TROUBLES WITH MATCHING TISSUE NAMES** {-}
+
+#### **"        "** {-}
+**Cause**: The number of tissues does not match the number of expression files found, or the tissue names cannot be matched to the files.  
+**Solution**:
+
+- Verify that each tissue has a corresponding expression file.
+- Ensure that tissue names in the configuration match the file names (use underscores instead of spaces, e.g., `blood_vessel` instead of `blood vessel`).
+- Double-check the pairing of tissues and files during the validation step.
+
