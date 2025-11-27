@@ -19,6 +19,7 @@
   font-weight: normal;
 }
 
+
 .download-button {
    color: #74C0FC; 
    margin-bottom: 0; 
@@ -60,3 +61,23 @@
 }
 
 .patient-tabs .tab-content { padding-top: 0; }
+
+// Upload data status icon tooltips
+.tooltip {
+  .tooltip-inner {
+    background-color: #343a40;
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: left;
+    max-width: 300px;
+  }
+  .arrow::before {
+    border-bottom-color: #343a40 !important;
+  }
+}
+
+.status-icon {
+  cursor: help;
+}

@@ -40,9 +40,11 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
-    # useWaitress(),
+    tags$head(tags$style(HTML(".download-dropdown-wrapper .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+                               .download-dropdown-wrapper .dropdown-toggle::after {display: none !important;}
+                               .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))),
     fluidRow(
-      div(style = "width: 100%; text-align: right;",
+      div(class = "download-dropdown-wrapper", style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
         dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
                        selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                        selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
@@ -52,7 +54,7 @@ ui <- function(id) {
     tags$br(),
 
     div(style = "display: flex; justify-content: space-between; align-items: top; width: 100%;",
-      div(
+      column(6,
         actionButton(ns("selectPathogenic_button"), "Select variants as possibly pathogenic", status = "info"),
         tags$br(),
         fluidRow(
@@ -296,11 +298,13 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       }
       
       reactable(
-        variants,
+        variants <- as.data.table(variants)[,.(var_name,gene_symbol,HGVSc,HGVSp,consequence,clinvar_sig,Feature)],
         columns = list(
           var_name = colDef(name = "Variant name"),
           gene_symbol = colDef(name = "Gene name"),
-          consequence = colDef(minWidth=160)),
+          consequence = colDef(name = "Consequence",minWidth=160),
+          clinvar_sig = colDef(name = "ClinVar significance",minWidth=180),
+          Feature = colDef(name = "Feature")),
         selection = "multiple", onClick = "select"
       )
     })
@@ -752,7 +756,7 @@ filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_
         
         wanted_values <- normalize_column_selection(
           selection   = wanted,
-          choices_map = mapped_checkbox_names,
+          choices_map = isolate(mapped_checkbox_names()),
           default_cols = colnames_list$default_columns
         )
         message(sprintf("Final selected values: %s", paste(wanted_values, collapse = ", ")))
@@ -777,16 +781,10 @@ filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_
 filterTab_ui <- function(id){
   ns <- NS(id)
   tagList(
-    tags$head(tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
-                               button:has(.download-button) .dropdown-toggle::after {display: none !important;}
-                               button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
-    ),
     dropdownButton(
       label = NULL,
       right = TRUE,
-      # width = "480px",
       icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
-      
       fluidRow(style = "display: flex; align-items: stretch;",
                column(8,
                       box(width = 12,title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",

@@ -13,7 +13,8 @@ box::use(
   data.table[data.table,uniqueN,as.data.table,copy,is.data.table,fifelse,setcolorder,fread,setnames,rbindlist],
   shinyWidgets[pickerInput,updatePickerInput,dropdownButton,prettyCheckboxGroup,updatePrettyCheckboxGroup,actionBttn,pickerOptions,dropdown],
   stats[setNames],
-  waiter[waiter_show, waiter_hide, spin_fading_circles]
+  waiter[waiter_show, waiter_hide, spin_fading_circles],
+  tools[file_path_sans_ext],
 )
 box::use(
   app/logic/load_data[load_data],
@@ -37,15 +38,14 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
-    # Wrapper with relative positioning for absolute overlay (no fixed height)
+    tags$head(tags$style(HTML(".download-dropdown-wrapper .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+                               .download-dropdown-wrapper .dropdown-toggle::after {display: none !important;}
+                               .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))),
     div(style = "position: relative;",
-      # Prerun loading UI - absolute overlay across entire card content
       uiOutput(ns("prerun_loading")),
-      
-      # Main UI - hidden during prerun
       div(id = ns("main_content"),
       fluidRow(
-        div(style = "width: 100%; text-align: right;",
+        div(class = "download-dropdown-wrapper", style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
             dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
                            selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                            selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
@@ -54,7 +54,7 @@ ui <- function(id) {
       use_spinner(reactableOutput(ns("fusion_genes_tab"))),
       tags$br(),
       div(style = "display: flex; justify-content: space-between; align-items: top; width: 100%;",
-        div(
+        column(6,
           tags$br(),
           actionButton(ns("selectFusion_button"), "Select fusion as causal", status = "info"),
           tags$br(),
@@ -93,6 +93,35 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
     ns <- session$ns
    
     is_restoring_session <- reactiveVal(FALSE)
+    
+    # IGV snapshot watcher - sleduje .done soubory
+    observe({
+      patient_id <- selected_samples
+      
+      # Kontrolovat pouze pokud prerun běží
+      if (patient_id %in% names(shared_data$fusion_prerun_status)) {
+        status <- shared_data$fusion_prerun_status[[patient_id]]()
+        
+        if (status == "running") {
+          # Pravidelná kontrola .done souborů (každé 2 sekundy)
+          invalidateLater(2000)
+          
+          # Zkontrolovat, zda existuje .done soubor
+          batch_file <- file.path("www", "igv_snapshots", patient_id, paste0(patient_id, "_batch.txt"))
+          done_file <- paste0(file_path_sans_ext(batch_file), ".done")
+          
+          if (file.exists(done_file)) {
+            message("IGV snapshots completed for ", patient_id, " - found .done file")
+            # Odstranit .done soubor
+            if (file.exists(done_file)) file.remove(done_file)
+            # Aktualizovat progress na 100%
+            if (patient_id %in% names(shared_data$fusion_prerun_progress)) {
+              shared_data$fusion_prerun_progress[[patient_id]](100)
+            }
+          }
+        }
+      }
+    })
     
     # Check per-patient prerun status
     prerun_ready <- reactive({
@@ -135,6 +164,30 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
           0
         }
         
+        # Get total fusions count
+        total_fusions <- if (patient_id %in% names(shared_data$fusion_prerun_total_fusions)) {
+          shared_data$fusion_prerun_total_fusions[[patient_id]]()
+        } else {
+          NULL
+        }
+        
+        # Estimate time (approximately 0.5-1 second per fusion for IGV snapshots)
+        # For very large datasets, this helps users understand the wait time
+        est_time_text <- ""
+        if (!is.null(total_fusions) && total_fusions > 0) {
+          est_minutes <- ceiling(total_fusions * 0.5 / 60)  # Conservative estimate
+          if (est_minutes > 5) {
+            est_time_text <- sprintf(" (estimated time: ~%d minutes)", est_minutes)
+          }
+        }
+        
+        # Fusion count text
+        fusion_info <- if (!is.null(total_fusions) && total_fusions > 0) {
+          paste0(total_fusions, " fusion", if(total_fusions > 1) "s" else "", " detected", est_time_text)
+        } else {
+          "Counting fusions..."
+        }
+        
         div(
           style = "position: absolute;
                    top: 0;
@@ -150,13 +203,17 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
                    z-index: 1000;
                    padding: 40px;",
           div(
-            style = "text-align: center; max-width: 500px;",
+            style = "text-align: center; max-width: 600px;",
             tags$div(
               style = "font-size: 48px; color: #74c0fc; margin-bottom: 20px;",
               HTML('<i class="fas fa-spinner fa-spin"></i>')
             ),
             h3(paste0("Preparing Fusion Data for ", patient_id, "..."), 
-               style = "margin-bottom: 30px; color: #fff;"),
+               style = "margin-bottom: 10px; color: #fff;"),
+            tags$div(
+              style = "font-size: 1.2em; color: #ffd43b; margin-bottom: 25px; font-weight: 600;",
+              fusion_info
+            ),
             tags$div(
               style = "width: 100%; background-color: rgba(255, 255, 255, 0.2); border-radius: 10px; padding: 5px; margin: 20px 0;",
               tags$div(
@@ -171,7 +228,13 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
             tags$p(
               "You can use other modules while this processes in the background.",
               style = "color: #adb5bd; font-size: 0.95em; margin-top: 20px;"
-            )
+            ),
+            if (!is.null(total_fusions) && total_fusions > 100) {
+              tags$p(
+                HTML('<i class="fas fa-info-circle"></i> Large dataset detected. This may take some time to complete.'),
+                style = "color: #ffc078; font-size: 0.9em; margin-top: 15px; font-style: italic;"
+              )
+            }
           )
         )
       } else {
@@ -284,19 +347,6 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
                               if (png_ok) tags$img(src = png_file, style = "width:50%; height:auto;")
                               else tags$strong("IGV snapshot not available.", style = "width:50%; text-align:center; margin:40px 0;")
                             )
-                            # tags$div(
-                            #   style = "display: flex; align-items: center;",
-                            #   if (file.exists(paste0("www/",svg_file))) {
-                            #     tags$img(src = svg_file, style = "width:50%; height:auto; display:inline-block; vertical-align:top;")
-                            #   } else {
-                            #     tags$strong("Starfusion doesn't provide this picture.", style = "width:10%; height:auto; display:inline-block; vertical-align:middle; margin-left: 20px; font-weight: bold; text-align: center; margin-top:40px; margin-bottom:40px;")
-                            #   },
-                            #   if (file.exists(paste0("www/",png_file))) {
-                            #     tags$img(src = png_file, style = "width:50%; height:auto; display:inline-block; vertical-align:top; margin-bottom:40px;")
-                            #   } else {
-                            #     tags$strong("IGV didn't snapshot this position.", style = "width:10%; height:auto; display:inline-block; vertical-align:middle; margin-left: 20px; font-weight: bold; text-align: center; margin-top:40px; margin-bottom:40px;")
-                            #   }
-                            # )
                           },
                           rowStyle = function(index) {
                             gene1_in_row <- dt$gene1[index]
@@ -411,17 +461,14 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
       }
       
       reactable(
-        variants,
+        variants <- as.data.table(variants)[,.(gene1,gene2,overall_support,position1,position2,arriba.confidence)],
         columns = list(
           gene1 = colDef(name = "Gene1"),
-          gene2 = colDef(name = "Gene1")
-          # remove = colDef(
-          #   name = "",
-          #   cell = function(value, index) {
-          #     # actionButton(session$ns("delete"), label = "", class = "btn btn-danger btn-sm", icon = icon("remove"))
-          #     # actionButton(session$ns(paste0("remove_", index)), label = "", class = "btn btn-danger btn-sm", icon = icon("remove"))
-          #   })
-        ),
+          gene2 = colDef(name = "Gene2"),
+          overall_support = colDef(name = "Overall support"),
+          position1 = colDef(name = "Position1",minWidth = 150),
+          position2 = colDef(name = "Position2",minWidth = 150),
+          arriba.confidence = colDef(name = "Arriba confidence")),
         selection = "multiple", onClick = "select"
       )
     })
@@ -548,31 +595,42 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
       } else {
         shared_data$navigation_context("fusion")   # odkud otevíráme IGV
     
-        ids <- unique(selected_fusions()$sample)
-        message("IDs from selected_fusions(): ", paste(ids, collapse = ", "))
+        selected_patients <- unique(selected_fusions()$sample)
+        message("Selected patients for IGV (germline): ", paste(selected_patients, collapse = ", "))
     
         # 2) Postavte seznam tracků bezpečně
-        track_lists <- lapply(ids, function(id_val) {
-          # pokud máte zvlášť vektory pro fuze a chimeric, použijte je
-          fuze_vec <- bam_path$rna.fuze_bam %||% bam_path$rna.tumor_bam   # fallback, když slot neexistuje
-          chim_vec <- bam_path$rna.chimeric_bam
-    
-          tumor_path <- grep(paste0(id_val, "\\.bam$"), fuze_vec, value = TRUE)
-          chim_path  <- grep(paste0(id_val, ".*Chimeric\\.out\\.bam$"), chim_vec, value = TRUE)
-    
+        track_lists <- lapply(selected_patients, function(id_val) {
           tracks <- list()
-          if (length(tumor_path)) {
-            tracks <- c(tracks, list(list(
-              name = paste0(id_val, " RNA"),
-              file = sub(bam_path$path_to_folder, ".", tumor_path, fixed = TRUE)
-            )))
+          
+          if (!id_val %in% names(file_list)) {
+            message("No fusion files found for patient: ", id_val)
+            return(tracks)
           }
-          if (length(chim_path)) {
-            tracks <- c(tracks, list(list(
-              name = paste0(id_val, " Chimeric"),
-              file = sub(bam_path$path_to_folder, ".", chim_path, fixed = TRUE)
-            )))
+          
+          patient_files <- file_list[[id_val]]
+          
+          # Add tumor RNA BAM track if available
+          if ("tumor" %in% names(patient_files) && length(patient_files$tumor) > 0) {
+            tumor_bam <- patient_files$tumor[grepl("\\.bam$", patient_files$tumor)][1]
+            if (!is.na(tumor_bam)) {
+              tracks <- c(tracks, list(list(
+                name = paste0(id_val, " RNA"),
+                file = tumor_bam
+              )))
+            }
           }
+          
+          # Add chimeric BAM track if available
+          if ("chimeric" %in% names(patient_files) && length(patient_files$chimeric) > 0) {
+            chim_bam <- patient_files$chimeric[grepl("\\.bam$", patient_files$chimeric)][1]
+            if (!is.na(chim_bam)) {
+              tracks <- c(tracks, list(list(
+                name = paste0(id_val, " Chimeric"),
+                file = chim_bam
+              )))
+            }
+          }
+          
           tracks
         })
         
@@ -583,7 +641,7 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
           files <- vapply(bam_list, function(x) x$file, character(1L))
           message("✔ Assigned fusion_bam (", length(bam_list), " tracks): ", paste(files, collapse = ", "))
         } else {
-          message("✖ No tracks assembled for IDs: ", paste(ids, collapse = ", "))
+          message("✖ No tracks assembled for selected_patients: ", paste(selected_patients, collapse = ", "))
         }
         
         shared_data$fusion.bam(bam_list)
@@ -754,7 +812,7 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
         
         wanted_values <- normalize_column_selection(
           selection = wanted,
-          choices_map = mapped_checkbox_names,
+          choices_map = isolate(mapped_checkbox_names()),
           default_cols = colnames_list$default_columns
         )
         
@@ -776,30 +834,32 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
 filterTab_ui <- function(id){
   ns <- NS(id)
   tagList(
-    tags$head(tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
-                               button:has(.download-button) .dropdown-toggle::after {display: none !important;}
-                               button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
-    ),
-    dropdownButton(
-      label = NULL,
-      right = TRUE,
-      # width = "480px",
-      icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
-      fluidRow(style = "display: flex; align-items: stretch;",
-               column(12,
-                      box(width = 12,title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
-                          div(class = "two-col-checkbox-group",
-                              prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL, choices = character(0))),
-                          tags$br(),
-                          div(style = "display: flex; gap: 10px; width: 100%;",
-                              actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
-                              actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))
-                      )
-               )
-      ),
-      tags$br(),
-      div(style = "display: flex; justify-content: center; margin-top: 10px;",
-          actionBttn(ns("confirm_btn"),"Apply changes",style = "stretch",color = "success",size = "md",individual = TRUE,value = 0))
+    # tags$head(tags$style(HTML(".download-dropdown-wrapper .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+    #                            .download-dropdown-wrapper .dropdown-toggle::after {display: none !important;}
+    #                            .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
+    #                           "))
+    # ),
+    # div(class = "download-dropdown-wrapper", 
+      dropdownButton(
+        label = NULL,
+        right = TRUE,
+        icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
+        fluidRow(style = "display: flex; align-items: stretch;",
+                 column(12,
+                        box(width = 12,title = tags$div(style = "padding-top: 8px;","Select columns:"),closable = FALSE,collapsible = FALSE,height = "100%",
+                            div(class = "two-col-checkbox-group",
+                                prettyCheckboxGroup(ns("colFilter_checkBox"),label = NULL, choices = character(0))),
+                            tags$br(),
+                            div(style = "display: flex; gap: 10px; width: 100%;",
+                                actionButton(ns("show_all"), label = "Show All", style = "flex-grow: 1; width: 0;"),
+                                actionButton(ns("show_default"), label = "Show Default", style = "flex-grow: 1; width: 0;"))
+                        )
+                 )
+        ),
+        tags$br(),
+        div(style = "display: flex; justify-content: center; margin-top: 10px;",
+            actionBttn(ns("confirm_btn"),"Apply changes",style = "stretch",color = "success",size = "md",individual = TRUE,value = 0))
+      )
     )
-  )
+  # )
 }

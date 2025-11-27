@@ -124,6 +124,35 @@ load_session <- function(file, shared_data, module_configs = NULL) {
     session_data <- session_json
   }
   
+  # Restore fusion prerun status
+  if (!is.null(session_json$fusion_prerun_completed) && length(session_json$fusion_prerun_completed) > 0) {
+    message("🔄 Restoring fusion prerun status")
+    prerun_status_list <- try(shared_data$fusion_prerun_status(), silent = TRUE)
+    if (inherits(prerun_status_list, "try-error") || is.null(prerun_status_list)) {
+      prerun_status_list <- list()
+    }
+    
+    for (patient_id in names(session_json$fusion_prerun_completed)) {
+      if (isTRUE(session_json$fusion_prerun_completed[[patient_id]])) {
+        if (is.null(prerun_status_list[[patient_id]])) {
+          prerun_status_list[[patient_id]] <- reactiveVal("completed")
+        } else {
+          prerun_status_list[[patient_id]]("completed")
+        }
+        message("   ✅ Patient ", patient_id, ": fusion prerun already completed")
+      }
+    }
+    
+    # Note: shared_data$fusion_prerun_status is a plain list, not a reactiveVal
+    # It gets updated directly by setting reactiveVals inside it, so no need to reassign
+    
+    # Mark that prerun was started (to prevent re-running)
+    if (!is.null(shared_data$fusion_prerun_started)) {
+      shared_data$fusion_prerun_started(TRUE)
+      message("   🚫 Fusion prerun marked as already started")
+    }
+  }
+  
   if (is.null(module_configs)) module_configs <- get_default_module_configs()
   
   for (module_type in names(module_configs)) {
@@ -182,18 +211,49 @@ save_session <- function(file = "session_data.json", shared_data, module_types =
     
     if (!is.null(reg) && length(reg) > 0) {
       module_data <- lapply(names(reg), function(module_id) {
-        isolate(reg[[module_id]]$get_session_data())
+        tryCatch({
+          data <- isolate(reg[[module_id]]$get_session_data())
+          # Check if data contains any functions/closures
+          if (any(sapply(data, is.function))) {
+            warning(sprintf("[SAVE] Module %s/%s contains functions in session data", module_type, module_id))
+          }
+          data
+        }, error = function(e) {
+          warning(sprintf("[SAVE] Error getting session data for %s/%s: %s", module_type, module_id, e$message))
+          list()
+        })
       })
       names(module_data) <- names(reg)
       session[[module_type]] <- module_data
     }
   }
   
+  # Collect fusion prerun status for all patients
+  fusion_prerun_completed <- list()
+  prerun_status_list <- shared_data$fusion_prerun_status  # This is a plain list, not a reactiveVal
+  if (!is.null(prerun_status_list) && length(prerun_status_list) > 0) {
+    for (patient_id in names(prerun_status_list)) {
+      status <- try(prerun_status_list[[patient_id]](), silent = TRUE)
+      if (!inherits(status, "try-error")) {
+        fusion_prerun_completed[[patient_id]] <- (status == "completed")
+        message(sprintf("[SAVE] Patient %s prerun status: %s -> completed=%s", 
+                       patient_id, status, status == "completed"))
+      }
+    }
+  }
+  
   session_metadata <- list(
     data = session,
     session_dir = nz(shared_data$session_dir(), NULL),
-    saved_at = Sys.time()
+    saved_at = Sys.time(),
+    fusion_prerun_completed = fusion_prerun_completed  # Add fusion prerun status
   )
+  
+  # Debug: Check file parameter
+  if (!is.character(file) || length(file) != 1) {
+    stop(sprintf("Invalid file parameter: class=%s, length=%d, value=%s", 
+                 class(file)[1], length(file), paste(deparse(file), collapse="")))
+  }
   
   write_json(session_metadata, file, auto_unbox = TRUE, pretty = TRUE, na = "null")
   showNotification(paste("Session saved to", file), type = "message")

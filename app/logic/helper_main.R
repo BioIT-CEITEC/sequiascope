@@ -156,17 +156,42 @@ add_dataset_tabs <- function(session,
   
   file_list <- get_files_by_patient(confirmed_paths, dataset_name)
   
-  # Remove old tabs for this dataset (if any)
-
+  # Identify which patients are new (don't have tabs yet)
   old_vals <- added_tab_values[[dataset_name]]
-  if (length(old_vals)) {
-    lapply(old_vals, function(val) removeTab(inputId = tabset_input_id, target = val))
-    added_tab_values[[dataset_name]] <- character(0)
+  
+  message("🔎 [add_dataset_tabs] Reading added_tab_values for ", dataset_name, ": ", 
+          if(length(old_vals)) paste(old_vals, collapse = ", ") else "(empty)")
+  old_patient_ids <- if (length(old_vals)) {
+    # Extract patient IDs from tab values (format: "{prefix}{patient_id}")
+    gsub(paste0("^", tab_value_prefix), "", old_vals)
+  } else {
+    character(0)
   }
-
-  # Append tabs for all patients and start their module servers
+  
+  # Identify patients to add and remove
+  new_patient_ids <- setdiff(patients, old_patient_ids)
+  removed_patient_ids <- setdiff(old_patient_ids, patients)
+  
+  message("🔍 [add_dataset_tabs] Dataset: ", dataset_name)
+  message("   All patients: ", paste(patients, collapse = ", "))
+  message("   Old patients: ", paste(old_patient_ids, collapse = ", "))
+  message("   New patients: ", paste(new_patient_ids, collapse = ", "))
+  message("   Removed patients: ", paste(removed_patient_ids, collapse = ", "))
+  
+  # Remove tabs for patients that are no longer in the list
+  if (length(removed_patient_ids) > 0) {
+    removed_vals <- paste0(tab_value_prefix, removed_patient_ids)
+    lapply(removed_vals, function(val) {
+      message("🗑️  Removing tab: ", val)
+      removeTab(inputId = tabset_input_id, target = val)
+    })
+    # Update old_vals to exclude removed tabs
+    old_vals <- setdiff(old_vals, removed_vals)
+  }
+  
+  # Append tabs only for new patients and start their module servers
   new_vals <- character(0)
-  invisible(lapply(patients, function(patient_id) {
+  invisible(lapply(new_patient_ids, function(patient_id) {
     tab_value <- paste0(tab_value_prefix, patient_id)
     id_ns <- ns(paste0(dataset_name, "_tab_", patient_id))
     
@@ -238,9 +263,14 @@ add_dataset_tabs <- function(session,
                         file_list)
     }
     
-    new_vals <- c(new_vals, tab_value)
+    # Use <<- to modify parent scope variable from within lapply
+    new_vals <<- c(new_vals, tab_value)
   }))
-  added_tab_values[[dataset_name]] <- new_vals
+  # Append new tab values to existing ones (don't replace)
+  added_tab_values[[dataset_name]] <- c(old_vals, new_vals)
+  
+  message("✅ [add_dataset_tabs] Saved tab values for ", dataset_name, ": ", 
+          paste(added_tab_values[[dataset_name]], collapse = ", "))
   
   # 5) Select first patient tab after DOM is flushed
   if (length(patients)) {

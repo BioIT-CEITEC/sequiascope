@@ -1,6 +1,6 @@
 
 # Kombinovaný kontejner pro IGV Desktop snapshoty + statický server
-FROM openjdk:17-slim
+FROM openjdk:17.0.1-jdk-slim
 
 WORKDIR /srv/igv-static
 
@@ -9,8 +9,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
     unzip \
     xvfb \
+    xauth \
     curl \
     ca-certificates \
+    bash \
+    procps \
+    libxrender1 \
+    libxtst6 \
+    libxi6 \
+    libxext6 \
+    libx11-6 \
+    fontconfig \
+    fonts-dejavu-core \
+    fonts-dejavu-extra \
     && rm -rf /var/lib/apt/lists/*
 
 # Instalace Node.js (verze 22)
@@ -27,17 +38,36 @@ RUN wget https://data.broadinstitute.org/igv/projects/downloads/2.16/IGV_2.16.2.
     && rm IGV_2.16.2.zip \
     && chmod +x /opt/IGV_2.16.2/igv.sh
 
-# Vytvoření skriptu pro spuštění obou služeb
+# Configure fontconfig for headless operation
+RUN fc-cache -fv && mkdir -p /root/.fonts
+
+# Zkopírovat wrapper skript pro IGV Desktop
+COPY igv_wrapper.sh /usr/local/bin/igv_wrapper.sh
+RUN chmod +x /usr/local/bin/igv_wrapper.sh
+
+# Zkopírovat watcher skript pro automatické zpracování batch files
+COPY igv_batch_watcher.sh /usr/local/bin/igv_batch_watcher.sh
+RUN chmod +x /usr/local/bin/igv_batch_watcher.sh
+
+# Vytvoření skriptu pro spuštění http-serveru a watcheru
 RUN echo '#!/bin/bash\n\
-# Spusť Xvfb na pozadí (pro headless IGV)\n\
-Xvfb :99 -screen 0 1024x768x24 &\n\
-export DISPLAY=:99\n\
-\n\
 # Spusť http-server na pozadí\n\
-http-server /srv/igv-static -p 8081 --cors --no-cache &\n\
+echo "Starting http-server on port 8081..."\n\
+http-server /srv/igv-static -p 8081 --cors -c 3600 &\n\
+HTTP_SERVER_PID=$!\n\
 \n\
-# Udrž kontejner běžící\n\
-tail -f /dev/null\n\
+echo "IGV container started. Java version:"\n\
+java -version\n\
+echo "IGV installed at:"\n\
+ls -la /opt/IGV_2.16.2/\n\
+echo "Wrapper script:"\n\
+ls -la /usr/local/bin/igv_wrapper.sh\n\
+echo "Watcher script:"\n\
+ls -la /usr/local/bin/igv_batch_watcher.sh\n\
+\n\
+# Spusť IGV batch file watcher (foreground - hlavní proces)\n\
+echo "Starting IGV batch file watcher..."\n\
+exec /usr/local/bin/igv_batch_watcher.sh\n\
 ' > /start.sh && chmod +x /start.sh
 
 EXPOSE 8081

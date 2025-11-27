@@ -38,9 +38,11 @@ ui <- function(id) {
   ns <- NS(id)
   useShinyjs()
   tagList(
-
+    tags$head(tags$style(HTML(".download-dropdown-wrapper .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
+                               .download-dropdown-wrapper .dropdown-toggle::after {display: none !important;}
+                               .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))),
     fluidRow(
-      div(style = "width: 100%; text-align: right;",
+      div(class = "download-dropdown-wrapper", style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
          dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
            selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
            selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
@@ -50,7 +52,7 @@ ui <- function(id) {
      use_spinner(reactableOutput(ns("somatic_var_call_tab"))),
      tags$br(),
      div(style = "display: flex; justify-content: space-between; align-items: top; width: 100%;",
-       div(
+       column(6,
          tags$br(),
          actionButton(ns("selectPathogenic_button"), "Select variants as possibly oncogenic", status = "info"),
          tags$br(),
@@ -308,13 +310,14 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       if (is.null(variants) || nrow(variants) == 0) {
         return(NULL)
       } else {
-        variants <- as.data.table(variants)[,.(var_name,gene_symbol,consequence,HGVSc,HGVSp,Feature)]
+        variants <- as.data.table(variants)[,.(var_name,gene_symbol,HGVSc,HGVSp,consequence,Feature)]
         reactable(
           as.data.frame(variants),
           columns = list(
             var_name = colDef(name = "Variant name"),
             gene_symbol = colDef(name = "Gene name"),
-            consequence = colDef(minWidth=160)),
+            consequence = colDef(name = "Consequence",minWidth=160),
+            Feature = colDef(name = "Feature")),
           selection = "multiple", onClick = "select")
       }
     })
@@ -789,8 +792,8 @@ filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_
         wanted <- ch(safe_extract(state$selected_cols))
         message(sprintf("Restoring selected_cols: %s", paste(wanted, collapse = ", ")))
         
-        checkbox_names <- get_checkbox_names()
-        cols_list <- get_colnames_list()
+        checkbox_names <- isolate(get_checkbox_names())
+        cols_list <- isolate(get_colnames_list())
         
         wanted_values <- normalize_column_selection(
           selection = wanted,
@@ -824,26 +827,10 @@ filterTab_ui <- function(id) {
   ns <- NS(id)
 
   tagList(
-    tags$head(
-        # tags$style(HTML("
-        #               .checkbox label {font-weight: normal !important;}
-        #               .checkbox-group .checkbox {margin-bottom: 0px !important;}
-        #               .my-blue-btn {background-color: #007bff;color: white;border: none;}
-        #               .dropdown-menu .bootstrap-select .dropdown-toggle {border: 1px solid #ced4da !important; background-color: #fff !important;
-        #                 color: #495057 !important; height: 38px !important; font-size: 16px !important; border-radius: 4px !important;
-        #                 box-shadow: none !important;}
-        #               .sw-dropdown-content {border: 1px solid #ced4da !important; border-radius: 4px !important; box-shadow: none !important;
-        #                 background-color: white !important;}
-        #                .glyphicon-triangle-bottom {font-size: 12px !important; line-height: 12px !important; vertical-align: middle;}
-        #               #app-somatic_var_call_tab-igv_dropdownButton {width: 230px !important; height: 38px !important; font-size: 16px !important;}
-        #               "))
-      tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
-                       button:has(.download-button) .dropdown-toggle::after {display: none !important;}
-                       button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))
-    ),
     dropdownButton(
       label = NULL,
       right = TRUE,
+      width = "1100px",
       icon = HTML('<i class="fa-solid fa-filter download-button"></i>'),
       fluidRow(style = "display: flex; align-items: stretch;",
         column(7,

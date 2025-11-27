@@ -230,7 +230,16 @@ step1_server <- function(id, path, patients, datasets, tumor_pattern, normal_pat
     restore_ui_inputs <- function() {
       updateTextInput(session, "dir_path", value = nz(path()))
       p <- patients()
-      updateVirtualSelect("patient_list", choices = p, selected = p, open = TRUE)
+      message("🔄 [restore_ui_inputs] Restoring patients: ", paste(p, collapse = ", "))
+      
+      # Update virtualSelect with existing patients
+      updateVirtualSelect(session = session, inputId = "patient_list", 
+                          choices = p, selected = p)
+      
+      # Clear new_patients field (it's for adding NEW patients, not showing existing ones)
+      updateTextAreaInput(session, "new_patients", value = "")
+      
+      message("✅ [restore_ui_inputs] VirtualSelect updated, TextArea cleared")
       
       dataset <- datasets()
       updatePrettySwitch(session, "somVariants_data",  value = "somatic"  %in% dataset)

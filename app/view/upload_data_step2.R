@@ -38,15 +38,30 @@ step2_ui <- function(id) {
 
 
 
-  step2_server <- function(id, path, patients, datasets, tumor_pattern, normal_pattern, tissues) {
+  step2_server <- function(id, path, patients, datasets, tumor_pattern, normal_pattern, tissues, step) {
     moduleServer(id, function(input, output, session) {
       ns <- session$ns
       all_files <- reactiveVal()
       goi_files <- reactiveVal()
       TMB_files <- reactiveVal()
       confirmed_paths_state <- reactiveVal(NULL)
+      # Trigger for manual evaluation (only on refresh or when step becomes 2)
+      eval_trigger <- reactiveVal(0)
       
+      # Initial load - trigger evaluation ONLY when step becomes 2
+      # Initial load - trigger evaluation ONLY when step becomes 2
       observe({
+        req(step() == 2)  # Only trigger when we're on step 2
+        req(datasets(), all_files(), patients())
+        # Trigger only once on initial load to step 2
+        if (eval_trigger() == 0) {
+          eval_trigger(1)
+        }
+      })
+      
+      # Load files ONLY when step 2 is active
+      observe({
+        req(step() == 2)  # Don't load files until step 2
         req(path(), patients())
         all_files_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
         patient_pattern <- paste(patients(), collapse = "|")
@@ -55,6 +70,7 @@ step2_ui <- function(id) {
       })
       
       observe({
+        req(step() == 2)  # Don't load files until step 2
         req(path(), patients())
         goi_file_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
         patient_pattern <- paste(patients(), collapse = "|") 
@@ -63,6 +79,7 @@ step2_ui <- function(id) {
       })
 
       observe({
+        req(step() == 2)  # Don't load files until step 2
         req(path(), patients())
         TMB_file_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
         patient_pattern <- paste(patients(), collapse = "|")
@@ -73,6 +90,9 @@ step2_ui <- function(id) {
       
       datasets_data <- reactive({
         req(datasets(), all_files(), patients(), path())
+        # Only evaluate when trigger changes (manual refresh or initial load)
+        req(eval_trigger())
+        
         result <- list()
         for (dataset in datasets()) {
           result[[dataset]] <- create_dataset_data(dataset, all_files(), goi_files(), TMB_files(), patients(), path(), tumor_pattern, normal_pattern, tissues())
@@ -86,19 +106,23 @@ step2_ui <- function(id) {
         
         data <- datasets_data()
         
-        lapply(datasets(), function(dataset_name) {
-          patient_tab   <- data[[dataset_name]]$patient_tab
-          
-          div(class = paste0("upload-", dataset_name, "-box"),
-              bs4Card(
-                title       = h5(paste(dataset_name, "dataset")),
-                solidHeader = TRUE,
-                width       = 12,
-                collapsible = TRUE,
-                create_reactable(patient_tab, dataset_name)
-              )
-          )
-        })
+        tagList(
+          # Tooltips are now handled globally by index.js
+          # No need for local initialization
+          lapply(datasets(), function(dataset_name) {
+            patient_tab   <- data[[dataset_name]]$patient_tab
+            
+            div(class = paste0("upload-", dataset_name, "-box"),
+                bs4Card(
+                  title       = h5(paste(dataset_name, "dataset")),
+                  solidHeader = TRUE,
+                  width       = 12,
+                  collapsible = TRUE,
+                  create_reactable(patient_tab, dataset_name)
+                )
+            )
+          })
+        )
       })
 
       # Refresh tlačítko
@@ -118,6 +142,9 @@ step2_ui <- function(id) {
         file_pattern <- paste(c("mutation_loads","TMB"), collapse = "|")
         TMB_matches <- stri_detect_regex(all_files_list, file_pattern) & !str_detect(all_files_list, regex(patient_pattern, ignore_case = TRUE))
         TMB_files(all_files_list[TMB_matches])
+        
+        # Trigger evaluation
+        eval_trigger(eval_trigger() + 1)
       })
 
       

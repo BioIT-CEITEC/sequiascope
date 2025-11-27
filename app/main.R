@@ -45,12 +45,12 @@ box::use(
   # future[plan,multisession],
   # microbenchmark[microbenchmark],
   # parallel[detectCores],
-  data.table[data.table],
+  data.table[data.table, as.data.table, fread],
   shinyalert[shinyalert],
   future[future, value, resolved, plan, multicore, multisession],
   promises[then, catch],
-  parallel[detectCores]
-  # openxlsx[read.xlsx]
+  parallel[detectCores],
+  openxlsx[read.xlsx]
 )
 
   # Dynamic worker configuration based on available physical CPU cores (Kubernetes safe)
@@ -267,7 +267,8 @@ server <- function(id) {
       fusion_prerun_progress = list(),    # patient_id -> reactiveVal(0-100)
       fusion_prerun_future = list(),      # patient_id -> future object
       fusion_prerun_observer = list(),    # patient_id -> observer object
-      fusion_prerun_errors = reactiveVal(character())  # Track all errors
+      fusion_prerun_errors = reactiveVal(character()),  # Track all errors
+      fusion_prerun_total_fusions = list()  # patient_id -> reactiveVal(number of fusions)
     )
     shared_data$upload_modules <- reactiveVal(list())
     shared_data$upload_pending <- reactiveVal(list()) 
@@ -280,8 +281,8 @@ server <- function(id) {
     shared_data$expression_modules <- reactiveVal(list())
     shared_data$expression_pending <- reactiveVal(list()) 
     
-    shared_data$run <- "docker"
-    # shared_data$run <- "local"
+    # shared_data$run <- "docker"
+    shared_data$run <- "local"
     
     # Track which tab values were added per dataset (so we can remove/replace on reconfirm)
     added_tab_values <- reactiveValues(
@@ -312,6 +313,8 @@ server <- function(id) {
     # (fusion_prerun_status is now a list, not a reactiveVal)
 
     observeEvent(upload$confirmed_paths(), {
+      message("🚀 [OBSERVE] confirmed_paths changed - starting data loading...")
+      
       # Unlock all navigation tabs after successful data confirmation
       unlock_navigation(session)
       
@@ -366,14 +369,24 @@ server <- function(id) {
         # Cleanup old sessions
         cleanup_old_sessions("sessions", days = 7)
         
-        if (length(somatic_patients) > 0 || length(germline_patients) > 0 ) {
-          # Create new session directory
-          timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-          new_session_dir <- file.path("sessions", paste0("session_", timestamp))
-          dir.create(new_session_dir, recursive = TRUE)
-          shared_data$session_dir(new_session_dir)
+        # Use existing session_dir if available, otherwise create new one
+        existing_session_dir <- isolate(shared_data$session_dir())
+        
+        if (length(somatic_patients) > 0 || length(germline_patients) > 0 || 
+            length(fusion_patients) > 0 || length(expression_patients) > 0) {
           
-          message("📂 New session directory: ", new_session_dir)
+          if (is.null(existing_session_dir) || existing_session_dir == "") {
+            # Create new session directory only if none exists
+            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
+            new_session_dir <- file.path("sessions", paste0("session_", timestamp))
+            dir.create(new_session_dir, recursive = TRUE)
+            shared_data$session_dir(new_session_dir)
+            message("📂 New session directory: ", new_session_dir)
+          } else {
+            # Reuse existing session directory
+            new_session_dir <- existing_session_dir
+            message("♻️  Reusing existing session directory: ", new_session_dir)
+          }
         }
 
         if (length(somatic_patients) > 0) {
@@ -490,14 +503,22 @@ server <- function(id) {
       # FUSION PRERUN - PARALLEL processing for each patient
       # ═══════════════════════════════════════════════════════════════════════════
       
-      fusion_patients <- get_patients(confirmed_paths, "fusion")
-      patients_to_run <- fusion_patients_to_prerun(fusion_patients, "www")
+      # Initialize flag to track if prerun has started
+      if (is.null(shared_data$fusion_prerun_started)) {
+        shared_data$fusion_prerun_started <- reactiveVal(FALSE)
+      }
+      
+      # Only run prerun once per session
+      if (!shared_data$fusion_prerun_started()) {
+        fusion_patients <- get_patients(confirmed_paths, "fusion")
+        patients_to_run <- fusion_patients_to_prerun(fusion_patients, "www")
 
-      if (length(patients_to_run) > 0) {
-        message("Starting PARALLEL fusion prerun for ", length(patients_to_run), " patients: ", paste(patients_to_run, collapse = ", "))
-        
-        # Clear old errors
-        shared_data$fusion_prerun_errors(character())
+        if (length(patients_to_run) > 0) {
+          message("[PRERUN INIT] Starting PARALLEL fusion prerun for ", length(patients_to_run), " patients: ", paste(patients_to_run, collapse = ", "))
+          shared_data$fusion_prerun_started(TRUE)  # Set flag to prevent re-running
+          
+          # Clear old errors
+          shared_data$fusion_prerun_errors(character())
         
         # Get file list for all fusion patients
         fusion_files <- get_files_by_patient(confirmed_paths, "fusion")
@@ -517,6 +538,23 @@ server <- function(id) {
           
           # Get file list for this patient
           file_list <- fusion_files[[patient_id]]
+          
+          # Count total fusions for this patient for UI display
+          total_fusions <- 0
+          if (!is.null(file_list$fusion) && length(file_list$fusion) > 0 && file.exists(file_list$fusion[1])) {
+            tryCatch({
+              if (grepl("\\.xlsx?$", file_list$fusion[1])) {
+                fusion_dt <- as.data.table(openxlsx::read.xlsx(file_list$fusion[1]))
+              } else {
+                fusion_dt <- data.table::fread(file_list$fusion[1])
+              }
+              total_fusions <- nrow(fusion_dt)
+            }, error = function(e) {
+              message("[FUSION COUNT] Error counting fusions for ", patient_id, ": ", e$message)
+            })
+          }
+          shared_data$fusion_prerun_total_fusions[[patient_id]] <- reactiveVal(total_fusions)
+          message("[FUSION COUNT] Patient ", patient_id, " has ", total_fusions, " fusions")
           message("[MAIN] file_list for ", patient_id, ":")
           message("[MAIN]   - is.null: ", is.null(file_list))
           message("[MAIN]   - class: ", paste(class(file_list), collapse=", "))
@@ -663,8 +701,17 @@ server <- function(id) {
           }
         })
 
+        } else {
+          message("[PRERUN INIT] Fusion prerun not needed - all patients already processed")
+          # Mark all fusion patients as completed since they already have processed data
+          for (patient_id in fusion_patients) {
+            shared_data$fusion_prerun_status[[patient_id]] <- reactiveVal("completed")
+            message("[PRERUN INIT] Marked patient ", patient_id, " as completed")
+          }
+          shared_data$fusion_prerun_started(TRUE)
+        }
       } else {
-        message("### Fusion prerun not needed - all patients already processed")
+        message("[PRERUN INIT] Fusion prerun skipped - already started")
       }
 
       # Optionally focus the whole Variant calling page

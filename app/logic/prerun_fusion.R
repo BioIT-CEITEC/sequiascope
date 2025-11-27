@@ -23,8 +23,9 @@ box::use(
 #' @param output_dir Output directory for snapshots
 #' @param genome_build Genome build (default: hg38)
 createIGVBatchFile <- function(tumor_bam, chimeric_bam, fusions_tab, batch_file, output_dir, genome_build) {
-  header <- paste("new",
-                  paste0("genome ", genome_build),
+  # Note: Don't use "new" command - it loads default genome (hg19) then switches to hg38
+  # Just use "genome" command directly to load the desired genome
+  header <- paste(paste0("genome ", genome_build),
                   paste0("snapshotDirectory ", output_dir),
                   paste0("load ", tumor_bam),
                   paste0("load ", chimeric_bam),
@@ -46,6 +47,9 @@ createIGVBatchFile <- function(tumor_bam, chimeric_bam, fusions_tab, batch_file,
     write(snap_line, file = batch_file, append = TRUE)
   }
   
+  # Add a small delay before exit to ensure all snapshots are saved
+  # Sleep for 2 seconds (2000 milliseconds)
+  write("sleep 2000", file = batch_file, append = TRUE)
   write("exit", file = batch_file, append = TRUE)
   return(batch_file)
 }
@@ -91,47 +95,81 @@ createFusionTableFromFile <- function(fusion_file, sample_name, zoom = 251) {
                                           " ", chr2, ":", pos2 - zoom, "-", pos2 + zoom)]
   fusions_tab[, fusion_genes := paste0(gene1, "__", gene2)]
   fusions_tab$fusion_genes <- str_replace_all(fusions_tab$fusion_genes, "[.,()-]", "_")
+  fusions_tab[, png_path := sprintf(paste0("igv_snapshots/", sample_name, "/", sample_name, "_%03d.png"), id)]
   fusions_tab <- unique(fusions_tab)
-  fusions_tab[, png_path := sprintf(paste0("./igv_snapshots/", sample_name, "/", sample_name, "_%03d.png"), .I)]
 
   return(fusions_tab)
 }
 
-#' Run IGV snapshot using batch file
-#' @param IGV_batch_file Path to IGV batch file
-runIGVSnapshot <- function(IGV_batch_file) {
-  # ═══════════════════════════════════════════════════════════════════════════
-  # COMMENTED OUT FOR TESTING - Replaced with Sys.sleep() to simulate processing
-  # ═══════════════════════════════════════════════════════════════════════════
-  # igv_executive <- "igv"
-  # igv_command <- paste0("xvfb-run --auto-servernum --server-args='-screen 0 1280x1024x24 -ac' ",igv_executive," -b ",IGV_batch_file)
-  # 
-  # result <- tryCatch({
-  #   system(igv_command, wait = FALSE)
-  # 
-  # }, error = function(e) {
-  #   message("Error running IGV command: ", e$message)
-  #   return(1)
-  # })
-  # 
-  # # Clean up batch file
-  # if (file.exists(IGV_batch_file)) {
-  #   file.remove(IGV_batch_file)
-  # }
-  # return(result)
+#' Run IGV snapshot using batch file watcher (secure, no docker exec needed)
+#' @param IGV_batch_file Path to IGV batch file in shared volume
+#' @param timeout_seconds Maximum time to wait for IGV to process (default: 300s = 5 min)
+runIGVSnapshotParallel <- function(IGV_batch_file, timeout_seconds = 300) {
   
-  # SIMULATION: Sleep to mimic IGV processing time
-  message("  [SIMULATION] Running IGV snapshot (sleeping 5 seconds)...")
-  Sys.sleep(5)
-  
-  # Clean up batch file
-  if (file.exists(IGV_batch_file)) {
-    file.remove(IGV_batch_file)
+  if (!file.exists(IGV_batch_file)) {
+    message("ERROR: Batch file does not exist: ", IGV_batch_file)
+    return(1)
   }
   
-  return(0)  # Success
-
+  message("[IGV WATCHER] Batch file created: ", IGV_batch_file)
+  message("[IGV WATCHER] Batch file size: ", file.size(IGV_batch_file), " bytes")
+  message("[IGV WATCHER] Waiting for IGV container watcher to process...")
+  
+  # Paths for status files
+  done_file <- paste0(IGV_batch_file, ".done")
+  error_file <- paste0(IGV_batch_file, ".error")
+  
+  # Wait for IGV watcher to process the batch file
+  start_time <- Sys.time()
+  processed <- FALSE
+  
+  while (!processed && difftime(Sys.time(), start_time, units = "secs") < timeout_seconds) {
+    # Check if done or error file exists
+    if (file.exists(done_file)) {
+      message("[IGV WATCHER] ✅ SUCCESS - IGV processing completed")
+      message("[IGV WATCHER] Done file: ", done_file)
+      processed <- TRUE
+      return(0)
+    } else if (file.exists(error_file)) {
+      error_content <- tryCatch(readLines(error_file), error = function(e) "Unknown error")
+      message("[IGV WATCHER] ❌ ERROR - IGV processing failed")
+      message("[IGV WATCHER] Error: ", paste(error_content, collapse = "\n"))
+      return(1)
+    }
+    
+    # Wait before checking again
+    Sys.sleep(2)
+  }
+  
+  # Timeout reached
+  if (!processed) {
+    message("[IGV WATCHER] ⏱️ TIMEOUT - IGV did not process batch file within ", timeout_seconds, " seconds (~", round(timeout_seconds/60, 1), " minutes)")
+    message("[IGV WATCHER] ")
+    message("[IGV WATCHER] 🔍 DIAGNOSTICS:")
+    message("[IGV WATCHER]   Batch file: ", IGV_batch_file)
+    message("[IGV WATCHER]   Batch file exists: ", file.exists(IGV_batch_file))
+    message("[IGV WATCHER]   Expected done file: ", done_file)
+    message("[IGV WATCHER]   Expected error file: ", error_file)
+    message("[IGV WATCHER]   Done file exists: ", file.exists(done_file))
+    message("[IGV WATCHER]   Error file exists: ", file.exists(error_file))
+    message("[IGV WATCHER] ")
+    message("[IGV WATCHER] 📝 TROUBLESHOOTING STEPS:")
+    message("[IGV WATCHER]   1. Check if IGV container is running:")
+    message("[IGV WATCHER]      docker ps | grep igv")
+    message("[IGV WATCHER]   2. Check IGV container logs:")
+    message("[IGV WATCHER]      docker logs igv-static")
+    message("[IGV WATCHER]   3. Check if batch file is accessible in container:")
+    message("[IGV WATCHER]      docker exec igv-static ls -lh /srv/igv-static/igv_snapshots/")
+    message("[IGV WATCHER]   4. Manually test batch file processing:")
+    message("[IGV WATCHER]      docker exec igv-static cat ", basename(IGV_batch_file))
+    message("[IGV WATCHER]   5. Check watcher script is running in container:")
+    message("[IGV WATCHER]      docker exec igv-static ps aux | grep watcher")
+    return(2)
+  }
+  
+  return(0)
 }
+
 
 #' Process IGV snapshots for a single patient
 #' @param patient_id Patient identifier
@@ -161,6 +199,10 @@ process_patient_igv <- function(sample, file_list, output_base_dir = "./www") {
   # Create output directory
   output_dir <- file.path(output_base_dir, "igv_snapshots", sample)
   if (!dir.exists(output_dir)) dir.create(output_dir, recursive = TRUE)
+  
+  # IGV needs absolute path for snapshotDirectory command
+  # (IGV container has shared volume mounted at /srv/igv-static)
+  igv_snapshot_dir <- file.path("/srv/igv-static", "igv_snapshots", sample)
 
   # Find BAM files (optional for IGV) - handle NULL safely
   tumor_bam <- NULL
@@ -183,17 +225,43 @@ process_patient_igv <- function(sample, file_list, output_base_dir = "./www") {
 
   tryCatch({
     if (!is.null(tumor_bam) && !is.null(chimeric_bam)) {
+      # Check if IGV container is likely running by checking if watcher directory exists
+      # This is a basic check - the .done/.error files mechanism will catch actual issues
+      watcher_check_dir <- dirname(output_dir)
+      if (!dir.exists(watcher_check_dir)) {
+        message("[IGV] ⚠️  Warning: IGV snapshot base directory doesn't exist: ", watcher_check_dir)
+        message("[IGV] Creating directory, but IGV container may not be running")
+      }
+      
       batch_file <- createIGVBatchFile(
         tumor_bam = tumor_bam,
         chimeric_bam = chimeric_bam,
         fusions_tab = fusions_tab,
         batch_file = batch_file,
-        output_dir = output_dir,
+        output_dir = igv_snapshot_dir,
         genome_build = "hg38")
       
-      # runIGVSnapshot(batch_file)
-      message("IGV batch file created: ", batch_file)
-      return(TRUE)
+      # Calculate dynamic timeout based on number of fusions
+      # Base: 300 seconds (5 min) + 0.5 seconds per fusion
+      # For 900 fusions: 300 + (900 * 0.5) = 750 seconds (12.5 minutes)
+      num_fusions <- nrow(fusions_tab)
+      dynamic_timeout <- max(300, 300 + (num_fusions * 0.5))
+      message("[IGV] Calculated timeout for ", num_fusions, " fusions: ", round(dynamic_timeout), " seconds (~", round(dynamic_timeout/60, 1), " minutes)")
+      message("[IGV] ⚠️  Make sure IGV Docker container is running: docker ps | grep igv")
+      
+      # Spustit IGV snapshot pomocí watcheru (bezpečné, bez docker exec)
+      exit_code <- runIGVSnapshotParallel(batch_file, timeout_seconds = dynamic_timeout)
+      
+      if (exit_code == 0) {
+        message("[IGV] ✅ Snapshots created successfully: ", batch_file)
+        return(TRUE)
+      } else if (exit_code == 2) {
+        message("[IGV] ⏱️ Timeout waiting for IGV watcher")
+        return(FALSE)
+      } else {
+        message("[IGV] ❌ IGV processing failed")
+        return(FALSE)
+      }
     } else {
       message("Skipping IGV snapshot generation - missing BAM files")
       return(TRUE)  # Still return TRUE - this is not a fatal error
@@ -330,7 +398,11 @@ create_fusion_manifest <- function(patient_id, fusion_file, arriba, output_base_
       message("[MANIFEST] Reading TSV file...")
       arriba_dt <- fread(arriba_tsv)
       message("[MANIFEST] TSV loaded, rows: ", nrow(arriba_dt))
+      
+      # First assign SVG paths based on original row order
       arriba_dt[, path := sprintf("arriba_reports/%s/%s_%03d.svg", patient_id, patient_id, .I)]
+      
+      # Clean gene names and prepare positions
       arriba_dt[, gene1 := gsub("\\(.*?\\)", "", `#gene1`)]
       arriba_dt[, gene2 := gsub("\\(.*?\\)", "", gene2)]
       arriba_dt[, c("chr1", "pos1") := tstrsplit(breakpoint1, ":", fixed = TRUE)]
@@ -339,6 +411,7 @@ create_fusion_manifest <- function(patient_id, fusion_file, arriba, output_base_
       arriba_dt[, chr2 := paste0("chr", chr2)]
       arriba_dt[, pos1 := as.numeric(pos1)]
       arriba_dt[, pos2 := as.numeric(pos2)]
+      
       tsv_dt <- split_genes(arriba_dt)
       setnames(tsv_dt, "path", "svg_path")
     } else {
@@ -360,7 +433,19 @@ create_fusion_manifest <- function(patient_id, fusion_file, arriba, output_base_
     if ("pos1" %in% names(dt) && !is.numeric(dt$pos1)) dt[, pos1 := as.numeric(pos1)]
     if ("pos2" %in% names(dt) && !is.numeric(dt$pos2)) dt[, pos2 := as.numeric(pos2)]
     
-    dt[, png_path := sprintf("igv_snapshots/%s/%s_%03d.png",   patient_id, patient_id, .I)]
+    # Use same logic as createFusionTableFromFile to ensure consistent png_path
+    required_cols <- c("gene1", "gene2", "chr1", "pos1", "chr2", "pos2")
+    dt <- dt[, ..required_cols]
+    dt <- dt[, .(gene1 = paste(unique(gene1), collapse = ","),
+                 gene2 = paste(unique(gene2), collapse = ",")),
+             by = .(chr1, pos1, chr2, pos2)]
+    dt[, id := seq_len(.N)]
+    dt[, path := sprintf("igv_snapshots/%s/%s_%03d.png", patient_id, patient_id, id)]
+    dt <- unique(dt)
+    
+    # Split genes to match arriba format (multiple genes per position become separate rows)
+    dt <- split_genes(dt)
+    setnames(dt, "path", "png_path")
   } else return(NULL)
   manifest_dt <- merge(tsv_dt[,.(gene1,gene2,chr1,pos1,chr2,pos2,svg_path)], dt[,.(gene1,gene2,chr1,pos1,chr2,pos2,png_path)], all = TRUE, suffixes = c("_arriba", "_igv"))
   
@@ -423,56 +508,71 @@ prerun_fusion_data <- function(confirmed_paths, shared_data, prog_file = NULL) {
   processed_fusions <- 0
   errors <- character()
   
-  # 5) Process patients (sequentially within the async future block from main.R)
-  # Note: Using furrr here causes serialization issues with large data.table objects.
-  # The async benefit comes from the entire prerun running in a future() in main.R.
-  message("Processing ", length(fusion_patients), " patients...")
+  # 5) Process patients in PARALLEL using future_lapply
+  message("Processing ", length(fusion_patients), " patients in parallel...")
   
   total_patients <- length(fusion_patients)
   
-  for (i in seq_along(fusion_patients)) {
-    sample <- fusion_patients[i]
-    file_list <- fusion_files[[sample]]
-    
-    if (is.null(file_list)) {
-      errors <- c(errors, paste0(sample, ": No files found"))
-      next
-    }
-    
-    message("Processing patient ", i, "/", total_patients, ": ", sample)
-    
-    patient_result <- tryCatch({
-      # Count fusions for this patient
-      patient_fusions <- 0
-      if (!is.null(file_list$fusion) && length(file_list$fusion) > 0) {
-        fusion_dt <- fread(file_list$fusion[1])
-        patient_fusions <- nrow(fusion_dt)
+  # Použít future_lapply pro paralelní zpracování
+  patient_results <- future.apply::future_lapply(
+    seq_along(fusion_patients),
+    function(i) {
+      sample <- fusion_patients[i]
+      file_list <- fusion_files[[sample]]
+      
+      if (is.null(file_list)) {
+        return(list(
+          success = FALSE, 
+          fusions = 0, 
+          error = paste0(sample, ": No files found")
+        ))
       }
       
-      # Process IGV snapshots
-      igv_success <- process_patient_igv(sample, file_list)
+      message("Processing patient ", i, "/", total_patients, ": ", sample)
       
-      # Process Arriba PDF
-      arriba_success <- process_arriba_pdf(sample, file_list$arriba, output_base_dir = "./www")
+      patient_result <- tryCatch({
+        # Count fusions for this patient
+        patient_fusions <- 0
+        if (!is.null(file_list$fusion) && length(file_list$fusion) > 0) {
+          fusion_dt <- fread(file_list$fusion[1])
+          patient_fusions <- nrow(fusion_dt)
+        }
+        
+        # Process IGV snapshots (watcher will handle parallel execution safely)
+        igv_success <- process_patient_igv(sample, file_list)
+        
+        # Process Arriba PDF
+        arriba_success <- process_arriba_pdf(sample, file_list$arriba, output_base_dir = "./www")
+        
+        # Create manifest
+        fusion_file <- file_list$fusion
+        if (length(fusion_file) > 0) {
+          create_fusion_manifest(sample, fusion_file[1], file_list$arriba, output_base_dir = "./www")
+        }
+        
+        list(success = TRUE, fusions = patient_fusions, error = NULL)
+        
+      }, error = function(e) {
+        message("Error processing patient ", sample, ": ", e$message)
+        list(success = FALSE, fusions = 0, error = paste0(sample, ": ", e$message))
+      })
       
-      # Create manifest
-      fusion_file <- file_list$fusion
-      if (length(fusion_file) > 0) {
-        create_fusion_manifest(sample, fusion_file[1], file_list$arriba, output_base_dir = "./www")
+      # Update progress
+      current_progress <- round((i / total_patients) * 100)
+      if (!is.null(prog_file) && nzchar(prog_file)) {
+        writeLines(as.character(current_progress), prog_file)
       }
       
-      list(success = TRUE, fusions = patient_fusions)
-      
-    }, error = function(e) {
-      message("Error processing patient ", sample, ": ", e$message)
-      errors <<- c(errors, paste0(sample, ": ", e$message))
-      list(success = FALSE, fusions = 0)
-    })
-    
-    # Update progress
-    current_progress <- round((i / total_patients) * 100)
-    if (!is.null(prog_file) && nzchar(prog_file)) {
-      writeLines(as.character(current_progress), prog_file)
+      return(patient_result)
+    },
+    future.seed = TRUE
+  )
+  
+  # Sbírat errors ze všech results
+  errors <- character()
+  for (result in patient_results) {
+    if (!is.null(result$error)) {
+      errors <- c(errors, result$error)
     }
   }
   
@@ -586,30 +686,25 @@ prerun_fusion_patient <- function(patient_id, file_list, prog_file = NULL, outpu
     }
     
     # ═══════════════════════════════════════════════════════════════════════════
-    # Step 1: Process IGV snapshots (0-40%) - COMMENTED OUT FOR NOW
+    # Step 1: Process IGV snapshots (5-85% - most time-consuming)
     # ═══════════════════════════════════════════════════════════════════════════
-    # message(sprintf("[%s] Step 1/3: Processing IGV snapshots...", patient_id))
-    # if (!is.null(prog_file)) writeLines("10", prog_file)
-    # 
-    # igv_success <- process_patient_igv(patient_id, file_list, output_base_dir)
-    # 
-    # if (!is.null(prog_file)) writeLines("40", prog_file)
-    # message(sprintf("[%s] IGV snapshots: %s", patient_id, if(igv_success) "SUCCESS" else "SKIPPED"))
+    message(sprintf("[%s] Step 1/3: Processing IGV snapshots...", patient_id))
+    if (!is.null(prog_file)) writeLines("5", prog_file)
     
-    # Skip IGV for now - start at 40%
-    if (!is.null(prog_file)) writeLines("40", prog_file)
-    message(sprintf("[%s] Skipping IGV snapshots (not implemented yet)", patient_id))
+    # Process IGV snapshots (watcher handles parallel execution automatically)
+    igv_success <- process_patient_igv(patient_id, file_list, output_base_dir)
     
-    # Step 2: Process Arriba PDF (40-80%)
-    message(sprintf("[%s] Step 1/2: Converting Arriba PDF to SVG...", patient_id))
+    if (!is.null(prog_file)) writeLines("85", prog_file)
+    message(sprintf("[%s] IGV snapshots: %s", patient_id, if(igv_success) "SUCCESS" else "SKIPPED"))
+    
+    # Step 2: Process Arriba PDF (85-95%)
+    message(sprintf("[%s] Step 2/3: Converting Arriba PDF to SVG...", patient_id))
     message(sprintf("[PRERUN] Checking arriba files for %s...", patient_id))
     message(sprintf("[PRERUN] file_list$arriba is.null: %s", is.null(file_list$arriba)))
     if (!is.null(file_list$arriba)) {
       message(sprintf("[PRERUN] file_list$arriba length: %s", length(file_list$arriba)))
       message(sprintf("[PRERUN] file_list$arriba content: %s", paste(file_list$arriba, collapse=", ")))
     }
-    
-    if (!is.null(prog_file)) writeLines("50", prog_file)
     
     arriba_success <- FALSE
     if (!is.null(file_list$arriba) && length(file_list$arriba) > 0) {
@@ -620,12 +715,11 @@ prerun_fusion_patient <- function(patient_id, file_list, prog_file = NULL, outpu
       message(sprintf("[%s] ⏭️ No Arriba files found, skipping PDF conversion", patient_id))
     }
     
-    if (!is.null(prog_file)) writeLines("80", prog_file)
+    if (!is.null(prog_file)) writeLines("95", prog_file)
     message(sprintf("[%s] Arriba PDF: %s", patient_id, if(arriba_success) "SUCCESS" else "SKIPPED"))
     
-    # Step 2: Create manifest (80-100%)
-    message(sprintf("[%s] Step 2/2: Creating manifest...", patient_id))
-    if (!is.null(prog_file)) writeLines("90", prog_file)
+    # Step 3: Create manifest (95-100%)
+    message(sprintf("[%s] Step 3/3: Creating manifest...", patient_id))
     
     fusion_file <- file_list$fusion
     if (length(fusion_file) > 0 && !is.null(file_list$arriba)) {

@@ -38,7 +38,20 @@ selectedTab_UI <- function(id){
 tab_UI <- function(id){
   ns <- NS(id)
   tagList(
-    tags$head(tags$style(HTML(".row-highlighted { background-color: #FFFF99 !important; }"))),
+    tags$head(tags$style(HTML("
+      .row-highlighted { background-color: #FFFF99 !important; }
+      
+      /* Network graph tables - better visibility */
+      #network_tab .reactable, #subNetwork_tab .reactable {
+        border: 2px solid #495057 !important;
+      }
+      
+      /* Ensure tables are not covered by waiter */
+      #network_tab, #subNetwork_tab {
+        position: relative;
+        z-index: 1;
+      }
+    "))),
     fluidRow(
       column(6,reactableOutput(ns("network_tab"))),
       column(1,),
@@ -55,16 +68,19 @@ tab_server <- function(id, tissue_dt, subTissue_dt, selected_nodes,selected_dt,p
       message("Rendering Reactable for network")
       reactable(as.data.frame(tissue_dt()),
                 columns = list(
-                  feature_name = colDef(name = "Gene name", maxWidth = 100, filterable = TRUE),
-                  geneid = colDef(name = "Ensembl id", width = 140, show = F),
-                  refseq_id = colDef(name = "Refseq id", maxWidth = 80, show = F),
+                  feature_name = colDef(name = "Gene name", minWidth = 100, filterable = TRUE),
+                  geneid = colDef(name = "Ensembl id", minWidth = 140, show = F),
+                  refseq_id = colDef(name = "Refseq id", minWidth = 80, show = F),
                   fc = colDef(show = F),
-                  log2FC = colDef(name = "log2FC", maxWidth = 100),
+                  log2FC = colDef(name = "log2FC", minWidth = 100),
+                  p_value = colDef(name = "p-value"),
                   p_adj = colDef(show = F),
-                  pathway = colDef(name = "Pathway name", minWidth = 140, resizable = TRUE),
+                  pathway = colDef(name = "Pathway name", minWidth = 140),
+                  num_of_paths = colDef(name = "Pathway Count",minWidth = 150),
                   tissue = colDef(show = F),
                   sample = colDef(show = F)
                 ),
+                resizable = TRUE,
                 defaultPageSize = 10,
                 showPageSizeOptions = TRUE,
                 pageSizeOptions = c(10, 20, 50, 100),
@@ -76,7 +92,8 @@ tab_server <- function(id, tissue_dt, subTissue_dt, selected_nodes,selected_dt,p
                 striped = TRUE,
                 wrap = FALSE,
                 highlight = TRUE,
-                outlined = TRUE)
+                outlined = TRUE,
+                bordered = TRUE)
     })
     
     observeEvent(input$selected_row, {
@@ -97,10 +114,10 @@ tab_server <- function(id, tissue_dt, subTissue_dt, selected_nodes,selected_dt,p
           message("Rendering Reactable for subNetwork")
           reactable(unique(subTissue_dt()[feature_name %in% selected_nodes()]),
                     columns = list(
-                      feature_name = colDef(name = "Gene name", maxWidth = 120),
-                      counts_tpm_round = colDef(name = "Counts TPM", maxWidth = 120),
-                      log2FC = colDef(name = "log2FC", maxWidth = 100),
-                      p_value = colDef(name = "P-value", maxWidth = 100),
+                      feature_name = colDef(name = "Gene name", minWidth = 120),
+                      counts_tpm_round = colDef(name = "Counts TPM", minWidth = 120),
+                      log2FC = colDef(name = "log2FC", minWidth = 100),
+                      p_value = colDef(name = "p-value", minWidth = 100),
                       pathway = colDef(name = "Pathway name", minWidth = 200, resizable = TRUE),
                       # Skrýt všechny ostatní sloupce
                       fc = colDef(show = FALSE),
@@ -118,13 +135,15 @@ tab_server <- function(id, tissue_dt, subTissue_dt, selected_nodes,selected_dt,p
                       gene_definition = colDef(show = FALSE),
                       num_of_paths = colDef(show = FALSE)
                     ),
+                    resizable = TRUE,
                     defaultPageSize = 10,
                     showPageSizeOptions = TRUE,
                     pageSizeOptions = c(10, 20, 50, 100),
                     striped = TRUE,
                     wrap = FALSE,
                     highlight = TRUE,
-                    outlined = TRUE)
+                    outlined = TRUE,
+                    bordered = TRUE)
         })
       } else {
         message("No nodes selected, no subnetwork table needed.")
@@ -167,8 +186,8 @@ tab_server <- function(id, tissue_dt, subTissue_dt, selected_nodes,selected_dt,p
         data,
         columns = list(
           gene_symbol = colDef(name = "Gene name", minWidth = 120, maxWidth = 140),
-          var_name = colDef(name = "Variant", width = 100, show = any(data$var_name != "")),  
-          fusion = colDef(name = "Fusion", width = 100, show = any(data$fusion != "")),  
+          var_name = colDef(name = "Variant", minWidth = 100, show = any(data$var_name != "")),  
+          fusion = colDef(name = "Fusion", minWidth = 100, show = any(data$fusion != "")),  
           pathway = colDef(name = "Pathway",minWidth = 180)
         ),
         resizable = TRUE,

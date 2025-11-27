@@ -96,20 +96,20 @@ get_status_icon <- function(color, simple = FALSE, reason = "unknown") {
   
   if (simple) {
     simple_icons <- list(
-      "red" = paste0('<i class="fas fa-times" style="color: #dc3545; font-size: 14px;" title="', tooltip_text, '"></i>'),
-      "orange" = paste0('<i class="fas fa-exclamation" style="color: #fd7e14; font-size: 14px;" title="', tooltip_text, '"></i>'),
-      "green" = paste0('<i class="fas fa-check" style="color: #28a745; font-size: 14px;" title="', tooltip_text, '"></i>'),
-      "gray" = paste0('<i class="fas fa-minus" style="color: #6c757d; font-size: 14px;" title="', tooltip_text, '"></i>')
+      "red" = paste0('<i class="fas fa-times status-icon" style="color: #dc3545; font-size: 14px;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"></i>'),
+      "orange" = paste0('<i class="fas fa-exclamation status-icon" style="color: #fd7e14; font-size: 14px;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"></i>'),
+      "green" = paste0('<i class="fas fa-check status-icon" style="color: #28a745; font-size: 14px;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"></i>'),
+      "gray" = paste0('<i class="fas fa-minus status-icon" style="color: #6c757d; font-size: 14px;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"></i>')
     )
     
     return(if (!is.null(simple_icons[[color]])) simple_icons[[color]] else simple_icons[["red"]])
     
   } else {
     icons <- list(
-      "red" = paste0('<div style="width: 20px; height: 20px; background-color: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-times" style="color: white; font-size: 10px;"></i></div>'),
-      "orange" = paste0('<div style="width: 20px; height: 20px; background-color: #fd7e14; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-exclamation" style="color: white; font-size: 10px;"></i></div>'),
-      "green" = paste0('<div style="width: 20px; height: 20px; background-color: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-check" style="color: white; font-size: 10px;"></i></div>'),
-      "gray" = paste0('<div style="width: 20px; height: 20px; background-color: #6c757d; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" title="', tooltip_text, '"><i class="fas fa-minus" style="color: white; font-size: 10px;"></i></div>')
+      "red" = paste0('<div class="status-icon" style="width: 20px; height: 20px; background-color: #dc3545; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"><i class="fas fa-times" style="color: white; font-size: 10px;"></i></div>'),
+      "orange" = paste0('<div class="status-icon" style="width: 20px; height: 20px; background-color: #fd7e14; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"><i class="fas fa-exclamation" style="color: white; font-size: 10px;"></i></div>'),
+      "green" = paste0('<div class="status-icon" style="width: 20px; height: 20px; background-color: #28a745; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"><i class="fas fa-check" style="color: white; font-size: 10px;"></i></div>'),
+      "gray" = paste0('<div class="status-icon" style="width: 20px; height: 20px; background-color: #6c757d; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto;" data-toggle="tooltip" data-placement="bottom" data-html="true" title="', tooltip_text, '"><i class="fas fa-minus" style="color: white; font-size: 10px;"></i></div>')
     )
     
     return(if (!is.null(icons[[color]])) icons[[color]] else icons[["red"]])
@@ -139,6 +139,15 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
   config <- file_configs[[config_key]]
   if (is.null(config)) return("red")
   
+  # DEBUG: Log for tumor_fusion to diagnose pattern issues
+  if (config_key == "tumor_fusion") {
+    message("[FILE_EVAL] Evaluating tumor_fusion for patient: ", patient)
+    message("[FILE_EVAL]   - patterns parameter: ", if(is.null(patterns)) "NULL" else paste(patterns, collapse=", "))
+    message("[FILE_EVAL]   - config keywords: ", config$keywords)
+    message("[FILE_EVAL]   - config exclude: ", if(!is.null(config$exclude)) config$exclude else "NULL")
+    message("[FILE_EVAL]   - number of files to check: ", length(files))
+  }
+  
   pattern_list <- character(0)
   if (!is.null(patterns)) {
     if (length(patterns) == 1) {
@@ -157,6 +166,13 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
     keyword_regex <- paste(all_keywords, collapse = "|")
   }
   
+  # DEBUG: Log keyword construction for tumor_fusion
+  if (config_key == "tumor_fusion") {
+    message("[FILE_EVAL]   - pattern_list after parsing: ", paste(pattern_list, collapse=", "))
+    message("[FILE_EVAL]   - all_keywords combined: ", paste(all_keywords, collapse=", "))
+    message("[FILE_EVAL]   - final keyword_regex: ", keyword_regex)
+  }
+  
   relevant_files <- if (config_key == "goi_expression") {
     files[str_detect(files, regex(config$keywords, ignore_case = TRUE)) & !str_detect(files, config$exclude)]
   } else if (config_key == "TMB_somatic") {
@@ -165,14 +181,42 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
     files[str_detect(files, patient)]
   }
   
+  # DEBUG: Log file filtering for tumor_fusion
+  if (config_key == "tumor_fusion") {
+    message("[FILE_EVAL]   - relevant_files (matching patient): ", length(relevant_files))
+    # File list omitted to reduce log verbosity
+  }
   
   matched <- relevant_files[
     str_detect(relevant_files, config$extensions) &
       str_detect(relevant_files, regex(keyword_regex, ignore_case = TRUE))]
   
+  # DEBUG: Log matching results for tumor_fusion  
+  if (config_key == "tumor_fusion") {
+    message("[FILE_EVAL]   - matched files (after extension + keyword filter): ", length(matched))
+    if (length(matched) > 0) {
+      message("[FILE_EVAL]     Matched: ", paste(basename(matched), collapse=", "))
+    }
+  }
+  
   if (!is.null(config$exclude)) {
     matched <- matched[!str_detect(matched, regex(config$exclude, ignore_case = TRUE))]
   }
+  
+  # DEBUG: Log after exclude filter for tumor_fusion
+  if (config_key == "tumor_fusion") {
+    message("[FILE_EVAL]   - final matched files (after exclude filter): ", length(matched))
+    if (length(matched) > 0) {
+      message("[FILE_EVAL]     Final: ", paste(basename(matched), collapse=", "))
+    } else {
+      message("[FILE_EVAL]     ⚠️  NO TUMOR BAM FILES MATCHED!")
+      message("[FILE_EVAL]     This usually means:")
+      message("[FILE_EVAL]       1. Tumor pattern is missing or incorrect")
+      message("[FILE_EVAL]       2. Files don't contain the keyword '", keyword_regex, "'")
+      message("[FILE_EVAL]     👉 Check Step 1: 'Pattern for tumor BAM files' must match your filename!")
+    }
+  }
+  
   tissues_matched <- character(0)
   
   # BAM/BAI pairing
@@ -634,7 +678,10 @@ create_tissue_file_mapping <- function(expression_files, tissues_str) {
       status = if (length(expression_files) > 0) "green" else "red"
     ))
   }
-  tissues <- trimws(unlist(strsplit(tissues_clean, ",")))
+  # Split by comma OR newline to support both formats:
+  # - "blood,liver,breast" 
+  # - "blood\nliver\nbreast"
+  tissues <- trimws(unlist(strsplit(tissues_clean, "[,\n]+")))
   tissues <- tissues[nzchar(tissues)]
   tissues <- unique(tissues)
   original_tissues <- tissues  # Ulož původní pořadí

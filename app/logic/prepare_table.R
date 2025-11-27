@@ -1,7 +1,7 @@
 # app/logic/prepare_table.R
 
 box::use(
-  data.table[fread,tstrsplit,setcolorder,setnames,uniqueN,dcast,fifelse,is.data.table,as.data.table,setorderv],
+  data.table[fread,tstrsplit,setcolorder,setnames,uniqueN,dcast,fifelse,is.data.table,as.data.table,setorderv,first],
   shiny[observe],
   openxlsx[read.xlsx],
   scales[scientific_format],
@@ -95,8 +95,13 @@ prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames, 
     manifest_dt[, png_path := strip_dot_slash(png_path)]
     manifest_dt[, svg_path := strip_dot_slash(svg_path)]
     
-    merge_dt <- merge(data, manifest_dt, by = c("gene1","gene2","chr1","pos1","chr2","pos2"), all.x = TRUE)
-    
+    group_cols <- c("chr1", "pos1", "chr2", "pos2")
+    agg_cols <- setdiff(names(data), group_cols)
+    data_aggregated <- data[, c(lapply(.SD[, .(gene1, gene2)], function(x) paste(sort(unique(x)), collapse = ",")),lapply(.SD[, setdiff(agg_cols, c("gene1", "gene2")), with = FALSE], first)), by = group_cols]
+    manifest_prepared <- manifest_dt[, .(gene1, gene2, chr1, pos1, chr2, pos2,svg_path, png_path)]
+   
+    merge_dt <- merge(data_aggregated,manifest_prepared,by = c("chr1", "pos1", "chr2", "pos2", "gene1", "gene2"),all.x = TRUE,all.y = TRUE)
+
     merge_dt[, position1 := paste0(chr1, ":", pos1)]
     merge_dt[, position2 := paste0(chr2, ":", pos2)]
     merge_dt[,c("chr1","pos1","chr2","pos2") := NULL]

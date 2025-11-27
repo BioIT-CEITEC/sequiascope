@@ -1,11 +1,16 @@
 services:
   shiny:
+    build:
+      context: .
+      dockerfile: Dockerfile
     image: juraskovakaterina/sequiaviz:latest
     container_name: sequiaviz-shiny
     ports:
       - "8080:8080"
     volumes:
       - ./input_files:/input_files
+      - ./app:/app
+      - igv-shared:/srv/shiny-server/sequiaViz/www
     depends_on:
       - igv-static
     environment:
@@ -15,9 +20,16 @@ services:
 
 
   igv-static:
+    build:
+      context: .
+      dockerfile: Dockerfile-igv
     image: juraskovakaterina/sequiaviz-igv:latest
     container_name: igv-static
     ports:
       - "8081:8081"
     volumes:
-      - ./input_files:/srv/igv-static:ro
+      - ./input_files:/input_files:ro
+      - igv-shared:/srv/igv-static
+
+volumes:
+  igv-shared:

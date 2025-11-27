@@ -1,6 +1,6 @@
 box::use(
-  data.table[setnames],
-  plotly[plot_ly,layout,add_segments,add_trace],
+  data.table[setnames,data.table],
+  plotly[plot_ly,layout,add_segments,add_trace,add_text,add_annotations],
   magrittr[`%>%`],
   ggplot2[ggplot,scale_color_manual,geom_hline,geom_vline,ggtitle,theme_bw,ggsave,aes,geom_point,facet_wrap,theme,element_text,scale_x_continuous,unit],
   # ggiraph[geom_point_interactive,geom_text_repel_interactive,girafe,opts_hover,opts_tooltip,opts_sizing,opts_zoom],
@@ -68,9 +68,9 @@ classify_volcano_genes <- function(dt, padj_cutoff = 0.05, logfc_cutoff = 1) {
 
 
 #' @export
-volcanoPlot <- function(dt, tissue, top_n = 10) {
+volcanoPlot <- function(dt, tissue, top_n = 10, padj_cutoff = 0.05, logfc_cutoff = 1) {
   dt <- dt[!is.na(log2FC) & !is.na(padj)]
-  dt <- classify_volcano_genes(dt)  # Klasifikace genů
+  dt <- classify_volcano_genes(dt, padj_cutoff = padj_cutoff, logfc_cutoff = logfc_cutoff)  # Klasifikace genů s custom cutoffs
   dt[,neg_log10_padj := -log10(padj)]
   
   # Dynamické nahrazení Inf hodnot velkou konečnou hodnotou
@@ -83,12 +83,25 @@ volcanoPlot <- function(dt, tissue, top_n = 10) {
   # Převod faktorové proměnné na barvy
   color_map <- c("sig" = "gray", "down" = "blue", "up" = "red", "nsig" = "black", "na" = "gray")
   
-  # Určení limitů os
-  x_min <- min(dt$log2FC, na.rm = TRUE) + 1.5
-  x_max <- max(dt$log2FC, na.rm = TRUE) + 1.5
-  y_min <- min(dt$neg_log10_padj, na.rm = TRUE) - 15
-  y_max <- max(dt$neg_log10_padj, na.rm = TRUE) + 1
-  # top_genes <- dt[order(padj)][1:top_n]
+  # Určení limitů os - zajistíme správné pořadí
+  x_min <- min(dt$log2FC, na.rm = TRUE)
+  x_max <- max(dt$log2FC, na.rm = TRUE)
+  y_min <- min(dt$neg_log10_padj, na.rm = TRUE)
+  y_max <- max(dt$neg_log10_padj, na.rm = TRUE)
+  
+  # Přidej margin pro lepší zobrazení
+  x_range <- x_max - x_min
+  y_range <- y_max - y_min
+  x_min <- x_min - 0.1 * abs(x_range)
+  x_max <- x_max + 0.1 * abs(x_range)
+  y_min <- y_min - 0.1 * abs(y_range)
+  y_max <- y_max + 0.1 * abs(y_range)
+  
+  # Vyber top N genů podle p-adj (pokud top_n > 0)
+  top_genes <- data.table()
+  if (!is.null(top_n) && !is.na(top_n) && top_n > 0 && nrow(dt) > 0) {
+    top_genes <- dt[order(padj)][1:min(top_n, nrow(dt))]
+  }
   
   
   # Vytvoření grafu
@@ -103,36 +116,62 @@ volcanoPlot <- function(dt, tissue, top_n = 10) {
       colors = color_map,
       marker = list(opacity = 0.7, size = 5),
       text = ~paste(feature_name," \n",padj),
-      # text = ~feature_name,
       hoverinfo = "text",
       inherit = FALSE
-    ) %>%
-    add_segments(
-      x = -1, xend = -1,
-      y = y_min, yend = y_max,
-      line = list(dash = "dash", color = "black",width=1),
-      showlegend = FALSE,
-      inherit = FALSE
-    ) %>%
-    add_segments(
-      x = 1, xend = 1,
-      y = y_min, yend = y_max,
-      line = list(dash = "dash", color = "black",width=1),
-      showlegend = FALSE,
-      inherit = FALSE
-    ) %>%
-    # Přidání vodorovné prahové čáry (-log10(0.05))
-    add_segments(
-      x = x_min, xend = x_max,  # Čára bude vodorovná přes celou osu X
-      y = -log10(0.05), yend = -log10(0.05),  # Y souřadnice je stejná
-      line = list(dash = "dash", color = "black",width=1), 
-      showlegend = FALSE
-    ) %>%
-    # add_text(data = top_genes, x = ~log2FC, y = ~neg_log10_padj, text = ~feature_name,
-    #          textposition = "top center", showlegend = FALSE, textfont = list(size = 10)
-    #  ) %>%
+    )
+  
+  # Přidej vertikální prahové čáry pouze pokud jsou v rozsahu dat
+  if (!is.null(logfc_cutoff) && !is.na(logfc_cutoff) && abs(logfc_cutoff) <= abs(x_max)) {
+    plot <- plot %>%
+      add_segments(
+        x = -logfc_cutoff, xend = -logfc_cutoff,
+        y = y_min, yend = y_max,
+        line = list(dash = "dash", color = "black", width = 1),
+        showlegend = FALSE,
+        inherit = FALSE
+      ) %>%
+      add_segments(
+        x = logfc_cutoff, xend = logfc_cutoff,
+        y = y_min, yend = y_max,
+        line = list(dash = "dash", color = "black", width = 1),
+        showlegend = FALSE,
+        inherit = FALSE
+      )
+  }
+  
+  # Přidej horizontální prahovou čáru
+  if (!is.null(padj_cutoff) && !is.na(padj_cutoff) && padj_cutoff > 0) {
+    padj_threshold <- -log10(padj_cutoff)
+    if (!is.na(padj_threshold) && is.finite(padj_threshold) && padj_threshold <= y_max) {
+      plot <- plot %>%
+        add_segments(
+          x = x_min, xend = x_max,
+          y = padj_threshold, yend = padj_threshold,
+          line = list(dash = "dash", color = "black", width = 1), 
+          showlegend = FALSE,
+          inherit = FALSE
+        )
+    }
+  }
+  
+  # Přidej labels pro top N genů (pokud existují)
+  if (!is.null(top_genes) && is.data.frame(top_genes) && nrow(top_genes) > 0) {
+    plot <- plot %>%
+      add_text(
+        data = top_genes,
+        x = ~log2FC,
+        y = ~neg_log10_padj,
+        text = ~feature_name,
+        textposition = "top center",
+        showlegend = FALSE,
+        textfont = list(size = 10, color = "black"),
+        inherit = FALSE
+      )
+  }
+  
+  plot <- plot %>%
     layout(
-      title = "Volcano Plot",
+      title = paste("Volcano Plot -", tissue),
       xaxis = list(title = "log2FC", range = c(x_min, x_max),zeroline = FALSE,showline = TRUE),
       yaxis = list(title = "-log10(p-adj)", range = c(y_min, y_max), zeroline = FALSE, showline = TRUE),
       plot_bgcolor = "white"

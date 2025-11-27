@@ -92,7 +92,7 @@ get_required_columns <- function(dataset_type) {
     # For fusion: chr1/chr2 are required (chrom1/chrom2 will be accepted and renamed during validation)
     fusion = c("gene1","gene2","chr1","chr2","pos1","pos2","strand1","strand2","arriba.called","starfus.called",
                "arriba.confidence","overall_support","arriba.site1","arriba.site2"),
-    expression = c("sample", "feature_name", "geneid","all_kegg_gene_names", "log2FC", "p_value", "p_adj")
+    expression = c("feature_name", "geneid","all_kegg_gene_names", "log2FC", "p_value", "p_adj")
   )
   
   return(required_cols[[dataset_type]])

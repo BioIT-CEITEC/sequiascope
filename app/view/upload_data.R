@@ -74,15 +74,15 @@ server <- function(id, shared_data) {
     # tumor_pattern <- reactiveValues(somatic = NULL, fusion = "fuze", chimeric = "chimeric", arriba = NULL)
     # normal_pattern  <- reactiveValues(somatic = NULL, germline = NULL)
     # tissues <- reactiveVal(c("Blood","Blood_Vessel"))
-    # 
+
     
     confirmed_paths_state <- reactiveVal(NULL)
     
     step1 <- upload_data_step1$step1_server("first_step",  path, patients, datasets, tumor_pattern, normal_pattern, tissues)
-    step2 <- upload_data_step2$step2_server("second_step", path, patients, datasets, tumor_pattern, normal_pattern, tissues)
-    # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("somatic","germline","fusion","expression")), tumor_pattern=reactiveValues(fusion = "fuze",chimeric = "chimeric"), normal_pattern=reactiveValues(somatic = "krev",germline= "krev"), tissues = reactiveVal(c("Blood","Blood_Vessel")))
+    step2 <- upload_data_step2$step2_server("second_step", path, patients, datasets, tumor_pattern, normal_pattern, tissues, step)
+    # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("somatic","germline","fusion","expression")), tumor_pattern=reactiveValues(fusion = "fuze",chimeric = "chimeric"), normal_pattern=reactiveValues(somatic = "krev",germline= "krev"), tissues = reactiveVal(c("Blood","Blood_Vessel")),step)
     # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("expression")), tumor_pattern=NULL, normal_pattern=NULL, tissues = reactiveVal(c("blood","blood_vessel")))
-    # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("fusion","expression")), tumor_pattern=reactiveValues(fusion = "fuze",chimeric = "chimeric"), normal_pattern=NULL, tissues = reactiveVal(c("blood","blood_vessel")))
+    # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("fusion","expression")), tumor_pattern=reactiveValues(fusion = "fuze",chimeric = "chimeric"), normal_pattern=NULL, tissues = reactiveVal(c("blood","blood_vessel")),step)
     
     output$step <- renderText(step())
     outputOptions(output, "step", suspendWhenHidden = FALSE) # zajistí, že inputy běží i když jsou skryté

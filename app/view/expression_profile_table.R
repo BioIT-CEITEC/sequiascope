@@ -43,28 +43,79 @@ ui <- function(id, tissue_list, goi = FALSE) {
   if (isTRUE(goi)) {
     tabs <- c(tabs, list(
       tabPanel(title = "Genes of Interest", value = "genesOfinterest",
-               tagList(tags$head(tags$style(HTML("
-                   button[id$='download_btn_goi'].btn.dropdown-toggle { 
+               tagList(
+               # tags$head(tags$style(HTML("
+               #     button[id$='download_btn_goi'].btn.dropdown-toggle { 
+               #       background-color: transparent !important; 
+               #       background: transparent !important;
+               #       border: none !important;
+               #       box-shadow: none !important;
+               #       transition: box-shadow 0.3s ease;
+               #     }
+               #     button[id$='download_btn_goi'].btn.dropdown-toggle:hover { 
+               #       background-color: transparent !important;
+               #       background: transparent !important;
+               #       border: none !important;
+               #       box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
+               #     }
+               #   "))),
+                 tags$head(tags$style(HTML("
+                   .expression-filter-wrapper .dropdown { 
+                      position: relative; 
+                      z-index: 2000; 
+                    }
+                    
+                    .expression-filter-wrapper .sw-dropdown-content { 
+                      min-width: 1100px !important; 
+                      width: auto !important; 
+                      max-width: 90vw !important; 
+                    }
+                    
+                    .expression-filter-wrapper .my-filter-btn .sw-dropdown-in { 
+                      min-width: 1100px !important; 
+                      width: auto !important; 
+                    }
+                   
+                   .download-dropdown-wrapper .dropdown-toggle,
+                   .expression-filter-wrapper .bttn-material-circle { 
                      background-color: transparent !important; 
                      background: transparent !important;
                      border: none !important;
                      box-shadow: none !important;
+                     padding: 0 !important;
                      transition: box-shadow 0.3s ease;
                    }
-                   button[id$='download_btn_goi'].btn.dropdown-toggle:hover { 
+                   
+                   .download-dropdown-wrapper .dropdown-toggle:hover,
+                   .expression-filter-wrapper .bttn-material-circle:hover { 
                      background-color: transparent !important;
                      background: transparent !important;
                      border: none !important;
                      box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
                    }
+                   
+                   .download-dropdown-wrapper .dropdown-toggle:focus,
+                   .expression-filter-wrapper .bttn-material-circle:focus {
+                     outline: none !important;
+                     border: none !important;
+                     box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
+                   }
+                   
+                   /* Skrytí šipky u dropdownButton */
+                   .download-dropdown-wrapper .dropdown-toggle::after {
+                     display: none !important;
+                   }
                  "))),
                        fluidRow(
                          div(style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
+                             div(class = "download-dropdown-wrapper",
                              dropdownButton(inputId = ns("download_btn_goi"),label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
                                             selectInput(ns("export_data_table_goi"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                                             selectInput(ns("export_format_table_goi"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
-                                            downloadButton(ns("table_download_goi"), "Download")),
-                             filterTab_ui(ns("filterTab_dropdown_goi"), tissue_list))
+                                            downloadButton(ns("table_download_goi"), "Download"))
+                             ),
+                             div(class = "expression-filter-wrapper",
+                                 filterTab_ui(ns("filterTab_dropdown_goi"), tissue_list)))
                        )),
                use_spinner(reactableOutput(ns("goi_expression_table"))),
                div(
@@ -84,28 +135,32 @@ ui <- function(id, tissue_list, goi = FALSE) {
   # All Genes tab - always available
   tabs <- c(tabs, list(
     tabPanel(title = "All Genes", value = "allGenes",
-             tagList(tags$head(tags$style(HTML("
-                   button[id$='download_btn'].btn.dropdown-toggle { 
-                     background-color: transparent !important; 
-                     background: transparent !important;
-                     border: none !important;
-                     box-shadow: none !important;
-                     transition: box-shadow 0.3s ease;
-                   }
-                   button[id$='download_btn'].btn.dropdown-toggle:hover { 
-                     background-color: transparent !important;
-                     background: transparent !important;
-                     border: none !important;
-                     box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
-                   }
-                 ")))),
+             tagList(
+             # tags$head(tags$style(HTML("
+             #       button[id$='download_btn'].btn.dropdown-toggle { 
+             #         background-color: transparent !important; 
+             #         background: transparent !important;
+             #         border: none !important;
+             #         box-shadow: none !important;
+             #         transition: box-shadow 0.3s ease;
+             #       }
+             #       button[id$='download_btn'].btn.dropdown-toggle:hover { 
+             #         background-color: transparent !important;
+             #         background: transparent !important;
+             #         border: none !important;
+             #         box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important;
+             #       }
+             #     ")))),
              fluidRow(
                div(style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
+                   div(class = "download-dropdown-wrapper",
                    dropdownButton(inputId = ns("download_btn"), label = NULL, right = TRUE, width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),
                                   selectInput(ns("export_data_table"), "Select data:", choices = c("All data" = "all", "Filtered data" = "filtered")),
                                   selectInput(ns("export_format_table"), "Select format:", choices = c("CSV" = "csv", "TSV" = "tsv", "Excel" = "xlsx")),
-                                  downloadButton(ns("table_download"), "Download")),
-                   filterTab_ui(ns("filterTab_dropdown"), tissue_list))
+                                  downloadButton(ns("table_download"), "Download"))
+                   ),
+                   div(class = "expression-filter-wrapper",
+                       filterTab_ui(ns("filterTab_dropdown"), tissue_list)))
              ),
              use_spinner(reactableOutput(ns("expression_table"))),
              div(
@@ -117,7 +172,7 @@ ui <- function(id, tissue_list, goi = FALSE) {
                fluidRow(column(3, actionButton(ns("delete_button"), "Delete genes", icon = icon("trash-can"))))),
              tags$br(),
              plot_ui(ns("plot"))
-    )
+    ))
   ))
   
   
@@ -485,13 +540,13 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     if (is.null(genes) || nrow(genes) == 0) {
       return(NULL)
     } else {
-      genes <- as.data.table(genes)[,.(sample, feature_name, geneid, pathway, mean_log2FC)]
+      genes <- as.data.table(genes)[,.(feature_name, geneid, pathway, mean_log2FC)]
       reactable(
         as.data.frame(genes),
         columns = list(
           feature_name = colDef(name = "Gene name"),
           geneid = colDef(name = "Gene ID"),
-          mean_log2FC = colDef(name = "log2FC")),
+          mean_log2FC = colDef(name = "mean log2FC")),
         selection = "multiple", onClick = "select")
     }
   })
@@ -720,17 +775,44 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
     
     
     restore_ui_inputs <- function(state) {
-      if (!is.null(state$selected_tissue))  updateCheckboxGroupButtons(session, "select_tissue",  selected = safe_extract(state$selected_tissue))
-      if (!is.null(state$selected_pathway)) updatePickerInput(session, "filter_pathway",          selected = safe_extract(state$selected_pathway))
-      if (!is.null(state$selected_columns)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(state$selected_columns))
+      message("🎯 Restoring filter UI inputs for expression")
       
-      for (t in tissue_list) {
-        tid <- tissue_ids[[t]]
-        if (!is.null(state[[paste0("tissue_filter_", t)]])) {
-          updateCheckboxGroupButtons(session, paste0("select_filter_", tid),
-                                     selected = safe_extract(state[[paste0("tissue_filter_", t)]]))
+      if (!is.null(state$selected_tissue)) {
+        val <- safe_extract(state$selected_tissue)
+        message(sprintf("Restoring selected_tissue: %s", paste(val, collapse = ", ")))
+        updateCheckboxGroupButtons(session, "select_tissue", selected = val)
+      }
+      
+      if (!is.null(state$selected_pathway)) {
+        val <- safe_extract(state$selected_pathway)
+        message(sprintf("Restoring selected_pathway: %s", paste(val, collapse = ", ")))
+        updatePickerInput(session, "filter_pathway", selected = val)
+      }
+      
+      if (!is.null(state$selected_columns)) {
+        val <- safe_extract(state$selected_columns)
+        message(sprintf("Restoring selected_columns: %s", paste(val, collapse = ", ")))
+        updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = val)
+      }
+      
+      # Restore tissue-specific filters
+      tissues <- isolate(tissue_list())
+      tissue_ids_map <- isolate(tissue_ids_reactive())
+      
+      if (!is.null(tissues) && length(tissues) > 0 && !is.null(tissue_ids_map)) {
+        for (t in tissues) {
+          tid <- tissue_ids_map[[t]]
+          state_key <- paste0("tissue_filter_", t)
+          
+          if (!is.null(state[[state_key]]) && !is.null(tid)) {
+            val <- safe_extract(state[[state_key]])
+            message(sprintf("Restoring tissue filter for %s (id: %s): %s", t, tid, paste(val, collapse = ", ")))
+            updateCheckboxGroupButtons(session, paste0("select_filter_", tid), selected = val)
+          }
         }
       }
+      
+      message("✅ Expression filter restore completed")
     }
 
     return_list <- list(
@@ -758,13 +840,14 @@ filterTab_ui <- function(id, tissue_list){
     tags$head(tags$style(HTML("button:has(.download-button) .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
                                button:has(.download-button) .dropdown-toggle::after {display: none !important;}
                                button:has(.download-button) .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
+
                                .sw-dropdown .action-button #my-filter-btn { background-color: transparent; border: none; margin-top: -1px; }
-                               .dropdown { position: relative; z-index: 2000; }
-                               .bttn-material-circle { box-shadow: 0 0 0 0 !important; }
-                               .bttn-material-circle:hover { box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important; background-color: transparent !important; border: none !important; }
-                               .bttn-material-circle:focus { box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important; border: none !important; outline: none !important; }
-                               .sw-dropdown-content { min-width: 1100px !important; width: auto !important; max-width: 90vw !important; }
-                               .my-filter-btn .sw-dropdown-in { min-width: 1100px !important; width: auto !important; }"))),
+                               .expression-filter-wrapper .dropdown { position: relative; z-index: 2000; }
+                               .expression-filter-wrapper .bttn-material-circle { box-shadow: 0 0 0 0 !important; }
+                               .expression-filter-wrapper .bttn-material-circle:hover { box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important; background-color: transparent !important; border: none !important; }
+                               .expression-filter-wrapper .bttn-material-circle:focus { box-shadow: 0 5px 11px 0 rgba(0, 0, 0, .18), 0 4px 15px 0 rgba(0, 0, 0, .15) !important; border: none !important; outline: none !important; }
+                               .expression-filter-wrapper .sw-dropdown-content { min-width: 1100px !important; width: auto !important; max-width: 90vw !important; }
+                               .expression-filter-wrapper .my-filter-btn .sw-dropdown-in { min-width: 1100px !important; width: auto !important; }"))),
     dropdown(
       style = "material-circle",
       label = NULL,
@@ -901,10 +984,39 @@ plot_server <- function(id, patient, data, expr_flag, tissue_names) {
     observeEvent(input$selected_tissue, {
       output$volcanoPlot_blood <- renderPlotly({
         req(data())
-        # toWebGL()
-        volcanoPlot(prepare_volcano(data(), input$selected_tissue), input$selected_tissue)
+        req(input$selected_tissue)
+        
+        # Získej reaktivní hodnoty z inputů
+        padj_cutoff <- if (!is.null(input$padj_cutoff)) input$padj_cutoff else 0.05
+        logfc_cutoff <- if (!is.null(input$logfc_cutoff)) input$logfc_cutoff else 1
+        top_n <- if (!is.null(input$top_n)) input$top_n else 0
+        
+        # Připrav data
+        dt <- prepare_volcano(data(), input$selected_tissue)
+        
+        # Vytvoř plot s cutoffs a top_n
+        volcanoPlot(dt, input$selected_tissue, top_n = top_n, padj_cutoff = padj_cutoff, logfc_cutoff = logfc_cutoff)
       })
     })
+    
+    # Re-render volcano plot když se změní cutoffs nebo top_n
+    observeEvent(c(input$padj_cutoff, input$logfc_cutoff, input$top_n), {
+      req(data())
+      req(input$selected_tissue)
+      
+      output$volcanoPlot_blood <- renderPlotly({
+        # Získej reaktivní hodnoty z inputů
+        padj_cutoff <- if (!is.null(input$padj_cutoff)) input$padj_cutoff else 0.05
+        logfc_cutoff <- if (!is.null(input$logfc_cutoff)) input$logfc_cutoff else 1
+        top_n <- if (!is.null(input$top_n)) input$top_n else 0
+        
+        # Připrav data
+        dt <- prepare_volcano(data(), input$selected_tissue)
+        
+        # Vytvoř plot s cutoffs a top_n
+        volcanoPlot(dt, input$selected_tissue, top_n = top_n, padj_cutoff = padj_cutoff, logfc_cutoff = logfc_cutoff)
+      })
+    }, ignoreInit = TRUE)
     
     
     

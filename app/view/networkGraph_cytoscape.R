@@ -42,6 +42,7 @@ ui <- function(id, tissue_list, patient) {
   use_waiter()  # 🔑 Aktivovat waiter pro loading screens
 
   tagList(
+    tags$br(),
     fluidRow(
       column(6,  # 🔑 Levá polovina - hlavní graf
         fluidRow(
@@ -101,8 +102,9 @@ ui <- function(id, tissue_list, patient) {
                 prettySwitch(ns("selectedFusions"), label = "Add fusions", status = "primary", slim = TRUE)
         ))),
         fluidRow(
-          column(6, networkGraph_tables$selectedTab_UI(ns("tab")))
-        )
+          column(11, networkGraph_tables$selectedTab_UI(ns("tab")))
+        ),
+        tags$br()
       ),
       column(1),
       column(5,  # 🔑 Pravá polovina - podgraf + ovládací prvky
