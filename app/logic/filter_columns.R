@@ -99,7 +99,7 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
   
   # Definuj permanentně skryté sloupce podle tagu
   hide <- switch(tag,
-                 "fusion" = c("sample", "png_path", "svg_path", "has_png", "has_svg"),
+                 "fusion" = c("sample", "png_path", "svg_path", "has_png", "has_svg","arriba.confidence"),
                  "germline" = c("sample"),
                  "somatic" = c("sample"),
                  "expression" = c("sample"),
@@ -150,58 +150,6 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
   names(column_defs) <- column_names
   return(column_defs)
 }
-# generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
-# 
-#   # Definuj permanentně skryté sloupce podle tagu
-#   hide <- switch(tag,
-#                  "fusion" = c("sample", "png_path", "svg_path"),
-#                  "germline" = c("sample"),
-#                  "expression" = c("sample"),
-#                  character(0))
-# 
-#   if (length(hide) == 0) {
-#     message("No column has been selected for permanent hiding")
-#   }
-# 
-#   column_defs <- lapply(column_names, function(col) {
-# 
-#     # 1️⃣ Permanentně skryté sloupce
-#     if (col %in% hide) {
-#       return(colDef(show = FALSE))
-#     }
-# 
-#     # 2️⃣ Pokud je sloupec vybrán uživatelem
-#     if (col %in% selected_columns) {
-# 
-#       # Získat definici z map_list
-#       map_def <- map_list[[col]]
-# 
-#       # Nastavit header z map_def$name nebo map_def$header, fallback na col
-#       header_name <- if (!is.null(map_def$name)) {
-#         map_def$name
-#       } else if (!is.null(map_def$header)) {
-#         map_def$header
-#       } else {
-#         col
-#       }
-# 
-#       # Pokud je definice v map_list, využij ji, doplň header pokud chybí
-#       if (!is.null(map_def)) {
-#         map_def$header <- header_name
-#         return(do.call(colDef, map_def))
-#       }
-# 
-#       # Fallback: není v map_list, ale je vybrán uživatelem
-#       return(colDef(show = TRUE, header = header_name))
-#     }
-# 
-#     # 3️⃣ Pokud není vybrán uživatelem, skryj
-#     colDef(show = FALSE)
-#   })
-# 
-#   names(column_defs) <- column_names
-#   return(column_defs)
-# }
 
 #' @export
 colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues = NULL) {
@@ -224,13 +172,33 @@ colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues =
                                     return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
                                    }
                                   return rowInfo.value }")),
-      arriba.confidence = colDef(width = 140,filterable = TRUE,name="Arriba confidence", html = TRUE,
-                              cell = JS("function(rowInfo) {
-                                   if (rowInfo.value == null || rowInfo.value == '' || rowInfo.value == 'NA') {
-                                        return '';
-                                     }
-                                    var cls = 'tag confidence-' + rowInfo.value.toLowerCase()
-                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>' }")),
+      # arriba.confidence = colDef(width = 140,filterable = TRUE,name="Arriba confidence", html = TRUE,
+      #                         cell = JS("function(rowInfo) {
+      #                              if (rowInfo.value == null || rowInfo.value == '' || rowInfo.value == 'NA') {
+      #                                   return '';
+      #                                }
+      #                               var cls = 'tag confidence-' + rowInfo.value.toLowerCase()
+      #                               return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>' }")),
+      arriba.confidence_sort = colDef(
+        width = 140,
+        filterable = TRUE,
+        name = "Arriba confidence",
+        html = TRUE,
+        # defaultSortOrder = "desc",
+        # sortNALast = FALSE,
+        cell = JS("function(rowInfo) {
+        // Získáme původní textovou hodnotu z arriba.confidence
+        var confidence = rowInfo.row['arriba.confidence'];
+        
+        if (confidence == null || confidence == '' || confidence == 'NA') {
+          return '';
+        }
+        var cls = 'tag confidence-' + confidence.toLowerCase();
+        return '<div class=\"' + cls + '\">' + confidence + '</div>';
+      }")
+      ),
+      
+      arriba.confidence = colDef(show = FALSE),
       overall_support = colDef(width = 100,name="Overall support"),
       Visual_Check = colDef(width = 110,name="Visual check",html = TRUE,
                             cell = JS(paste0("function(cellInfo) {

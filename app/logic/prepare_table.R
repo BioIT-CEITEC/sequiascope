@@ -1,7 +1,7 @@
 # app/logic/prepare_table.R
 
 box::use(
-  data.table[fread,tstrsplit,setcolorder,setnames,uniqueN,dcast,fifelse,is.data.table,as.data.table,setorderv,first],
+  data.table[fread,tstrsplit,setcolorder,setnames,uniqueN,dcast,fifelse,is.data.table,as.data.table,setorderv,first,fcase],
   shiny[observe],
   openxlsx[read.xlsx],
   scales[scientific_format],
@@ -111,10 +111,20 @@ prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames, 
 
     merge_dt[, `:=`(Visual_Check = "", Notes = "")]
     
+    # Convert arriba.confidence to ordered factor for proper sorting (high > medium > low)
+    # Unfortunally, reactable colDef is not taking factor order and sorting column as A-Z
+    # Thats the reason of creating arriba.confidence_sort
+    merge_dt[, arriba.confidence := factor(arriba.confidence, levels = c("high", "medium", "low"), ordered = TRUE)]
+    merge_dt[, arriba.confidence_sort := fcase(
+      arriba.confidence == "high", 4,
+      arriba.confidence == "medium", 3,
+      arriba.confidence == "low", 2,
+      is.na(arriba.confidence), 1,
+      default = 0)]
+    
     # Volej colFilter s PŮVODNÍM all_colNames - hidden_columns se automaticky odfiltrují
     cols <- colFilter("fusion", all_colNames, session = session)
     cols <- filter_existing_columns(cols, names(merge_dt))
-    
     # Teď můžeme bezpečně použít setcolorder - všechny sloupce v default_columns existují
     if (length(cols$default_columns) > 0) {
       setcolorder(merge_dt, cols$default_columns)
@@ -240,13 +250,13 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
     all_column_names <- setdiff(all_column_names, hidden_columns)
     
   } else if (flag == "fusion"){
-    hidden_columns <- c("sample", "chr1", "chr2", "pos1", "pos2", "png_path", "svg_path", "has_png", "has_svg")
+    hidden_columns <- c("sample", "chr1", "chr2", "pos1", "pos2", "png_path", "svg_path", "has_png", "has_svg","arriba.confidence")
     
     # Speciální sloupce pro fusion
     special_columns <- c("Visual_Check","Notes","position1","position2")
     
     default_selection <- c("gene1","gene2","arriba.called","starfus.called",
-                           "arriba.confidence","overall_support","Visual_Check","Notes",
+                           "arriba.confidence_sort","overall_support","Visual_Check","Notes",
                            "position1","strand1","position2","strand2","arriba.site1",
                            "arriba.site2","starfus.splice_type","DB_count","DB_list")
     

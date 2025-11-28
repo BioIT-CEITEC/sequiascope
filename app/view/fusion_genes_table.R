@@ -249,7 +249,9 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
       message("[fusion] Loading input data for: ", file$fusion)
       data <- load_data(file$fusion, "fusion", selected_samples)
       manifest_dt <- read_fusion_manifest(selected_samples, www_dir = "www")
-      patient_dt <- prepare_fusion_genes_table(selected_samples, as.data.table(data), manifest_dt, colnames(data),session = list(ns = session$ns) )
+      # Add arriba.confidence_sort to column names since it will be created in prepare function
+      all_col_names <- c(colnames(data), "arriba.confidence_sort")
+      patient_dt <- prepare_fusion_genes_table(selected_samples, as.data.table(data), manifest_dt, all_col_names, session = list(ns = session$ns) )
 
       message(sprintf("[fusion] Rows: %d | has_svg: %d | has_png: %d",
                       nrow(patient_dt), sum(patient_dt$has_svg, na.rm = TRUE), sum(patient_dt$has_png, na.rm = TRUE)))
@@ -329,7 +331,7 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
                           ),
                           defaultSorted = {
                             # Dynamicky vytvoř defaultSorted jen pro sloupce které existují
-                            sort_spec <- list("arriba.confidence" = "asc", "arriba.called" = "desc", "starfus.called" = "desc")
+                            sort_spec <- list("arriba.confidence_sort" = "desc", "arriba.called" = "desc", "starfus.called" = "desc")
                             existing_sort <- sort_spec[names(sort_spec) %in% names(dt)]
                             if (length(existing_sort) > 0) existing_sort else NULL
                           },
@@ -742,7 +744,7 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
         choices_map = col_choices_ordered,
         default_cols = colnames_list$default_columns
       )
-      
+
       updatePrettyCheckboxGroup(
         session, "colFilter_checkBox", 
         choices = col_choices_ordered, 
@@ -773,6 +775,7 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
       all_values <- ch(unname(mapped_checkbox_names()))
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
+
     
     observeEvent(input$show_default, {
       req(mapped_checkbox_names())
@@ -781,26 +784,10 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
         choices_map = mapped_checkbox_names(),
         default_cols = colnames_list$default_columns
       )
+
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
     })
-    # 
-    # observe({
-    #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = mapped_checkbox_names[order(mapped_checkbox_names)], selected = colnames_list$default_columns,
-    #                             prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
-    # })
-    # 
-    # observeEvent(input$show_all, {
-    #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$all_columns)
-    # })
-    # 
-    # observeEvent(input$show_default, {
-    #   updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = colnames_list$default_columns)
-    # })
-# 
-#     restore_ui_inputs <- function(data) {
-#       if (!is.null(data$selected_cols)) updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = safe_extract(data$selected_cols))
-#     }
-    
+
     # ===== RESTORE FUNCTION =====
     
     restore_ui_inputs <- function(state) {
