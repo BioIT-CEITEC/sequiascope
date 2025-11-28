@@ -284,15 +284,12 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
     
     default_selection <- c("sample", "feature_name", "geneid", "pathway", 
                            "mean_log2fc", tissue_cols)
-    
     map_list <- colnames_map_list(flag,tissues = tissues)
     mapped_columns <- names(map_list)
     extra_columns <- setdiff(all_column_var, c(mapped_columns, hidden_columns))
-    
     # Kombinace mapovaných, tkáňových a extra sloupců
     all_column_names <- sort(c(mapped_columns, tissue_cols, extra_columns))
     all_column_names <- setdiff(all_column_names, hidden_columns)
-    
   } else {
     stop("Unknown flag: ", flag)
   }

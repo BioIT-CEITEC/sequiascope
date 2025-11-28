@@ -22,6 +22,59 @@ format_column_name <- function(col_name) {
   gsub("[._]", " ", col_name)
 }
 
+#' Expand wildcard column selections (for expression tissue columns)
+#' @export
+expand_expression_columns <- function(selected_columns, all_columns) {
+  expanded <- character(0)
+  
+  for (col in selected_columns) {
+    if (col == "log2fc_*") {
+      # Expand to all log2fc_tissue columns
+      expanded <- c(expanded, grep("^log2fc_", all_columns, value = TRUE))
+    } else if (col == "p_value_*") {
+      # Expand to all p_value_tissue columns
+      expanded <- c(expanded, grep("^p_value_", all_columns, value = TRUE))
+    } else if (col == "p_adj_*") {
+      # Expand to all p_adj_tissue columns
+      expanded <- c(expanded, grep("^p_adj_", all_columns, value = TRUE))
+    } else {
+      # Regular column, keep as is
+      expanded <- c(expanded, col)
+    }
+  }
+  
+  return(unique(expanded))
+}
+
+#' Contract tissue-specific columns to wildcards (reverse of expand)
+#' @export
+contract_expression_columns <- function(columns) {
+  contracted <- character(0)
+  has_log2fc <- FALSE
+  has_p_value <- FALSE
+  has_p_adj <- FALSE
+  
+  for (col in columns) {
+    if (grepl("^log2fc_", col)) {
+      has_log2fc <- TRUE
+    } else if (grepl("^p_value_", col)) {
+      has_p_value <- TRUE
+    } else if (grepl("^p_adj_", col)) {
+      has_p_adj <- TRUE
+    } else {
+      # Non-tissue column, keep as is
+      contracted <- c(contracted, col)
+    }
+  }
+  
+  # Add wildcards for tissue columns
+  if (has_log2fc) contracted <- c(contracted, "log2fc_*")
+  if (has_p_value) contracted <- c(contracted, "p_value_*")
+  if (has_p_adj) contracted <- c(contracted, "p_adj_*")
+  
+  return(unique(contracted))
+}
+
 #' Find columns that exist in data but are not in map_list
 #' @export
 find_extra_columns <- function(actual_columns, map_list) {
@@ -31,8 +84,50 @@ find_extra_columns <- function(actual_columns, map_list) {
 }
 
 #' @export
-map_checkbox_names <- function(map_list, all_actual_columns = NULL){
+map_checkbox_names <- function(map_list, all_actual_columns = NULL, is_expression = FALSE){
   
+  # Special handling for expression: group tissue-specific columns
+  if (is_expression && !is.null(all_actual_columns)) {
+    
+    # Static columns (non-tissue)
+    static_cols <- c("feature_name", "geneid", "refseq_id", "type", "gene_definition", 
+                     "all_kegg_gene_names", "pathway", "num_of_paths", "mean_log2fc")
+    existing_static <- intersect(static_cols, all_actual_columns)
+    
+    # Get static column display names from map_list
+    static_display_names <- character(0)
+    for (col in existing_static) {
+      if (!is.null(map_list[[col]])) {
+        name <- map_list[[col]]$name %||% map_list[[col]]$header %||% format_column_name(col)
+        static_display_names <- c(static_display_names, setNames(col, name))
+      }
+    }
+    
+    # Tissue-specific columns: create grouped entries
+    # Find all tissue columns in data
+    has_log2fc <- any(grepl("^log2fc_", all_actual_columns))
+    has_p_value <- any(grepl("^p_value_", all_actual_columns))
+    has_p_adj <- any(grepl("^p_adj_", all_actual_columns))
+    
+    tissue_display_names <- character(0)
+    
+    # Create single entries that represent ALL tissues for each metric
+    if (has_log2fc) {
+      tissue_display_names <- c(tissue_display_names, setNames("log2fc_*", "log2FC (all tissues)"))
+    }
+    if (has_p_value) {
+      tissue_display_names <- c(tissue_display_names, setNames("p_value_*", "p-value (all tissues)"))
+    }
+    if (has_p_adj) {
+      tissue_display_names <- c(tissue_display_names, setNames("p_adj_*", "p-adj (all tissues)"))
+    }
+    
+    # Combine static and grouped tissue columns
+    choices <- c(static_display_names, tissue_display_names)
+    return(choices)
+  }
+  
+  # Standard handling for non-expression datasets
   # Získej display names z map_list
   map_display_names <- sapply(map_list, function(x) {
     if (!is.null(x$name)) {
@@ -138,104 +233,7 @@ generate_columnsDef <- function(column_names, selected_columns, tag, map_list) {
 
 #' @export
 colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues = NULL) {
-  # ns <- if (!is.null(session) && !is.null(session$ns)) session$ns else function(x) x
-  if (tag == "fusion"){
-    map_list <- list(
-      gene1 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 1"),
-      gene2 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 2"),
-      arriba.called = colDef(width = 110,name="Arriba called", html = TRUE,
-                             cell = JS("function(rowInfo) {
-                                  if (rowInfo.value == true || rowInfo.value == false) {
-                                    var cls = 'tag called-' + String(rowInfo.value).toLowerCase()
-                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
-                                  }
-                                  return rowInfo.value }")),
-      starfus.called = colDef(width = 110,name="StarFusion called", html = TRUE,
-                              cell = JS("function(rowInfo) {
-                                   if (rowInfo.value == true || rowInfo.value == false) {
-                                    var cls = 'tag called-' + String(rowInfo.value).toLowerCase()
-                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
-                                   }
-                                  return rowInfo.value }")),
-      # arriba.confidence = colDef(width = 140,filterable = TRUE,name="Arriba confidence", html = TRUE,
-      #                         cell = JS("function(rowInfo) {
-      #                              if (rowInfo.value == null || rowInfo.value == '' || rowInfo.value == 'NA') {
-      #                                   return '';
-      #                                }
-      #                               var cls = 'tag confidence-' + rowInfo.value.toLowerCase()
-      #                               return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>' }")),
-      arriba.confidence_sort = colDef(
-        width = 140,
-        filterable = TRUE,
-        name = "Arriba confidence",
-        html = TRUE,
-        # defaultSortOrder = "desc",
-        # sortNALast = FALSE,
-        cell = JS("function(rowInfo) {
-        // Získáme původní textovou hodnotu z arriba.confidence
-        var confidence = rowInfo.row['arriba.confidence'];
-        
-        if (confidence == null || confidence == '' || confidence == 'NA') {
-          return '';
-        }
-        var cls = 'tag confidence-' + confidence.toLowerCase();
-        return '<div class=\"' + cls + '\">' + confidence + '</div>';
-      }")
-      ),
-      
-      arriba.confidence = colDef(show = FALSE),
-      overall_support = colDef(width = 100,name="Overall support"),
-      visual_check = colDef(width = 110,name="Visual check",html = TRUE,
-                            cell = JS(paste0("function(cellInfo) {
-                                                const rowIndex = cellInfo.index;
-                                                    const value = cellInfo.value || '';
-                                                    const inputId = '", session$ns("visual_check"), "';
-                                                    return `
-                                                      <div class='fusion-radio-group' data-row='${rowIndex}'>
-                                                        <label class='fusion-radio-label'>
-                                                          <input type='radio' name='${inputId}_${rowIndex}' value='yes' ${value === 'yes' ? 'checked' : ''}
-                                                          onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"yes\"}, {priority: \"event\"})'>
-                                                          <span class='fusion-radio-btn'><i class='fa fa-check'></i></span>
-                                                        </label>
-                                                        <label class='fusion-radio-label'>
-                                                          <input type='radio' name='${inputId}_${rowIndex}' value='no' ${value === 'no' ? 'checked' : ''}
-                                                           onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"no\"}, {priority: \"event\"})'>
-                                                          <span class='fusion-radio-btn'><i class='fa fa-times'></i></span>
-                                                        </label>
-                                                      </div>
-                                                `;}"))),
-      notes = colDef(minWidth = 120,name="Notes", html = TRUE,
-                     cell = JS(paste0("
-                          function(cellInfo) {
-                            const rowIndex = cellInfo.index;
-                            const value = cellInfo.value || '';
-                            const inputId = '", session$ns("notes_input"), "';
-                            return `
-                              <input type='text' value='${value}' 
-                                     onblur='Shiny.setInputValue(\"", session$ns("notes_input_changed"),"\", {row: ${rowIndex}, value: this.value}, {priority: \"event\"})' 
-                                     style='width: 100%; box-sizing: border-box;' />`;}"))),
-      position1 = colDef(minWidth = 150,name="Position 1"),
-      position2 = colDef(minWidth = 150,name="Position 2"),
-      strand1 = colDef(width = 100,name="Strand 1"),
-      strand2 = colDef(width = 100,name="Strand 2"),
-      arriba.site1 = colDef(minWidth = 120,filterable = TRUE,name="Arriba site 1"),
-      arriba.site2 = colDef(minWidth = 120,filterable = TRUE,name="Arriba site 2"),
-      starfus.splice_type = colDef(minWidth = 140,name="StarFus splice type"),
-      db_count = colDef(maxWidth = 100,name="DB count"),
-      db_list = colDef(minWidth = 100,name="DB list"),
-      arriba.split_reads = colDef(width = 110,name="Arriba split reads"),
-      arriba.discordant_mates = colDef(width = 160,name="Arriba discordant mates"),
-      arriba.break_coverage = colDef(width = 120,name="Arriba break coverage"),
-      arriba.break2_coverage = colDef(width = 120,name="Arriba break coverage 2"),
-      starfus.split_reads = colDef(width = 120,name="StarFusion split reads"),
-      starfus.discordant_mates = colDef(width = 160,name="StarFus discordant mates"),
-      starfus.counter_fusion1 = colDef(width = 150,name="StarFusion counter fusion 1"),
-      starfus.counter_fusion2 = colDef(width = 150,name="StarFusion counter fusion 2"),
-      arriba.break_seq = colDef(minWidth = 120,name="Arriba break sequence"),
-      starfus.break_seq = colDef(minWidth = 130,name="StarFusion break sequence")
-    )
-
-  } else if (tag == "somatic"){
+  if (tag == "somatic"){
     map_list <- list(
       var_name = colDef(sticky='left', minWidth=140,filterable = TRUE, name = 'Variant name'),
       in_library = colDef(sticky='left',header = "In library"),
@@ -381,92 +379,155 @@ colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues =
       exon = colDef(width = 110,name="Exon"),
       intron = colDef(width = 110,name="Intron")
       )
-  } else if (tag == "expression"){
-    
-      # if (expr_flag == "all_genes") {
-      static_columns <- list(
-        feature_name = colDef(name = "Gene name", sticky = "left", minWidth = 140, filterable = TRUE),
-        geneid = colDef(name = "Gene ID", minWidth = 110, filterable = TRUE),
-        refseq_id = colDef(name = "RefSeq ID", minWidth = 110),
-        type = colDef(name = "Type", minWidth = 100),
-        gene_definition = colDef(name = "Gene definition", minWidth = 200),
-        all_kegg_gene_names = colDef(name = "KEGG gene names", minWidth = 180),
-        pathway = colDef(name = "Pathway", minWidth = 150),
-        num_of_paths = colDef(name = "Pathway (n)", minWidth = 100),
-        mean_log2fc = colDef(name = "Mean log2FC", minWidth = 120)
+    } else if (tag == "fusion"){
+      map_list <- list(
+        gene1 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 1"),
+        gene2 = colDef(minWidth = 120,filterable = TRUE,sticky = "left",name="Gene 2"),
+        arriba.called = colDef(width = 110,name="Arriba called", html = TRUE,
+                               cell = JS("function(rowInfo) {
+                                  if (rowInfo.value == true || rowInfo.value == false) {
+                                    var cls = 'tag called-' + String(rowInfo.value).toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                  }
+                                  return rowInfo.value }")),
+        starfus.called = colDef(width = 110,name="StarFusion called", html = TRUE,
+                                cell = JS("function(rowInfo) {
+                                   if (rowInfo.value == true || rowInfo.value == false) {
+                                    var cls = 'tag called-' + String(rowInfo.value).toLowerCase()
+                                    return '<div class=\"' + cls + '\">' + rowInfo.value + '</div>'
+                                   }
+                                  return rowInfo.value }")),
+        arriba.confidence = colDef(show = FALSE),
+        arriba.confidence_sort = colDef(width = 140,filterable = TRUE,name = "Arriba confidence",html = TRUE,
+                                        cell = JS("function(rowInfo) {
+                                  // Získáme původní textovou hodnotu z arriba.confidence
+                                  var confidence = rowInfo.row['arriba.confidence'];
+                                  
+                                  if (confidence == null || confidence == '' || confidence == 'NA') {
+                                    return '';
+                                  }
+                                  var cls = 'tag confidence-' + confidence.toLowerCase();
+                                  return '<div class=\"' + cls + '\">' + confidence + '</div>'; }")),
+        overall_support = colDef(width = 100,name="Overall support"),
+        visual_check = colDef(width = 110,name="Visual check",html = TRUE,
+                              cell = JS(paste0("function(cellInfo) {
+                                                const rowIndex = cellInfo.index;
+                                                    const value = cellInfo.value || '';
+                                                    const inputId = '", session$ns("visual_check"), "';
+                                                    return `
+                                                      <div class='fusion-radio-group' data-row='${rowIndex}'>
+                                                        <label class='fusion-radio-label'>
+                                                          <input type='radio' name='${inputId}_${rowIndex}' value='yes' ${value === 'yes' ? 'checked' : ''}
+                                                          onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"yes\"}, {priority: \"event\"})'>
+                                                          <span class='fusion-radio-btn'><i class='fa fa-check'></i></span>
+                                                        </label>
+                                                        <label class='fusion-radio-label'>
+                                                          <input type='radio' name='${inputId}_${rowIndex}' value='no' ${value === 'no' ? 'checked' : ''}
+                                                           onclick='Shiny.setInputValue(\"", session$ns("visual_check_changed"), "\", {row: ${rowIndex}, value: \"no\"}, {priority: \"event\"})'>
+                                                          <span class='fusion-radio-btn'><i class='fa fa-times'></i></span>
+                                                        </label>
+                                                      </div>
+                                                `;}"))),
+        notes = colDef(minWidth = 120,name="Notes", html = TRUE,
+                       cell = JS(paste0("
+                          function(cellInfo) {
+                            const rowIndex = cellInfo.index;
+                            const value = cellInfo.value || '';
+                            const inputId = '", session$ns("notes_input"), "';
+                            return `
+                              <input type='text' value='${value}' 
+                                     onblur='Shiny.setInputValue(\"", session$ns("notes_input_changed"),"\", {row: ${rowIndex}, value: this.value}, {priority: \"event\"})' 
+                                     style='width: 100%; box-sizing: border-box;' />`;}"))),
+        position1 = colDef(minWidth = 150,name="Position 1"),
+        position2 = colDef(minWidth = 150,name="Position 2"),
+        strand1 = colDef(width = 100,name="Strand 1"),
+        strand2 = colDef(width = 100,name="Strand 2"),
+        arriba.site1 = colDef(minWidth = 120,filterable = TRUE,name="Arriba site 1"),
+        arriba.site2 = colDef(minWidth = 120,filterable = TRUE,name="Arriba site 2"),
+        starfus.splice_type = colDef(minWidth = 140,name="StarFus splice type"),
+        db_count = colDef(maxWidth = 100,name="DB count"),
+        db_list = colDef(minWidth = 100,name="DB list"),
+        arriba.split_reads = colDef(width = 110,name="Arriba split reads"),
+        arriba.discordant_mates = colDef(width = 160,name="Arriba discordant mates"),
+        arriba.break_coverage = colDef(width = 120,name="Arriba break coverage"),
+        arriba.break2_coverage = colDef(width = 120,name="Arriba break coverage 2"),
+        starfus.split_reads = colDef(width = 120,name="StarFusion split reads"),
+        starfus.discordant_mates = colDef(width = 160,name="StarFus discordant mates"),
+        starfus.counter_fusion1 = colDef(width = 150,name="StarFusion counter fusion 1"),
+        starfus.counter_fusion2 = colDef(width = 150,name="StarFusion counter fusion 2"),
+        arriba.break_seq = colDef(minWidth = 120,name="Arriba break sequence"),
+        starfus.break_seq = colDef(minWidth = 130,name="StarFusion break sequence")
       )
       
-      # 2️⃣ Dynamické sloupce podle tkání a typů
-      dynamic_columns <- list()
+  } else if (tag == "expression"){
+    
+    # Static columns (non-tissue specific)
+    static_columns <- list(
+      feature_name = colDef(name = "Gene name", sticky = "left", minWidth = 140, filterable = TRUE),
+      geneid = colDef(name = "Gene ID", minWidth = 110, filterable = TRUE),
+      refseq_id = colDef(name = "RefSeq ID", minWidth = 110),
+      type = colDef(name = "Type", minWidth = 100),
+      gene_definition = colDef(name = "Gene definition", minWidth = 200),
+      all_kegg_gene_names = colDef(name = "KEGG gene names", minWidth = 180),
+      pathway = colDef(name = "Pathway", minWidth = 150),
+      num_of_paths = colDef(name = "Pathway (n)", minWidth = 100),
+      mean_log2fc = colDef(name = "Mean log2FC", minWidth = 120)
+    )
+    
+    # Dynamic tissue-specific columns
+    dynamic_columns <- list()
+    
+    if (!is.null(tissues) && length(tissues) > 0) {
       tissue_list <- tissues
-      num_columns <- length(all_columns)
-      log2fc_indices <- which(grepl("^log2fc_", all_columns))
+      log2fc_cols <- paste0("log2fc_", tissue_list)
+      p_value_cols <- paste0("p_value_", tissue_list)
+      p_adj_cols <- paste0("p_adj_", tissue_list)
       
-      for (i in seq_along(all_columns)) {
-        col <- all_columns[i]
-        border_style <- NULL
-        display_name <- NULL
+      # Create colDef for each tissue column with simplified names (just metric type)
+      for (tissue in tissue_list) {
+        # Determine if this is the first tissue (for border styling)
+        is_first <- tissue == tissue_list[1]
         
-        for (tissue in tissue_list) {
-          if (grepl(tissue, col)) {
-            prefix <- gsub(paste0("_", tissue), "", col)
-            tissue_clean <- gsub("_", " ", tissue)
-            
-            display_name <- switch(
-              prefix,
-              "log2fc" = paste(tissue_clean, "log2FC"),
-              "p_value" = paste(tissue_clean, "p-value"),
-              "p_adj" = paste(tissue_clean, "p-adj"),
-              NULL
-            )
-            break
-          }
-        }
-        
-        # Pokud není sloupec tkáňový, ponech prázdné display_name
-        if (is.null(display_name)) {
-          display_name <- col
-        }
-        
-        # Nastavení stylů pro log2FC / p_value / p_adj
-        if (grepl("^log2fc_", col)) {
-          if (i == log2fc_indices[1]) {
-            border_style <- "2px solid black"
-          }
-          dynamic_columns[[col]] <- colDef(
-            name = display_name,
-            minWidth = 100,
-            style = JS(sprintf("function(rowInfo, colInfo) {
+        # log2fc column
+        col_log2fc <- paste0("log2fc_", tissue)
+        dynamic_columns[[col_log2fc]] <- colDef(
+          name = "log2FC",  # Simple name without tissue
+          minWidth = 100,
+          style = JS(sprintf("function(rowInfo, colInfo) {
             var value = rowInfo.values[colInfo.id];
             var color = value > 1 ? '#FFE9E9' : (value < -1 ? '#E6F7FF' : '#FFFFFF');
             return { backgroundColor: color, borderLeft: '%s' };
-          }", ifelse(is.null(border_style), "", border_style)))
-          )
-        } else if (grepl("^p_value_", col)) {
-          dynamic_columns[[col]] <- colDef(
-            name = display_name,
-            minWidth = 100,
-            style = JS("function(rowInfo, colInfo) {
+          }", ifelse(is_first, "2px solid black", "")))
+        )
+        
+        # p_value column
+        col_p_value <- paste0("p_value_", tissue)
+        dynamic_columns[[col_p_value]] <- colDef(
+          name = "p-value",  # Simple name without tissue
+          minWidth = 100,
+          style = JS("function(rowInfo, colInfo) {
             var value = rowInfo.values[colInfo.id];
             var color = (value <= 0.05) ? '#FFEFDE' : '#FFFFFF';
             return { backgroundColor: color };
           }")
-          )
-        } else if (grepl("^p_adj_", col)) {
-          dynamic_columns[[col]] <- colDef(
-            name = display_name,
-            minWidth = 100,
-            style = JS("function(rowInfo, colInfo) {
+        )
+        
+        # p_adj column
+        col_p_adj <- paste0("p_adj_", tissue)
+        dynamic_columns[[col_p_adj]] <- colDef(
+          name = "p-adj",  # Simple name without tissue
+          minWidth = 100,
+          style = JS("function(rowInfo, colInfo) {
             var value = rowInfo.values[colInfo.id];
             var color = (value <= 0.05) ? '#E7FAEF' : '#FFFFFF';
             return { backgroundColor: color, borderRight: '1px dashed rgba(0,0,0,0.3)' };
           }")
-          )
-        }
+        )
       }
-      
-      # 3️⃣ Sloučení do map_list
-      map_list <- c(static_columns, dynamic_columns)
+    }
+    
+    map_list <- c(static_columns, dynamic_columns)
+   
 
   } else {
     print("NOT germline, expression or fusion")

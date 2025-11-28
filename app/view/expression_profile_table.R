@@ -26,7 +26,7 @@ box::use(
   app/logic/waiters[use_spinner],
   app/logic/load_data[load_data],
   app/logic/helper_reactable[custom_colGroup_setting],
-  app/logic/filter_columns[map_checkbox_names, colnames_map_list, generate_columnsDef],
+  app/logic/filter_columns[map_checkbox_names, colnames_map_list, generate_columnsDef, expand_expression_columns, contract_expression_columns],
   app/logic/prepare_table[prepare_expression_table, prepare_goi_table, set_pathway_colors],
   app/logic/helper_networkGraph[get_pathway_list],
   app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch],
@@ -336,7 +336,8 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   map_list <- reactive({
     req(get_colnames_list())
     req(data())
-    colnames_map_list("expression", get_colnames_list()$all_columns)
+    req(get_tissue_list())
+    colnames_map_list("expression", get_colnames_list()$all_columns, tissues = get_tissue_list())
   })
   
   # mapped_checkbox_names <- map_checkbox_names(map_list)
@@ -344,7 +345,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     req(data())
     req(get_colnames_list())
     req(map_list())
-    map_checkbox_names(map_list(), get_colnames_list()$all_columns)
+    map_checkbox_names(map_list(), get_colnames_list()$all_columns, is_expression = TRUE)
   })
 
   filter_state <- filterTab_server(paste0("filterTab_dropdown", suffix), get_colnames_list, data, mapped_checkbox_names, get_tissue_list, pathway_list, is_restoring_session)
@@ -401,16 +402,17 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
   
   filtered_data <- reactive({
     req(data())
+    req(selected_columns())
     df <- data()
     pathways_selected <- selected_pathway_final()
-    tissues <- selected_tissues_final()
-    base_cols <- c("sample","feature_name","geneid","pathway","mean_log2fc")
-
+    
+    # Apply pathway filter
     if (!is.null(pathways_selected) && length(pathways_selected) > 0 && length(pathways_selected) < length(pathway_list)) {
       pattern <- paste(pathways_selected, collapse = "|")
       df <- df[grepl(pattern, pathway)]
     }
 
+    # Apply tissue-specific filters (log2FC, p-value, p-adj)
     req(get_tissue_list())
     for (t in get_tissue_list()) {
       filters <- tissue_filters_final[[t]]
@@ -434,11 +436,10 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       }
     }
 
-    if (is.null(tissues) || !length(tissues)) return(df[, ..base_cols])
-    
-    selected_cols <- unlist(lapply(tissues, function(t) c(paste0("log2fc_", t), paste0("p_value_", t), paste0("p_adj_", t))))
-    valid_cols <- intersect(selected_cols, names(df))
-    df_filtered <- df[, c(base_cols, valid_cols), with = FALSE]
+    # Return only selected columns (preserve order from data - set by setcolorder in prepare_expression_table)
+    expanded_cols <- expand_expression_columns(selected_columns(), names(df))
+    valid_cols <- intersect(names(df), expanded_cols)  # intersect preserves order from first argument (names(df))
+    df_filtered <- df[, ..valid_cols]
     
     return(df_filtered)
   })
@@ -449,7 +450,9 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     req(data())
     req(selected_columns())
     req(map_list())
-    generate_columnsDef(names(data()), selected_columns(), "expression", map_list())
+    # Expand wildcard selections (log2fc_*, p_value_*, p_adj_*) to actual tissue columns
+    expanded_cols <- expand_expression_columns(selected_columns(), names(data()))
+    generate_columnsDef(names(data()), expanded_cols, "expression", map_list())
   })
   
   table_name <- if (suffix == "_goi") "goi_expression_table" else "expression_table"
@@ -725,7 +728,10 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
       req(get_colnames_list())
       checkbox_names <- get_checkbox_names()
       
-      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = checkbox_names[order(checkbox_names)], selected = get_colnames_list()$default_columns,
+      # Convert tissue-specific columns to wildcards for checkbox selection
+      default_cols_contracted <- contract_expression_columns(get_colnames_list()$default_columns)
+
+      updatePrettyCheckboxGroup(session, "colFilter_checkBox", choices = checkbox_names[order(checkbox_names)], selected = default_cols_contracted,
                                 prettyOptions = list(status = "primary",icon = icon("check"),outline = FALSE))
       updatePickerInput(session, "filter_pathway", choices = pathway_list, selected = character(0),
                         options = list(`live-search` = TRUE,`actions-box` = TRUE,`multiple-separator` = ", ",`none-selected-text` = "Select pathways",`width` = "100%",`virtual-scroll` = 10,`tick-icon` = "fa fa-check",`dropupAuto` = FALSE))
@@ -738,12 +744,14 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
     observeEvent(input$show_all, {
       req(mapped_checkbox_names())
       all_values <- ch(unname(mapped_checkbox_names()))
+      message("#### all_values :",paste0(all_values,collapse =", "))
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
     
     observeEvent(input$show_default, {
       req(get_checkbox_names())
       req(get_colnames_list())
+
       default_values <- normalize_column_selection(
         selection = get_colnames_list()$default_columns,
         choices_map = get_checkbox_names(),
