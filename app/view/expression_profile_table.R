@@ -404,7 +404,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     df <- data()
     pathways_selected <- selected_pathway_final()
     tissues <- selected_tissues_final()
-    base_cols <- c("sample","feature_name","geneid","pathway","mean_log2FC")
+    base_cols <- c("sample","feature_name","geneid","pathway","mean_log2fc")
 
     if (!is.null(pathways_selected) && length(pathways_selected) > 0 && length(pathways_selected) < length(pathway_list)) {
       pattern <- paste(pathways_selected, collapse = "|")
@@ -417,11 +417,11 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       if (!length(filters)) next
       
       if ("log2FC > 1" %in% filters) {
-        col <- paste0("log2FC_", t)
+        col <- paste0("log2fc_", t)
         if (col %in% names(df)) df <- df[as.numeric(get(col)) >  1]
       }
       if ("log2FC < -1" %in% filters) {
-        col <- paste0("log2FC_", t)
+        col <- paste0("log2fc_", t)
         if (col %in% names(df)) df <- df[as.numeric(get(col)) < -1]
       }
       if ("p-value < 0.05" %in% filters) {
@@ -436,7 +436,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
 
     if (is.null(tissues) || !length(tissues)) return(df[, ..base_cols])
     
-    selected_cols <- unlist(lapply(tissues, function(t) c(paste0("log2FC_", t), paste0("p_value_", t), paste0("p_adj_", t))))
+    selected_cols <- unlist(lapply(tissues, function(t) c(paste0("log2fc_", t), paste0("p_value_", t), paste0("p_adj_", t))))
     valid_cols <- intersect(selected_cols, names(df))
     df_filtered <- df[, c(base_cols, valid_cols), with = FALSE]
     
@@ -459,7 +459,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     req(column_defs())
     filtered_data_local <- filtered_data()
     deregulated_genes <- selected_genes()
-    
+
     reactable(
       as.data.frame(filtered_data_local),
       class = "expression-table",
@@ -509,7 +509,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     selected_rows <- getReactableState(table_name, "selected")
     req(selected_rows)
     
-    new_variants <- filtered_data()[selected_rows, c("sample", "feature_name", "geneid", "pathway", "mean_log2FC")]
+    new_variants <- filtered_data()[selected_rows, c("sample", "feature_name", "geneid", "pathway", "mean_log2fc")]
     new_variants$sample <- patient
     
     current_variants <- selected_genes()
@@ -526,7 +526,7 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
         feature_name = character(),
         geneid = character(),
         pathway = character(),
-        mean_log2FC = character()
+        mean_log2fc = character()
       )
     }
     
@@ -540,13 +540,13 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     if (is.null(genes) || nrow(genes) == 0) {
       return(NULL)
     } else {
-      genes <- as.data.table(genes)[,.(feature_name, geneid, pathway, mean_log2FC)]
+      genes <- as.data.table(genes)[,.(feature_name, geneid, pathway, mean_log2fc)]
       reactable(
         as.data.frame(genes),
         columns = list(
           feature_name = colDef(name = "Gene name"),
           geneid = colDef(name = "Gene ID"),
-          mean_log2FC = colDef(name = "mean log2FC")),
+          mean_log2fc = colDef(name = "mean log2FC")),
         selection = "multiple", onClick = "select")
     }
   })

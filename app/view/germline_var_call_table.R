@@ -85,7 +85,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
         clinvar_N = uniqueN(data()[clinvar_sig %in% c("Pathogenic", "Likely_pathogenic", "Pathogenic/Likely_pathogenic",
                                                       "Pathogenic_(VUS)", "Likely_pathogenic (VUS)", "Pathogenic_(VUS)"), unique(var_name)]),
 
-        for_review = uniqueN(data()[gnomAD_NFE <= 0.01 & coverage_depth > 10 & consequence != "synonymous_variant" &
+        for_review = uniqueN(data()[gnomad_nfe <= 0.01 & coverage_depth > 10 & consequence != "synonymous_variant" &
                                       (gene_region == "exon" | gene_region == "splice"), unique(var_name)]))
       # print(overview_dt)
       shared_data$germline.overview[[ selected_samples ]] <- overview_dt
@@ -162,7 +162,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
         if (nrow(dt) == 0) return(dt)
       }
       if (!is.null(selected_gnomAD_min())) {
-        dt <- dt[gnomAD_NFE <= selected_gnomAD_min(), ]
+        dt <- dt[gnomad_nfe <= selected_gnomAD_min(), ]
         if (nrow(dt) == 0) return(dt)
       }
       if (!is.null(selected_gene_region()) && length(selected_gene_region()) > 0) {
@@ -228,10 +228,6 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
             } else {
                 NULL
           },
-        # columnGroups = list(
-        #   colGroup(name = "Databases", columns = c("gnomAD_NFE", "clinvar_sig", "snpDB", "CGC_Germline", "trusight_genes", "fOne")),
-        #   colGroup(name = "Annotation", columns = c("Consequence", "HGVSc", "HGVSp", "all_full_annot_name"))
-        # ),
         selection = "multiple",
         onClick = JS("function(rowInfo, column, event) {
                         if (event.target.classList.contains('rt-expander') || event.target.classList.contains('rt-expander-button')) {
@@ -252,7 +248,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       req(selected_rows)
       
       new_variants <- filtered_data()[selected_rows, c("var_name", "gene_symbol","variant_freq","coverage_depth", "consequence",
-                                                       "HGVSc","HGVSp","variant_type","Feature", "clinvar_sig","gnomAD_NFE")]  # Získání vybraných variant
+                                                       "hgvsc","hgvsp","variant_type","feature", "clinvar_sig","gnomad_nfe")]  # Získání vybraných variant
       new_variants$sample <- selected_samples
 
       current_variants <- selected_variants()  # Stávající přidané varianty
@@ -273,12 +269,12 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
           variant_freq= character(),
           coverage_depth = character(),
           consequence = character(),
-          HGVSc = character(),
-          HGVSp = character(),
+          hgvsc = character(),
+          hgvsp = character(),
           variant_type = character(),
-          Feature = character(),
+          feature = character(),
           clinvar_sig = character(), #(round(variant_freq * coverage_depth))/coverage_depth
-          gnomAD_NFE = character()
+          gnomad_nfe = character()
         )
       }
 
@@ -298,13 +294,13 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       }
       
       reactable(
-        variants <- as.data.table(variants)[,.(var_name,gene_symbol,HGVSc,HGVSp,consequence,clinvar_sig,Feature)],
+        variants <- as.data.table(variants)[,.(var_name,gene_symbol,hgvsc,hgvsp,consequence,clinvar_sig,feature)],
         columns = list(
           var_name = colDef(name = "Variant name"),
           gene_symbol = colDef(name = "Gene name"),
           consequence = colDef(name = "Consequence",minWidth=160),
           clinvar_sig = colDef(name = "ClinVar significance",minWidth=180),
-          Feature = colDef(name = "Feature")),
+          feature = colDef(name = "Feature")),
         selection = "multiple", onClick = "select"
       )
     })
@@ -328,12 +324,12 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
           variant_freq= character(),
           coverage_depth = character(),
           consequence = character(),
-          HGVSc = character(),
-          HGVSp = character(),
+          hgvsc = character(),
+          hgvsp = character(),
           variant_type = character(),
-          Feature = character(),
+          feature = character(),
           clinvar_sig = character(),
-          gnomAD_NFE = character()
+          gnomad_nfe = character()
         )
       }
       

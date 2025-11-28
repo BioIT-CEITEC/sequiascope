@@ -108,12 +108,12 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       if (!is.null(file$TMB)) {
         mutation_load <- load_data(file$TMB, "TMB", selected_samples)
         overview_dt <- data.table(
-          for_review = uniqueN(data()[gnomAD_NFE <= 0.01 & tumor_depth > 10 & consequence != "synonymous_variant" &
+          for_review = uniqueN(data()[gnomad_nfe <= 0.01 & tumor_depth > 10 & consequence != "synonymous_variant" &
                                         (gene_region == "exon" | gene_region == "splice"), unique(var_name)]),
           TMB = unique(mutation_load$TMB))
       } else {
         overview_dt <- data.table(
-          for_review = uniqueN(data()[gnomAD_NFE <= 0.01 & tumor_depth > 10 & consequence != "synonymous_variant" &
+          for_review = uniqueN(data()[gnomad_nfe <= 0.01 & tumor_depth > 10 & consequence != "synonymous_variant" &
                                         (gene_region == "exon" | gene_region == "splice"), unique(var_name)]))
       }
 
@@ -196,7 +196,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       if (nrow(dt) == 0) return(dt)}
   
     if (!is.null(selected_gnomAD_min())) {
-      dt <- dt[gnomAD_NFE <= selected_gnomAD_min()]
+      dt <- dt[gnomad_nfe <= selected_gnomAD_min()]
       if (nrow(dt) == 0) return(dt)}
   
     if (!is.null(selected_gene_region()) && length(selected_gene_region()) > 0) {
@@ -265,7 +265,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       req(selected_rows)
 
       new_variants <- filtered_data()[selected_rows, c("var_name", "gene_symbol","tumor_variant_freq","tumor_depth", "consequence",
-                                                       "HGVSc","HGVSp","variant_type","Feature", "gnomAD_NFE")]  # Získání vybraných variant
+                                                       "hgvsc","hgvsp","variant_type","feature", "gnomad_nfe")]  # Získání vybraných variant
       new_variants$sample <- selected_samples
 
       current_variants <- selected_variants()  # Stávající přidané varianty
@@ -286,11 +286,11 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
           tumor_variant_freq = numeric(),
           tumor_depth = integer(),
           consequence = character(),
-          HGVSc = character(),
-          HGVSp = character(),
+          hgvsc = character(),
+          hgvsp = character(),
           variant_type = character(),
-          Feature = character(),
-          gnomAD_NFE = numeric()
+          feature = character(),
+          gnomad_nfe = numeric()
         )
       }
 
@@ -310,14 +310,14 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
       if (is.null(variants) || nrow(variants) == 0) {
         return(NULL)
       } else {
-        variants <- as.data.table(variants)[,.(var_name,gene_symbol,HGVSc,HGVSp,consequence,Feature)]
+        variants <- as.data.table(variants)[,.(var_name,gene_symbol,hgvsc,hgvsp,consequence,feature)]
         reactable(
           as.data.frame(variants),
           columns = list(
             var_name = colDef(name = "Variant name"),
             gene_symbol = colDef(name = "Gene name"),
             consequence = colDef(name = "Consequence",minWidth=160),
-            Feature = colDef(name = "Feature")),
+            feature = colDef(name = "Feature")),
           selection = "multiple", onClick = "select")
       }
     })
@@ -342,11 +342,11 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
           tumor_variant_freq = character(),
           tumor_depth = character(),
           consequence = character(),
-          HGVSc = character(),
-          HGVSp = character(),
+          hgvsc = character(),
+          hgvsp = character(),
           variant_type = character(),
-          Feature = character(),
-          gnomAD_NFE = character()
+          feature = character(),
+          gnomad_nfe = character()
         )
       }
 

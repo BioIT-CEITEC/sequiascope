@@ -68,7 +68,7 @@ custom_colGroup_setting <- function(tag, tissues) {
     custom_colGroup <- lapply(tissues, function(tissue) {
       group_name <- gsub("_", " ", tissue)
       colGroup(name = group_name, columns = c(
-        paste0("log2FC_", tissue),
+        paste0("log2fc_", tissue),
         paste0("p_value_", tissue),
         paste0("p_adj_", tissue)))})
     

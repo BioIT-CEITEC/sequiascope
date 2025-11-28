@@ -17,8 +17,10 @@ box::use(
 #' @export
 prepare_somatic_table <- function(dt, all_colNames){
   dt <- replace_dot_with_na(dt)
-  dt <- replace_underscore_with_space(dt, c("gene_region", "clinvar_sig", "consequence", "clinvar_DBN"))
-  cols_to_numeric <- c("gnomAD_NFE", "tumor_variant_freq")
+  dt <- replace_underscore_with_space(dt, c("gene_region", "clinvar_sig", "consequence"))
+  if ("clinvar_dbn" %in% colnames(dt)) dt <- replace_underscore_with_space(dt, "clinvar_dbn")
+  
+  cols_to_numeric <- c("gnomad_nfe", "tumor_variant_freq")
   dt[, (cols_to_numeric) := lapply(.SD, as.numeric), .SDcols = cols_to_numeric]
   
   fast_lookup_column(dt, "consequence", "consequence_trimws", clean_consequence)
@@ -43,8 +45,10 @@ prepare_somatic_table <- function(dt, all_colNames){
 #' @export
 prepare_germline_table <- function(dt, all_colNames){
   dt <- replace_dot_with_na(dt)
-  dt <- replace_underscore_with_space(dt, c("gene_region", "clinvar_sig", "consequence", "clinvar_DBN"))
-  cols_to_numeric <- c("gnomAD_NFE", "variant_freq")
+  dt <- replace_underscore_with_space(dt, c("gene_region", "clinvar_sig", "consequence"))
+  if ("clinvar_dbn" %in% colnames(dt)) dt <- replace_underscore_with_space(dt, "clinvar_dbn")
+  
+  cols_to_numeric <- c("gnomad_nfe", "variant_freq")
   dt[, (cols_to_numeric) := lapply(.SD, as.numeric), .SDcols = cols_to_numeric]
   
   fast_lookup_column(dt, "consequence", "consequence_trimws", clean_consequence)
@@ -154,11 +158,11 @@ prepare_expression_table <- function(combined_dt) {
   wide_dt <- dcast(
     combined_dt,
     as.formula(paste(paste(id_cols, collapse = " + "), "~ tissue")),
-    value.var = c("log2FC", "p_value", "p_adj")
+    value.var = c("log2fc", "p_value", "p_adj")
   )
 
   # pomocné metriky
-  wide_dt[, mean_log2FC := rowMeans(.SD, na.rm = TRUE), .SDcols = patterns("^log2FC_")]
+  wide_dt[, mean_log2fc := rowMeans(.SD, na.rm = TRUE), .SDcols = patterns("^log2fc_")]
   
   # Teď získáme sloupce pro UI (all/default) na WIDE datech
   cols <- colFilter("expression", names(wide_dt), tissues)
@@ -172,7 +176,7 @@ prepare_expression_table <- function(combined_dt) {
   }
   
   # Formátování tissue-specifických sloupců
-  log2FC_cols <- paste0("log2FC_", tissues)
+  log2FC_cols <- paste0("log2fc_", tissues)
   p_value_cols <- paste0("p_value_", tissues)
   p_adj_cols <- paste0("p_adj_", tissues)
   
@@ -218,9 +222,9 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
     
     # Default selection (povinné + další důležité sloupce)
     default_selection <- c("var_name","in_library","gene_symbol","tumor_variant_freq",
-                           "tumor_depth","gene_region","gnomAD_NFE","clinvar_sig",
-                           "clinvar_DBN","snpDB","CGC_Somatic","fOne","COSMIC","HGMD",
-                           "consequence","HGVSc", "HGVSp","all_full_annot_name")
+                           "tumor_depth","gene_region","gnomad_nfe","clinvar_sig",
+                           "clinvar_dbn","snpdb","cgc_somatic","fone","cosmic","hgmd",
+                           "consequence","hgvsc", "hgvsp","all_full_annot_name")
     
     # Získej map_list pro zjištění mapovaných sloupců
     map_list <- colnames_map_list(flag)
@@ -239,9 +243,9 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
   } else if (flag == "germline"){
     hidden_columns <- c("sample")
     default_selection <- c("var_name","variant_freq","in_library","gene_symbol",
-                           "coverage_depth","gene_region","gnomAD_NFE","clinvar_sig",
-                           "snpDB","CGC_Germline","trusight_genes","fOne","consequence",
-                           "HGVSc", "HGVSp","all_full_annot_name")
+                           "coverage_depth","gene_region","gnomad_nfe","clinvar_sig",
+                           "snpdb","cgc_germline","trusight_genes","fone","consequence",
+                           "hgvsc", "hgvsp","all_full_annot_name")
     
     map_list <- colnames_map_list(flag)
     mapped_columns <- names(map_list)
@@ -269,17 +273,17 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
     all_column_names <- setdiff(all_column_names, hidden_columns)
     
   } else if (flag == "expression"){
-    hidden_columns <- c("log2FC","p_value","p_adj","sample","all_kegg_paths_name",
+    hidden_columns <- c("log2fc","p_value","p_adj","sample","all_kegg_paths_name",
                         "counts_tpm_round","fc","size","mu","lower_than_p","higher_than_p")
     
     # Dynamické sloupce pro každou tkáň
-    log2FC_cols <- paste0("log2FC_", tissues)
+    log2FC_cols <- paste0("log2fc_", tissues)
     p_value_cols <- paste0("p_value_", tissues)
     p_adj_cols <- paste0("p_adj_", tissues)
     tissue_cols <- as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols))
     
     default_selection <- c("sample", "feature_name", "geneid", "pathway", 
-                           "mean_log2FC", tissue_cols)
+                           "mean_log2fc", tissue_cols)
     
     map_list <- colnames_map_list(flag,tissues = tissues)
     mapped_columns <- names(map_list)
@@ -302,44 +306,6 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
     extra_columns = extra_columns
   ))
 }
-# colFilter <- function(flag, all_column_var,tissues = NULL){
-#   if (flag == "somatic"){
-#     all_column_names  <- setdiff(all_column_var, c("sample"))  # dont show/add sample column in table
-#     default_selection <- c("var_name","tumor_variant_freq","in_library","gene_symbol","tumor_depth","gene_region","gnomAD_NFE","clinvar_sig",
-#                            "clinvar_DBN","snpDB","CGC_Somatic","fOne","COSMIC","HGMD","consequence","HGVSc", "HGVSp","all_full_annot_name")
-#   } else if (flag == "germline"){
-#     all_column_names  <- setdiff(all_column_var, c("sample"))  # dont show/add sample column in table
-#     default_selection <- c("var_name","variant_freq","in_library","gene_symbol","coverage_depth","gene_region",
-#                            "gnomAD_NFE","clinvar_sig","snpDB","CGC_Germline","trusight_genes","fOne","consequence","HGVSc", "HGVSp","all_full_annot_name")
-#     
-#   } else if (flag == "fusion"){
-#     filtered_all_column_var <- setdiff(all_column_var, c("chr1", "chr2", "pos1", "pos2"))
-#     all_column_names <- c(filtered_all_column_var,"Visual_Check","Notes","position1","position2")
-#     default_selection <- c("gene1","gene2","arriba.called","starfus.called","arriba.confidence","overall_support","Visual_Check","Notes","position1","strand1","position2","strand2",
-#                            "arriba.site1","arriba.site2","starfus.splice_type","DB_count","DB_list")
-# 
-#   } else if (flag == "expression"){
-#     filtered_all_column_var <- setdiff(all_column_var, c("log2FC","p_value","p_adj","sample","all_kegg_paths_name","counts_tpm_round","fc","size","mu","lower_than_p","higher_than_p"))
-#     
-#     # Generování dynamických sloupců pro každou tkáň
-#     log2FC_cols <- paste0("log2FC_", tissues)
-#     p_value_cols <- paste0("p_value_", tissues)
-#     p_adj_cols <- paste0("p_adj_", tissues)
-#     
-#     # # Kombinace do finálního pořadí sloupců
-#     all_column_names <- c(filtered_all_column_var, as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
-#     default_selection <- c("sample", "feature_name", "geneid", "pathway", "mean_log2FC", as.vector(rbind(log2FC_cols, p_value_cols, p_adj_cols)))
-#     
-#   } else {
-#     print("NOT germline, expression or fusion")
-#   }
-# 
-#   ordered_columns <- factor(all_column_names, levels = default_selection)
-#   all_column_names_sorted <- all_column_names[order(ordered_columns)]
-# 
-#   return(list(all_columns = all_column_names_sorted, default_columns = default_selection))
-# }
-
 
 filter_existing_columns <- function(cols, actual_columns) {
   

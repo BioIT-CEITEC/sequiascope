@@ -80,10 +80,10 @@ server <- function(id, patient, shared_data, run) {
         } else {
           dt <- data.table(
             Gene        = som_vars$gene_symbol,
-            Transcript  = som_vars$Feature,
-            HGVSc       = noNA_text(som_vars$HGVSc),
-            HGVSp       = noNA_text(som_vars$HGVSp),
-            variant     = sprintf("%s\n(%s)", noNA_text(som_vars$HGVSc), noNA_text(som_vars$HGVSp)),
+            Transcript  = som_vars$feature,
+            HGVSc       = noNA_text(som_vars$hgvsc),
+            HGVSp       = noNA_text(som_vars$hgvsp),
+            variant     = sprintf("%s\n(%s)", noNA_text(som_vars$hgvsc), noNA_text(som_vars$hgvsp)),
             VAF         = as.numeric(som_vars$tumor_variant_freq) * 100,
             consequence = som_vars$consequence,
             Class       = ""
@@ -133,10 +133,10 @@ server <- function(id, patient, shared_data, run) {
           dt <- data.table(
             Gene        = germ_vars$gene_symbol,
             Transcript  = germ_vars$Feature,
-            HGVSc       = noNA_text(germ_vars$HGVSc),
-            HGVSp       = noNA_text(germ_vars$HGVSp),
-            variant     = sprintf("%s\n(%s)", noNA_text(germ_vars$HGVSc), noNA_text(germ_vars$HGVSp)),
-            MAF         = germ_vars$gnomAD_NFE,
+            HGVSc       = noNA_text(germ_vars$hgvsc),
+            HGVSp       = noNA_text(germ_vars$hgvsp),
+            variant     = sprintf("%s\n(%s)", noNA_text(germ_vars$hgvsc), noNA_text(germ_vars$hgvsp)),
+            MAF         = germ_vars$gnomad_nfe,
             consequence = germ_vars$consequence,
             Phenotype   = "",
             Zygozity    = "",

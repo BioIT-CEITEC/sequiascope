@@ -963,16 +963,23 @@ validate_file_columns <- function(file_path, dataset_type, patient_id) {
       ))
     }
     
-    # Special handling for fusion: accept both chr1/chr2 and chrom1/chrom2
+    # Kontrola case-insensitive:
+    actual_cols_lower <- tolower(actual_cols)
+    missing_cols <- required_cols[!tolower(required_cols) %in% actual_cols_lower]
+    
+    # Special handling for fusion: accept both chr1/chr2 and chrom1/chrom2 (case-insensitive)
     if (dataset_type == "fusion") {
-      # If file has chrom1/chrom2, temporarily rename in actual_cols for validation
-      if (all(c("chrom1", "chrom2") %in% actual_cols)) {
-        actual_cols[actual_cols == "chrom1"] <- "chr1"
-        actual_cols[actual_cols == "chrom2"] <- "chr2"
+      # If file has chrom1/chrom2, temporarily rename in actual_cols_lower for validation
+      if (all(c("chrom1", "chrom2") %in% actual_cols_lower)) {
+        actual_cols_lower[actual_cols_lower == "chrom1"] <- "chr1"
+        actual_cols_lower[actual_cols_lower == "chrom2"] <- "chr2"
+        # Recheck missing columns after renaming
+        missing_cols <- required_cols[!tolower(required_cols) %in% actual_cols_lower]
       }
     }
     
-    missing_cols <- setdiff(required_cols, actual_cols)
+    
+    # missing_cols <- setdiff(required_cols, actual_cols)
     if (length(missing_cols) > 0) {
       return(list(
         valid = FALSE,
@@ -984,7 +991,7 @@ validate_file_columns <- function(file_path, dataset_type, patient_id) {
       ))
     }
   }
-  
+
   return(list(valid = TRUE, dataset = dataset_type, patient = patient_id))
 }
 

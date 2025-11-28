@@ -269,13 +269,13 @@ server <- function(id, patient, shared_data, dataset_availability = NULL){ #,act
                              fluidRow(
                                column(6,
                                       tags$p(""),
-                                      tags$p(sprintf("HGVSc: %s", variant$HGVSc)),
-                                      tags$p(sprintf("HGVSp: %s", variant$HGVSp)),
+                                      tags$p(sprintf("HGVSc: %s", variant$hgvsc)),
+                                      tags$p(sprintf("HGVSp: %s", variant$hgvsp)),
                                       tags$p(sprintf("Variant type: %s", variant$variant_type))))),
                       column(3,
                              tags$p(strong("Frequency: ")),
                              tags$p(sprintf("Allelic: %s", variant$tumor_variant_freq)),
-                             tags$p(sprintf("GnomAD: %s", variant$gnomAD_NFE))),
+                             tags$p(sprintf("GnomAD: %s", variant$gnomad_nfe))),
                       column(3)
                       )))})
             tagList(boxes)
@@ -321,13 +321,13 @@ server <- function(id, patient, shared_data, dataset_availability = NULL){ #,act
                              fluidRow(
                                column(6,
                                       tags$p(),
-                                      tags$p(sprintf("HGVSc: %s", variant$HGVSc)),
-                                      tags$p(sprintf("HGVSp: %s", variant$HGVSp)),
+                                      tags$p(sprintf("HGVSc: %s", variant$hgvsc)),
+                                      tags$p(sprintf("HGVSp: %s", variant$hgvsp)),
                                       tags$p(sprintf("Variant type: %s", variant$variant_type))))),
                       column(3,
                              tags$p(strong("Frequency: ")),
                              tags$p(sprintf("Allelic: %s", variant$variant_freq)),
-                             tags$p(sprintf("GnomAD: %s", variant$gnomAD_NFE))),
+                             tags$p(sprintf("GnomAD: %s", variant$gnomad_nfe))),
                       column(3)
                 )))})
           tagList(boxes) # Vrátíme seznam boxů jako tagList

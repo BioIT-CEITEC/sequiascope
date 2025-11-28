@@ -113,6 +113,8 @@ load_data <- function(input_files, flag, sample = NULL, session_dir = NULL) {
     if (length(input_var) == 0) stop("Soubor pro vzorek ", sample, " nenalezen")
     
     dt <- read_by_extension(input_var)
+    # Normalize column names to lowercase
+    setnames(dt, tolower(names(dt)))
     dt[, sample := sample]
     
     # # Add in_library if cache exists
@@ -128,6 +130,8 @@ load_data <- function(input_files, flag, sample = NULL, session_dir = NULL) {
     if (length(input_var) == 0) stop("Soubor pro vzorek ", sample, " nenalezen")
     
     dt <- read_by_extension(input_var)
+    # Normalize column names to lowercase
+    setnames(dt, tolower(names(dt)))
     dt[, sample := sample]
     
     # Add in_library if cache exists
@@ -143,6 +147,8 @@ load_data <- function(input_files, flag, sample = NULL, session_dir = NULL) {
     if (length(input_var) == 0) stop("Soubor pro vzorek ", sample, " nenalezen")
     
     dt <- read_by_extension(input_var)
+    # Normalize column names to lowercase
+    setnames(dt, tolower(names(dt)))
     
     # Rename chrom1/chrom2 to chr1/chr2 if present
     if ("chrom1" %in% names(dt)) setnames(dt, c("chrom1", "chrom2"), c("chr1", "chr2"))
@@ -161,12 +167,16 @@ load_data <- function(input_files, flag, sample = NULL, session_dir = NULL) {
     # Jeden soubor bez tkání
     if (length(unique(input_files$tissues)) == 1 && unique(input_files$tissues) == "none") {
       combined_dt <- read_by_extension(input_var[[1]])
+      # Normalize column names to lowercase
+      setnames(combined_dt, tolower(names(combined_dt)))
       combined_dt[, c("tissue", "sample") := .("none", sample)]
       
       # Více souborů s tkáněmi
     } else {
       dt_list <- lapply(seq_along(input_var), function(i) {
         dt <- read_by_extension(input_var[[i]])
+        # Normalize column names to lowercase
+        setnames(dt, tolower(names(dt)))
         dt[, c("tissue", "sample") := .(input_files$tissues[i], sample)]
         return(dt)
       })
@@ -182,6 +192,8 @@ load_data <- function(input_files, flag, sample = NULL, session_dir = NULL) {
     # ============ GOI (Genes of Interest) ============
   } else if (flag == "GOI") {
     dt <- read_by_extension(input_files)
+    # Normalize column names to lowercase
+    setnames(dt, tolower(names(dt)))
     
     if (ncol(dt) < 1L) stop("Soubor neobsahuje žádné sloupce.")
     
@@ -195,6 +207,8 @@ load_data <- function(input_files, flag, sample = NULL, session_dir = NULL) {
     # ============ TMB ============
   } else if (flag == "TMB") { 
     dt <- read_by_extension(input_files)
+    # Normalize column names to lowercase
+    setnames(dt, tolower(names(dt)))
     
     if (ncol(dt) < 2L) stop("TMB soubor musí obsahovat alespoň 2 sloupce.")
     
