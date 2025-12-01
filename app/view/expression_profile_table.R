@@ -394,8 +394,16 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       req(get_tissue_list())
       for (tissue in get_tissue_list()) {
         tissue_filter <- filter_state[[paste0("tissue_filter_", tissue)]]
-        if (!is.null(tissue_filter)) tissue_filters_final[[tissue]] <- tissue_filter()
+        if (!is.null(tissue_filter)) {
+          val <- tissue_filter()
+          message("tissue_filter for ", tissue, ": ", paste0(val, collapse = ", "))
+          tissue_filters_final[[tissue]] <- val
+        } else {
+          message("tissue_filter for ", tissue, ": NOT FOUND")
+        }
       }
+
+      message("selected_tissues_final: ", paste0(selected_tissues_final(), collapse = ", "))
       defaults_applied(TRUE)
     }
   })
@@ -439,6 +447,21 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     # Return only selected columns (preserve order from data - set by setcolorder in prepare_expression_table)
     expanded_cols <- expand_expression_columns(selected_columns(), names(df))
     valid_cols <- intersect(names(df), expanded_cols)  # intersect preserves order from first argument (names(df))
+    
+    # Filter out tissue columns for unselected tissues
+    selected_tissues <- selected_tissues_final()
+    if (!is.null(selected_tissues) && length(selected_tissues) > 0) {
+      # Get all tissue column patterns
+      all_tissues <- get_tissue_list()
+      unselected_tissues <- setdiff(all_tissues, selected_tissues)
+      
+      # Remove columns for unselected tissues
+      if (length(unselected_tissues) > 0) {
+        tissue_pattern <- paste0("^(log2fc|p_value|p_adj)_(", paste(unselected_tissues, collapse = "|"), ")$")
+        valid_cols <- valid_cols[!grepl(tissue_pattern, valid_cols)]
+      }
+    }
+    
     df_filtered <- df[, ..valid_cols]
     
     return(df_filtered)
@@ -452,9 +475,11 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     req(map_list())
     # Expand wildcard selections (log2fc_*, p_value_*, p_adj_*) to actual tissue columns
     expanded_cols <- expand_expression_columns(selected_columns(), names(data()))
+    
     generate_columnsDef(names(data()), expanded_cols, "expression", map_list())
   })
   
+
   table_name <- if (suffix == "_goi") "goi_expression_table" else "expression_table"
   
   session$output[[table_name]] <- renderReactable({
@@ -462,6 +487,50 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     req(column_defs())
     filtered_data_local <- filtered_data()
     deregulated_genes <- selected_genes()
+    
+    # Determine defaultSorted only if geneid column exists
+    default_sorted <- if ("geneid" %in% names(filtered_data_local)) {
+      list("geneid" = "asc")
+    } else {
+      NULL
+    }
+    
+    # Determine columnGroups - keep groups but only with columns that exist in data
+    all_col_groups <- custom_colGroup_setting("expression", selected_tissues_final())
+    col_groups <- NULL
+    if (!is.null(all_col_groups)) {
+      # Filter each group's columns to only include those that exist
+      col_groups <- lapply(all_col_groups, function(grp) {
+        existing_cols <- grp$columns[grp$columns %in% names(filtered_data_local)]
+        if (length(existing_cols) > 0) {
+          grp$columns <- existing_cols
+          return(grp)
+        }
+        return(NULL)
+      })
+      
+      # Remove NULL groups (groups with no columns)
+      col_groups <- Filter(Negate(is.null), col_groups)
+      
+      # If no groups remain, set to NULL
+      if (length(col_groups) == 0) col_groups <- NULL
+    }
+    
+    # rowStyle only if both feature_name and geneid exist
+    row_style_fn <- if (all(c("feature_name", "geneid") %in% names(filtered_data_local))) {
+      function(index) {
+        gene_in_row <- filtered_data_local$feature_name[index]
+        var_in_row <- filtered_data_local$geneid[index]
+        if (var_in_row %in% deregulated_genes$geneid &           
+            gene_in_row %in% deregulated_genes$feature_name) {
+          list(backgroundColor = "#B5E3B6", fontWeight = "bold")
+        } else {
+          NULL
+        }
+      }
+    } else {
+      NULL
+    }
 
     reactable(
       as.data.frame(filtered_data_local),
@@ -478,18 +547,9 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
       filterable = TRUE,
       compact = TRUE,
       defaultColDef = colDef(sortNALast = TRUE, align = "center"),
-      columnGroups = custom_colGroup_setting("expression", selected_tissues_final()),
-      defaultSorted = list("geneid" = "asc"),
-      rowStyle = function(index) {
-        gene_in_row <- filtered_data_local$feature_name[index]
-        var_in_row <- filtered_data_local$geneid[index]
-        if (var_in_row %in% deregulated_genes$geneid &           
-            gene_in_row %in% deregulated_genes$feature_name) {
-          list(backgroundColor = "#B5E3B6",fontWeight = "bold")
-        } else {
-          NULL
-        }
-      },
+      columnGroups = col_groups,
+      defaultSorted = default_sorted,
+      rowStyle = row_style_fn,
       selection = "multiple",
       onClick = JS("function(rowInfo, column, event) {
                       if (event.target.classList.contains('rt-expander') || event.target.classList.contains('rt-expander-button')) {
@@ -612,16 +672,21 @@ create_expression_logic <- function(session, ns, data, tissue_list, colnames_lis
     genes <- selected_genes()
     if (!is.null(genes) && nrow(genes) > 0) show(delete_button_name) else hide(delete_button_name)
   })
+
   
   observeEvent(filter_state$confirm(), {
     selected_tissues_final(filter_state$selected_tissue())
     selected_pathway_final(filter_state$selected_pathway())
     selected_columns(filter_state$selected_columns())
-    
+
     req(get_tissue_list())
     for (t in get_tissue_list()) {
-      r <- filter_state[[paste0("tissue_filter_", t)]]
-      if (!is.null(r)) tissue_filters_final[[t]] <- isolate(r())
+      filter_key <- paste0("tissue_filter_", t)
+      r <- filter_state[[filter_key]]
+      if (!is.null(r)) {
+        val <- isolate(r())
+        tissue_filters_final[[t]] <- val
+      }
     }
   })
   
@@ -752,10 +817,13 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
       req(get_checkbox_names())
       req(get_colnames_list())
 
+      # Contract tissue-specific columns to wildcards before normalizing
+      default_cols_contracted <- contract_expression_columns(get_colnames_list()$default_columns)
+      
       default_values <- normalize_column_selection(
-        selection = get_colnames_list()$default_columns,
+        selection = default_cols_contracted,
         choices_map = get_checkbox_names(),
-        default_cols = get_colnames_list()$default_columns
+        default_cols = default_cols_contracted
       )
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
     })
@@ -765,21 +833,24 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
       setNames(sapply(get_tissue_list(), sanitize, USE.NAMES = FALSE), get_tissue_list())
     })
     
-    tissue_reactives <- reactive({
-      req(get_tissue_list())
-      req(tissue_ids_reactive())
-      tissue_ids <- tissue_ids_reactive()
+    # Build tissue reactives list - must be done outside of reactive context
+    # but depends on tissues which are available immediately
+    build_tissue_reactives <- function() {
+      tissues <- get_tissue_list()
+      if (is.null(tissues) || length(tissues) == 0) return(list())
+      
+      tissue_ids <- setNames(sapply(tissues, sanitize, USE.NAMES = FALSE), tissues)
       setNames(
-        lapply(get_tissue_list(), function(t) {
+        lapply(tissues, function(t) {
           t_raw <- t; t_id <- tissue_ids[[t]]; force(t_raw); force(t_id)
           reactive({
             val <- input[[paste0("select_filter_", t_id)]]
             if (is.null(val)) character(0) else as.character(val)
           })
         }),
-        paste0("tissue_filter_", get_tissue_list())  # jméno reaktivu necháme s „raw" názvem tkáně
+        paste0("tissue_filter_", tissues)
       )
-    })
+    }
     
     
     restore_ui_inputs <- function(state) {
@@ -823,7 +894,7 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
       message("✅ Expression filter restore completed")
     }
 
-    return_list <- list(
+    base_return_list <- list(
       confirm = reactive(input$confirm_btn),
       selected_tissue = reactive(input$select_tissue),
       selected_pathway = reactive(input$filter_pathway),
@@ -831,7 +902,9 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
       restore_ui_inputs = restore_ui_inputs
     )
     
-    return_list <- c(return_list, tissue_reactives)
+    # Add tissue reactives to return list
+    tissue_reactives <- build_tissue_reactives()
+    return_list <- c(base_return_list, tissue_reactives)
     
     return(return_list)
   })

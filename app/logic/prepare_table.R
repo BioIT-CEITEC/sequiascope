@@ -175,23 +175,8 @@ prepare_expression_table <- function(combined_dt) {
     setcolorder(wide_dt, cols$default_columns)
   }
   
-  # Formátování tissue-specifických sloupců
-  log2FC_cols <- paste0("log2fc_", tissues)
-  p_value_cols <- paste0("p_value_", tissues)
-  p_adj_cols <- paste0("p_adj_", tissues)
-  
-  if (length(intersect(log2FC_cols, names(wide_dt)))) {
-    wide_dt[, (intersect(log2FC_cols, names(wide_dt))) :=
-              lapply(.SD, function(x) formatC(x, format = "fg")), .SDcols = intersect(log2FC_cols, names(wide_dt))]
-  }
-  if (length(intersect(p_value_cols, names(wide_dt)))) {
-    wide_dt[, (intersect(p_value_cols, names(wide_dt))) :=
-              lapply(.SD, function(x) formatC(x, format = "e", digits = 3)), .SDcols = intersect(p_value_cols, names(wide_dt))]
-  }
-  if (length(intersect(p_adj_cols, names(wide_dt)))) {
-    wide_dt[, (intersect(p_adj_cols, names(wide_dt))) :=
-              lapply(.SD, function(x) formatC(x, format = "e", digits = 3)), .SDcols = intersect(p_adj_cols, names(wide_dt))]
-  }
+  # NOTE: Formatting moved to generate_columnsDef to preserve numeric sorting
+  # Data are kept as numeric, formatting is applied only in display layer (reactable)
   
   # vrátíme balíček: tabulka + sloupce + tissues
   list(

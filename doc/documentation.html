@@ -1,0 +1,2072 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <title>SequiaViz Documentation</title>
+
+    <meta name="author" content="Kateřina Jurásková" />
+  
+   
+   <meta name="generator" content="placeholder" />
+  <meta property="og:title" content="SequiaViz Documentation" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="SequiaViz Documentation" />
+  
+  
+  
+  <!-- JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script>
+  <script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script>
+    <script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet" />
+    <script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script>
+    <script src="libs/bs3compat-0.9.0/transition.js"></script>
+    <script src="libs/bs3compat-0.9.0/tabs.js"></script>
+    <script src="libs/bs3compat-0.9.0/bs3compat.js"></script>
+    <link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet" />
+    <script src="libs/bs4_book-1.0.0/bs4_book.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script>
+
+  <!-- CSS -->
+  <style type="text/css">
+    
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+  </style>
+      <link rel="stylesheet" href="custom-styles.css" />
+  
+</head>
+
+<body data-spy="scroll" data-target="#toc">
+
+<div class="container-fluid">
+<!--bookdown:title:start-->
+<!--bookdown:title:end-->
+
+<!--bookdown:toc:start-->
+<div class="row">
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book">
+    <a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+
+    <div class="d-flex align-items-start justify-content-between">
+      <h1>
+        <a href="index.html" title="">SequiaViz Documentation</a>
+      </h1>
+      <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
+    </div>
+
+    <div id="main-nav" class="collapse-lg">
+      <form role="search">
+        <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
+      </form>
+
+      <nav aria-label="Table of contents">
+        <h2>Table of contents</h2>
+        <div id="book-toc"></div>
+
+        <div class="book-extra">
+          <p><a id="book-repo" href="#">View book source <i class="fab fa-github"></i></a></li></p>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main class="col-sm-12 col-md-9 col-lg-7" id="content">
+<!--bookdown:toc:end-->
+<!--bookdown:body:start-->
+<div id="introduction" class="section level1 unnumbered">
+<h1 class="unnumbered">Introduction</h1>
+<p>SequiaViz is an open-source platform for patient-centric integration and visualization of multi-omics data in clinical oncology diagnostics. It combines results from variant calling, fusion detection, and expression profiling with embedded genome browsing, dynamic pathway visualization, and automated clinical reporting—all within a secure, locally deployable framework.</p>
+<div id="key-features" class="section level2 unnumbered">
+<h2 class="unnumbered">Key features</h2>
+<ul>
+<li><strong>Multi-Omics Integration</strong>: Unified interface for variants, fusions, and expression data with multi-site comparisons</li>
+<li><strong>Interactive Variant Analysis</strong>: Filterable tables, Variant Allele Frequency (VAF) and Sankey visualization</li>
+<li><strong>Fusion Gene Validation</strong>: IGV snapshots with supporting evidence and confidence metrics</li>
+<li><strong>Embedded Genome Browsing</strong>: Integrated IGV viewer for read-level validation without leaving the application</li>
+<li><strong>Dynamic Pathway Visualization</strong>: Interactive networks using Cytoscape with STRING DB and KEGG pathway integration</li>
+<li><strong>Expression Analysis</strong>: Tissue-matched reference data and volcano plots for deregulated genes</li>
+<li><strong>Clinical Reporting</strong>: Automated draft generation from predefined or custom templates</li>
+<li><strong>Session Management</strong>: Save and load analysis sessions for reproducible workflows</li>
+<li><strong>Secure Deployment</strong>: Docker containerization for local, data-secure infrastructure</li>
+<li><strong>User-Friendly Interface</strong>: Guided workflow, real-time tables, and downloadable results</li>
+</ul>
+</div>
+<div id="live-demo" class="section level2 unnumbered">
+<h2 class="unnumbered">Live demo</h2>
+<p>We are hosting a live demo of SequiaViz to showcase its capabilities and allow users to explore the platform in action.
+<strong>Access the demo at: <a href="http://your-demo-link.com">Live Demo</a></strong></p>
+<div class="alert alert-warning" style="margin-top: 0.5rem;">
+<p><strong>Important Notes:</strong></p>
+<ul>
+<li>Demo data is anonymized and does not represent real clinical cases</li>
+<li>Some features may have limited functionality due to data sensitivity requirements</li>
+<li>Session data is not persisted between visits</li>
+<li>While the demo runs the full version of SequiaViz, uploading your own data is not supported. We strongly discourage uploading sensitive or personal data to the demo environment. For production use with your own data, deploy SequiaViz locally using Docker.</li>
+<li>For production use with sensitive data, deploy SequiaViz locally using Docker</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="how-to-install-and-run" class="section level1 unnumbered">
+<h1 class="unnumbered">How to install and run</h1>
+<p>SequiaViz is deployed using Docker containers for easy local deployment. The setup consists of two interconnected services managed through Docker Compose.</p>
+<div id="prerequisites" class="section level2 unnumbered">
+<h2 class="unnumbered">Prerequisites</h2>
+<p>SequiaViz currently supports <strong>Linux only</strong>. Before you can run SequiaViz locally, ensure you have the following installed:</p>
+<div id="docker-installation" class="section level3 unnumbered">
+<h3 class="unnumbered">1. Docker Installation</h3>
+<ul>
+<li><strong>Linux</strong>: Install Docker using your package manager (e.g., <code>sudo apt-get install docker.io</code> on Ubuntu).</li>
+</ul>
+<p>Verify installation by running:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" tabindex="-1"></a><span class="ex">docker</span> <span class="at">--version</span></span>
+<span id="cb1-2"><a href="#cb1-2" tabindex="-1"></a><span class="ex">docker</span> run hello-world</span></code></pre></div>
+</div>
+<div id="docker-compose" class="section level3 unnumbered">
+<h3 class="unnumbered">2. Docker Compose</h3>
+<p>Docker Compose comes bundled with Docker Desktop. Verify it’s installed:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="ex">docker-compose</span> <span class="at">--version</span></span></code></pre></div>
+</div>
+<div id="system-requirements" class="section level3 unnumbered">
+<h3 class="unnumbered">3. System Requirements</h3>
+<ul>
+<li><strong>Disk Space</strong>: At least 10 GB free space for Docker images and data</li>
+<li><strong>RAM</strong>: Minimum 4 GB, recommended 8 GB or more</li>
+<li><strong>CPU</strong>: Multi-core processor recommended</li>
+<li><strong>Internet Connection</strong>: Required to pull Docker images and for STRING DB API access (needed for dynamic pathway visualization)</li>
+</ul>
+</div>
+<div id="input-files" class="section level3 unnumbered">
+<h3 class="unnumbered">4. Input Files</h3>
+<p>Prepare your data files in an <code>input_files</code> directory in your project folder. For details on required file formats and specifications, see the <a href="#data-requirements">Data Requirements</a> chapter.</p>
+</div>
+</div>
+<div id="steps-to-run" class="section level2 unnumbered">
+<h2 class="unnumbered">Steps to Run</h2>
+<ol style="list-style-type: decimal">
+<li><p><strong>Clone or Download the Repository</strong>:<br />
+Get the project files including the <code>docker-compose.yml</code>:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">git</span> clone <span class="op">&lt;</span>repository-url<span class="op">&gt;</span></span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a><span class="bu">cd</span> sequiaViz</span></code></pre></div></li>
+<li><p><strong>Prepare Your Data</strong>:<br />
+Place your input files in the <code>input_files</code> directory:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> input_files</span>
+<span id="cb4-2"><a href="#cb4-2" tabindex="-1"></a><span class="co"># Copy your data files here</span></span></code></pre></div></li>
+<li><p><strong>Start the Application with Docker Compose</strong>:<br />
+From the project directory, run:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="ex">docker-compose</span> up <span class="at">-d</span></span></code></pre></div>
+<p>This command pulls the required images and starts both the SequiaViz application and IGV static server in the background.</p></li>
+<li><p><strong>Access the Application</strong>:<br />
+Open your web browser and navigate to:</p>
+<pre><code>http://localhost:8080</code></pre></li>
+<li><p><strong>Verify Services Are Running</strong>:<br />
+Check container status:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="ex">docker-compose</span> ps</span></code></pre></div>
+<p>You should see two containers running: <code>sequiaviz-shiny</code> and <code>igv-static</code>.</p></li>
+</ol>
+</div>
+<div id="troubleshooting" class="section level2 unnumbered">
+<h2 class="unnumbered">Troubleshooting</h2>
+<p><strong>Container fails to start:</strong></p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="ex">docker-compose</span> logs sequiaviz-shiny</span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="ex">docker-compose</span> logs igv-static</span></code></pre></div>
+<p><strong>Input files not accessible:</strong>
+Ensure the <code>input_files</code> directory exists and contains your data files. Check file permissions.</p>
+<p><strong>Slow performance:</strong>
+Increase Docker’s allocated CPU and RAM in Docker Desktop settings (Preferences → Resources).</p>
+</div>
+<div id="stopping-and-cleaning-up" class="section level2 unnumbered">
+<h2 class="unnumbered">Stopping and Cleaning Up</h2>
+<p>Stop the application:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="ex">docker-compose</span> down</span></code></pre></div>
+<p>Remove all containers and images:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a><span class="ex">docker-compose</span> down <span class="at">-v</span></span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a><span class="ex">docker</span> image prune <span class="at">-a</span></span></code></pre></div>
+</div>
+<div id="notes" class="section level2 unnumbered alert alert-info" style="margin-top: 0.5rem;">
+<h2 class="unnumbered">Notes</h2>
+<ul>
+<li>The <code>input_files</code> directory is mounted as read-only for the IGV server and read-write for SequiaViz</li>
+<li>Both services communicate via the internal Docker network — no manual network configuration needed</li>
+<li>Session data is stored within the containers; use Docker volumes for persistence if needed</li>
+<li>All data remains on your local machine; nothing is sent to external servers</li>
+<li><strong>For organizational deployment</strong>: If you’re interested in using SequiaViz but don’t have Docker expertise, contact your bioinformatics team or IT department. They can help set up and maintain SequiaViz in your organization’s infrastructure.</li>
+</ul>
+</div>
+<!--chapter:end:index.Rmd-->
+</div>
+<div id="data-requirements" class="section level1 unnumbered">
+<h1 class="unnumbered"><strong>Data requirements</strong></h1>
+<div id="input-file-types-and-formats" class="section level2 unnumbered">
+<h2 class="unnumbered"><strong>Input file types and formats</strong></h2>
+<p>SequiaViz integrates results from four types of genomic datasets:</p>
+<div id="somatic-variant-calling" class="section level3 unnumbered">
+<h3 class="unnumbered"><strong>1. Somatic Variant Calling</strong></h3>
+<p>Exploration and visualization of somatic mutations in tumor-normal paired samples</p>
+<ul>
+<li><strong>Required files</strong>:
+<ul>
+<li><code>.tsv</code> | <code>.vcf</code> file with annotated variants</li>
+</ul></li>
+<li><strong>Optional files</strong> (needed for IGV visualization):
+<ul>
+<li>Tumor DNA <code>.bam</code> + <code>.bai</code> files</li>
+<li>Normal DNA <code>.bam</code> + <code>.bai</code> files</li>
+<li>Tumor mutational burden (TMB) <code>.tsv</code> | <code>.xlsx</code> | <code>.txt</code> file</li>
+</ul></li>
+</ul>
+</div>
+<div id="germline-variant-calling" class="section level3 unnumbered">
+<h3 class="unnumbered"><strong>2. Germline Variant Calling</strong></h3>
+<p>Exploration and visualization of germline mutations in normal samples</p>
+<ul>
+<li><strong>Required files</strong>:
+<ul>
+<li><code>.tsv</code> | <code>.vcf</code> file with annotated variants</li>
+</ul></li>
+<li><strong>Optional files</strong> (needed for IGV visualization):
+<ul>
+<li>Normal <code>.bam</code> + <code>.bai</code> files</li>
+</ul></li>
+</ul>
+</div>
+<div id="fusion-genes-detection" class="section level3 unnumbered">
+<h3 class="unnumbered"><strong>3. Fusion Genes Detection</strong></h3>
+<p>Exploration and visualization of gene fusions from RNA-seq tumor samples</p>
+<ul>
+<li><strong>Required files</strong>:
+<ul>
+<li><code>.tsv</code> | <code>.xlsx</code> files with detected genes fusion (<code>.tsv</code> is not implemented yet)</li>
+</ul></li>
+<li><strong>Optional files</strong> (needed for IGV visualization and row expansion preview):
+<ul>
+<li>Tumor RNA <code>.bam</code> + <code>.bai</code> files</li>
+<li>Chimeric <code>.bam</code> + <code>.bai</code> files</li>
+<li>Arriba <code>.pdf</code> + <code>.tsv</code> files (for embedded report display and quality metrics)</li>
+</ul></li>
+</ul>
+</div>
+<div id="expression-profile" class="section level3 unnumbered">
+<h3 class="unnumbered"><strong>4. Expression Profile</strong></h3>
+<p>Exploration and visualization of gene expression in different tissues</p>
+<ul>
+<li><strong>Required files</strong>:
+<ul>
+<li><code>.tsv</code> | <code>.xlsx</code> | <code>.txt</code> file with expression data of sample OR files with tissue-matched reference expression data</li>
+</ul></li>
+<li><strong>Optional files</strong>:
+<ul>
+<li>Genes of interest (GOI) <code>.tsv</code> | <code>.xlsx</code> | <code>.txt</code> file</li>
+</ul></li>
+</ul>
+<div class="alert alert-success">
+<p><strong>Tip:</strong> If you can choose, <strong>always</strong> prioritize <strong><code>.tsv</code></strong> files over <code>.xlsx</code> or <code>vcf</code> files because they are faster to load and process.</p>
+</div>
+<hr />
+</div>
+</div>
+<div id="data-organization-and-directory-structure" class="section level2 unnumbered">
+<h2 class="unnumbered">Data organization and directory structure</h2>
+<div id="recommended-directory-structure" class="section level3 unnumbered">
+<h3 class="unnumbered">Recommended Directory Structure</h3>
+<pre><code>project_root/
+├── somatic_data/
+│   ├── mutation_loads.tsv                    # tumor mutational burden table
+│   ├── patient_001/
+│   │   ├── variants.tsv                      # somatic variants table
+│   │   ├── tumor.bam                         # tumor DNA BAM
+│   │   ├── tumor.bam.bai                     # index for tumor DNA BAM
+│   │   ├── normal.bam                        # normal DNA BAM
+│   │   └── normal.bam.bai                    # index for normal DNA BAM
+│   ├── patient_002/
+│   │   └── ... (same structure)
+│   └── patient_N/
+│       └── ... (same structure)
+├── germline_data/
+│   ├── patient_001/
+│   │   ├── variants.tsv                      # germline variants table
+│   │   ├── normal.bam                        # normal DNA BAM
+│   │   └── normal.bam.bai                    # index for normal DNA BAM
+│   ├── patient_002/
+│   │   └── ... (same structure)
+│   └── patient_N/
+│       └── ... (same structure)
+├── fusion_data/
+│   ├── patient_001/
+│   │   ├── fusions.tsv                       # detected gene fusions table
+│   │   ├── fusion.bam                        # tumor RNA BAM
+│   │   ├── fusion.bam.bai                    # index for tumor RNA BAM
+│   │   ├── chimeric.bam                      # chimeric BAM
+│   │   ├── chimeric.bam.bai                  # index for chimeric BAM
+│   │   ├── arriba_report.pdf                 # arriba report
+│   │   └── arriba_results.tsv                # arriba result table
+│   ├── patient_002/
+│   │   └── ... (same structure)
+│   └── patient_N/
+│       └── ... (same structure)                  
+└── expression_data/
+    ├── genes_of_interest.tsv                 # table of genes of interest
+    ├── patient_001/
+    │   └── expression.tsv                    # gene expression table
+    ├── patient_002/
+    │   └── ... (same structure)
+    └── patient_N/
+        └── ... (same structure)   </code></pre>
+<p>… or in case of multiple tissue-matched reference expression data:</p>
+<pre><code>└── expression_data/
+    ├── genes_of_interest.tsv                 # list of genes of interest
+    ├── patient_001/
+    │   ├── blood_expression.tsv              # expression in blood
+    │   └── liver_expression.tsv              # expression in liver
+    ├── patient_002/
+    │   └── ... (same structure)
+    └── patient_N/
+        └── ... (same structure)   
+
+</code></pre>
+</div>
+<div id="alternative-directory-structures" class="section level3 unnumbered">
+<h3 class="unnumbered">Alternative Directory Structures</h3>
+<div id="option-1-bam-bai-files-in-separate-folders" class="section level4 unnumbered">
+<h4 class="unnumbered">Option 1: BAM + BAI files in separate folders</h4>
+<pre><code>project_root/
+├── primary_analysis/
+│   ├── DNA_alignment/
+│   │   ├── patient_001/       
+│   │   │   └── mapped/
+│   │   │       ├── tumor.bam                 # tumor DNA BAM
+│   │   │       ├── tumor.bam.bai             # index for tumor DNA BAM
+│   │   │       ├── normal.bam                # normal DNA BAM
+│   │   │       └── normal.bam.bai            # index for normal DNA BAM
+│   │   └── patient_N/
+│   │       └── ... 
+│   └── RNA_alignment/
+│       ├── patient_001/       
+│       │   └── mapped/
+│       │       ├── fusion.bam                # tumor RNA BAM
+│       │       ├── fusion.bam.bai            # index for tumor RNA BAM
+│       │       ├── chimeric.bam              # chimeric BAM
+│       │       └── chimeric.bam.bai          # index for chimeric BAM
+│       └── patient_N/
+│           └── ... 
+└── secondary_analysis/
+    ├── somatic_data/
+    │   ├── mutation_loads.tsv                    # tumor mutational burden table
+    │   ├── patient_001/
+    │   │   └── variants.tsv                      # somatic variants table
+    │   └── patient_N/
+    │       └── ... 
+    ├── germline_data/
+    │   ├── patient_001/
+    │   │   └── variants.tsv                      # germline variants table
+    │   └── patient_N/
+    │       └── ...
+    ├── fusion_data/
+    │   ├── patient_001/
+    │   │   ├── fusions.tsv                       # detected gene fusions table
+    │   │   ├── arriba_report.pdf                 # arriba report
+    │   │   └── arriba_results.tsv                # arriba result table
+    │   └── patient_N/
+    │       └── ... 
+    └── expression_data/
+        ├── genes_of_interest.tsv                 # table of genes of interest
+        ├── patient_001/
+        │   └── expression.tsv                    # gene expression table
+        └── patient_N/
+           └── ...</code></pre>
+</div>
+<div id="option-2-all-files-in-patient-directories" class="section level4 unnumbered">
+<h4 class="unnumbered">Option 2: All files in patient directories</h4>
+<pre><code>project_root/
+├── genes_of_interest.tsv                     # table of genes of interest
+├── mutation_loads.tsv                        # tumor mutational burden table
+├── patient_001/
+│   ├── somatic_variants.tsv                  # somatic variants table
+│   ├── germline_variants.tsv                 # germline variants table
+│   ├── fusions.tsv                           # detected gene fusions table
+│   ├── tumor.bam                             # tumor DNA BAM
+│   ├── tumor.bam.bai                         # index for tumor DNA BAM
+│   ├── normal.bam                            # normal DNA BAM
+│   ├── normal.bam.bai                        # index for normal DNA BAM
+│   ├── fusion.bam                            # tumor RNA BAM
+│   ├── fusion.bam.bai                        # index for tumor RNA BAM
+│   ├── chimeric.bam                          # chimeric BAM
+│   ├── chimeric.bam.bai                      # index for chimeric BAM
+│   ├── arriba_report.pdf                     # arriba report
+│   ├── arriba_results.tsv                    # arriba result table
+│   └── expression.tsv                        # gene expression table
+├── patient_002/
+│   └── ... 
+└── patient_N/
+    └── ... </code></pre>
+</div>
+</div>
+<div id="file-naming" class="section level3 unnumbered">
+<h3 class="unnumbered">File Naming</h3>
+<div id="general-rules" class="section level4 unnumbered">
+<h4 class="unnumbered">General Rules</h4>
+<ul>
+<li>Use consistent naming across all patients</li>
+<li>Avoid special characters and spaces</li>
+<li>Use underscores or dots as separators</li>
+<li>All file names must be unique within their directory</li>
+<li>All per-patient files must have <strong>patient ID</strong> and <strong>dataset type</strong> (somatic, germline, fusion, expression|RNAseq) somewhere <strong>in their path name</strong></li>
+</ul>
+<p><strong>Examples:</strong></p>
+<table>
+<colgroup>
+<col width="49%" />
+<col width="50%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Variant A</th>
+<th>Variant B</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code style = "color: #000000;">project_root/patient_001/<span style="font-weight:bold; color: #D63384;">somatic</span>_variants.tsv</code></td>
+<td><code style = "color: #000000;">project_root/<span style="font-weight:bold; color: #D63384;">somatic</span>_data/patient_001_variants.tsv</code></td>
+</tr>
+<tr class="even">
+<td><code style = "color: #000000;">project_root/patient_001/<span style="font-weight:bold; color: #D63384;">expression</span>.tsv</code></td>
+<td><code style = "color: #000000;">project_root/<span style="font-weight:bold; color: #D63384;">RNAseq</span>/patient_001.tsv</code></td>
+</tr>
+</tbody>
+</table>
+<p><br></p>
+<div class="alert alert-info">
+<p><strong>Note:</strong> GOI and TMB files are not considered per-patient files because they contain information about all samples</p>
+</div>
+</div>
+<div id="specific-patterns" class="section level4 unnumbered">
+<h4 class="unnumbered">Specific Patterns</h4>
+<ul>
+<li><strong>Variants</strong>:
+<ul>
+<li>No specific patterns for this file</li>
+</ul></li>
+<li><strong>Fusions</strong>:
+<ul>
+<li>File cannot contain the strings <strong>arriba</strong> or <strong>STAR</strong> in their filename. These strings are exclusively reserved for Arriba and STARFusion files</li>
+</ul></li>
+<li><strong>Arriba files</strong>:
+<ul>
+<li>For each <code>.pdf</code> arriba report there must be a corresponding <code>.tsv</code> arriba results table</li>
+<li>File name must contain string <strong>arriba</strong></li>
+<li>Files cannot contain the strings <strong>discarded</strong> or <strong>STAR</strong> in their filename. These strings are exclusively reserved for arriba_discarded.tsv and STARfusion files</li>
+</ul></li>
+<li><strong>Expression</strong>:
+<ul>
+<li>In case of multiple tissue-matched reference expression data, files must contain <code>{tissue_name}</code> otherwise the name must contain <code>{patient_id}</code></li>
+<li>Files cannot contain the strings <strong>report</strong> or <strong>genes_of_interest</strong> in their filename. These strings are exclusively reserved for Arriba and GOI files</li>
+</ul></li>
+<li><strong>BAM + BAI</strong>:
+<ul>
+<li>For each <code>file.bam</code> there must be corresponding <code>file.bam.bai</code> or <code>file.bai</code></li>
+<li>BAM and BAI files must be named the same pattern in the same directory</li>
+<li>Tumor RNA BAM files cannot contain the strings <strong>chimeric</strong> or <strong>transcriptome</strong> in their filename. These strings are exclusively reserved for chimeric BAM files</li>
+</ul></li>
+<li><strong>GOI</strong>:
+<ul>
+<li>File must be named as <code>genes_of_interest</code></li>
+<li>File must be placed in the <strong>root directory</strong> of expression data</li>
+<li>File is common to all samples</li>
+</ul></li>
+<li><strong>TMB</strong>:
+<ul>
+<li>File must be named as <code>TMB</code> or <code>mutation_loads</code></li>
+<li>File must be placed in the <strong>root directory</strong> of somatic data</li>
+<li>File is common to all samples</li>
+</ul></li>
+</ul>
+<p>Examples of placement <code>genes_of_interest</code> and <code>TMB</code> files in different directory structures:</p>
+<pre><code>project_root/                                 # root directory for both somatic and expression data
+├── genes_of_interest.tsv                     # table of genes of interest
+├── mutation_loads.tsv                        # tumor mutational burden table
+├── patient_001/
+│   ├── somatic_variants.tsv 
+│   └── expression.tsv 
+└── patient_N/
+        └── ...</code></pre>
+<p><br>
+or</p>
+<pre><code>project_root/                       
+├── somatic_data/                             # root directory for somatic data
+│   ├── mutation_loads.tsv                    # tumor mutational burden table
+│   ├── patient_001/
+│   │   └── variants.tsv                      
+│   └── patient_N/
+│       └── ...            
+└── expression_data/                          # root directory for expression data
+    ├── genes_of_interest.tsv                 # table of genes of interest
+    ├── patient_001/
+    │   └── expression.tsv
+    └── patient_N/
+        └── ... </code></pre>
+<hr />
+</div>
+</div>
+</div>
+<div id="required-and-optional-columns" class="section level2 unnumbered">
+<h2 class="unnumbered">Required and Optional Columns</h2>
+<div id="somatic-variants" class="section level3 unnumbered">
+<h3 class="unnumbered">Somatic variants</h3>
+<ul>
+<li><strong>Required columns:</strong></li>
+</ul>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="22%" />
+<col width="48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>var_name</code></td>
+<td>char</td>
+<td>Variant identifier</td>
+</tr>
+<tr class="even">
+<td><code>gene_symbol</code></td>
+<td>char</td>
+<td>Gene symbol</td>
+</tr>
+<tr class="odd">
+<td><code>tumor_variant_freq</code></td>
+<td>num</td>
+<td>Tumor variant frequency</td>
+</tr>
+<tr class="even">
+<td><code>tumor_depth</code></td>
+<td>int</td>
+<td>Tumor sequencing depth</td>
+</tr>
+<tr class="odd">
+<td><code>gene_region</code></td>
+<td>char</td>
+<td>Gene region (exon, intron, etc.)</td>
+</tr>
+<tr class="even">
+<td><code>gnomAD_NFE</code></td>
+<td>num</td>
+<td>gnomAD Non-Finnish European allele frequency</td>
+</tr>
+<tr class="odd">
+<td><code>consequence</code></td>
+<td>char</td>
+<td>Variant consequence (missense, nonsense, etc.)</td>
+</tr>
+<tr class="even">
+<td><code>HGVSc</code></td>
+<td>char</td>
+<td>HGVS coding sequence notation</td>
+</tr>
+<tr class="odd">
+<td><code>HGVSp</code></td>
+<td>char</td>
+<td>HGVS protein sequence notation</td>
+</tr>
+<tr class="even">
+<td><code>variant_type</code></td>
+<td>char</td>
+<td>Type of variant (SNV, insertion, deletion, etc.)</td>
+</tr>
+<tr class="odd">
+<td><code>all_full_annot_name</code></td>
+<td>char</td>
+<td>Full annotation name</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Optional columns:</strong></li>
+</ul>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="22%" />
+<col width="48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>in_library</code></td>
+<td>num</td>
+<td>Number of times the <code>var_name</code> is observed in the sample cohort (added automatically)</td>
+</tr>
+<tr class="even">
+<td><code>clinvar_sig</code></td>
+<td>char</td>
+<td>ClinVar clinical significance</td>
+</tr>
+<tr class="odd">
+<td><code>clinvar_DBN</code></td>
+<td>char</td>
+<td>ClinVar disease name</td>
+</tr>
+<tr class="even">
+<td><code>CGC_Somatic</code></td>
+<td>char</td>
+<td>Cancer Gene Census somatic annotation</td>
+</tr>
+<tr class="odd">
+<td><code>fOne</code></td>
+<td>char</td>
+<td>fOne database annotation</td>
+</tr>
+<tr class="even">
+<td><code>COSMIC</code></td>
+<td>char</td>
+<td>COSMIC database annotation</td>
+</tr>
+<tr class="odd">
+<td><code>HGMD</code></td>
+<td>char</td>
+<td>HGMD database annotation</td>
+</tr>
+<tr class="even">
+<td><code>snpDB</code></td>
+<td>char</td>
+<td>dbSNP annotation</td>
+</tr>
+</tbody>
+</table>
+<div id="tmb" class="section level4 unnumbered">
+<h4 class="unnumbered">TMB</h4>
+<ul>
+<li><strong>Required columns:</strong></li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>patient</code></td>
+<td>char</td>
+<td>Patient ID</td>
+</tr>
+<tr class="even">
+<td><code>TMB</code></td>
+<td>num</td>
+<td>Tumor mutational burden value</td>
+</tr>
+</tbody>
+</table>
+<p><br></p>
+<p>Example of <code>mutation_loads.tsv</code></p>
+<div class="example-table">
+<table>
+<thead>
+<tr class="header">
+<th>patient</th>
+<th>TMB</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>P001</td>
+<td>0.17</td>
+</tr>
+<tr class="even">
+<td>P002</td>
+<td>0.74</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<div id="germline-variants" class="section level3 unnumbered">
+<h3 class="unnumbered">Germline variants</h3>
+<ul>
+<li><strong>Required columns:* {-}</strong></li>
+</ul>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="22%" />
+<col width="48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>var_name</code></td>
+<td>char</td>
+<td>Variant identifier</td>
+</tr>
+<tr class="even">
+<td><code>gene_symbol</code></td>
+<td>char</td>
+<td>Gene symbol</td>
+</tr>
+<tr class="odd">
+<td><code>variant_freq</code></td>
+<td>num</td>
+<td>Variant frequency</td>
+</tr>
+<tr class="even">
+<td><code>coverage_depth</code></td>
+<td>int</td>
+<td>Sequencing coverage depth</td>
+</tr>
+<tr class="odd">
+<td><code>gene_region</code></td>
+<td>char</td>
+<td>Gene region (exon, intron, etc.)</td>
+</tr>
+<tr class="even">
+<td><code>gnomAD_NFE</code></td>
+<td>num</td>
+<td>gnomAD Non-Finnish European allele frequency</td>
+</tr>
+<tr class="odd">
+<td><code>clinvar_sig</code></td>
+<td>char</td>
+<td>ClinVar clinical significance</td>
+</tr>
+<tr class="even">
+<td><code>consequence</code></td>
+<td>char</td>
+<td>Variant consequence (missense, nonsense, etc.)</td>
+</tr>
+<tr class="odd">
+<td><code>HGVSc</code></td>
+<td>char</td>
+<td>HGVS coding sequence notation</td>
+</tr>
+<tr class="even">
+<td><code>HGVSp</code></td>
+<td>char</td>
+<td>HGVS protein sequence notation</td>
+</tr>
+<tr class="odd">
+<td><code>variant_type</code></td>
+<td>char</td>
+<td>Type of variant (SNV, insertion, deletion, etc.)</td>
+</tr>
+<tr class="even">
+<td><code>all_full_annot_name</code></td>
+<td>char</td>
+<td>Full annotation name</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Optional columns:</strong></li>
+</ul>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="22%" />
+<col width="48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>in_library</code></td>
+<td>num</td>
+<td>Number of times the <code>var_name</code> is observed in the sample cohort (added automatically if not present)</td>
+</tr>
+<tr class="even">
+<td><code>clinvar_DBN</code></td>
+<td>char</td>
+<td>ClinVar disease name</td>
+</tr>
+<tr class="odd">
+<td><code>CGC_Germline</code></td>
+<td>char</td>
+<td>Cancer Gene Census germline annotation</td>
+</tr>
+<tr class="even">
+<td><code>trusight_genes</code></td>
+<td>char</td>
+<td>TruSight gene panel annotation</td>
+</tr>
+<tr class="odd">
+<td><code>fOne</code></td>
+<td>char</td>
+<td>fOne database annotation</td>
+</tr>
+<tr class="even">
+<td><code>snpDB</code></td>
+<td>char</td>
+<td>dbSNP annotation</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="fusion-genes" class="section level3 unnumbered">
+<h3 class="unnumbered">Fusion Genes</h3>
+<div class="alert alert-info">
+<p><strong>Note:</strong>
+- Data must contain results from <strong>Arriba</strong> and <strong>StarFusion</strong> callers
+- Both <code>chr1</code>/<code>chr2</code> and <code>chrom1</code>/<code>chrom2</code> column names are accepted
+- If <code>chrom1</code>/<code>chrom2</code> are present, they will be automatically renamed to <code>chr1</code>/<code>chr2</code> during data loading</p>
+</div>
+<ul>
+<li><strong>Required columns:</strong></li>
+</ul>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="22%" />
+<col width="48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gene1</code></td>
+<td>char</td>
+<td>Gene name of first fusion partner</td>
+</tr>
+<tr class="even">
+<td><code>gene2</code></td>
+<td>char</td>
+<td>Gene name of second fusion partner</td>
+</tr>
+<tr class="odd">
+<td><code>chr1</code> or <code>chrom1</code></td>
+<td>char</td>
+<td>Chromosome of first fusion partner (with “chr” prefix)</td>
+</tr>
+<tr class="even">
+<td><code>chr2</code> or <code>chrom2</code></td>
+<td>char</td>
+<td>Chromosome of second fusion partner (with “chr” prefix)</td>
+</tr>
+<tr class="odd">
+<td><code>pos1</code></td>
+<td>num</td>
+<td>Genomic position of first fusion partner</td>
+</tr>
+<tr class="even">
+<td><code>pos2</code></td>
+<td>num</td>
+<td>Genomic position of second fusion partner</td>
+</tr>
+<tr class="odd">
+<td><code>strand1</code></td>
+<td>char</td>
+<td>Strand orientation of first fusion partner (+/-)</td>
+</tr>
+<tr class="even">
+<td><code>strand2</code></td>
+<td>char</td>
+<td>Strand orientation of second fusion partner (+/-)</td>
+</tr>
+<tr class="odd">
+<td><code>arriba.called</code></td>
+<td>boolean</td>
+<td>Whether Arriba called the fusion (true/false)</td>
+</tr>
+<tr class="even">
+<td><code>starfus.called</code></td>
+<td>boolean</td>
+<td>Whether STARFusion called the fusion (true/false)</td>
+</tr>
+<tr class="odd">
+<td><code>overall_support</code></td>
+<td>num</td>
+<td>Overall support for the fusion</td>
+</tr>
+<tr class="even">
+<td><code>arriba.confidence</code></td>
+<td>char</td>
+<td>Confidence score from Arriba (high/medium/low)</td>
+</tr>
+<tr class="odd">
+<td><code>arriba.site1</code></td>
+<td>char</td>
+<td>Breakpoint site annotation for first fusion partner</td>
+</tr>
+<tr class="even">
+<td><code>arriba.site2</code></td>
+<td>char</td>
+<td>Breakpoint site annotation for second fusion partner</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Optional columns:</strong></li>
+</ul>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="22%" />
+<col width="48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>DB_count</code></td>
+<td>int</td>
+<td>Number of databases where the fusion is found</td>
+</tr>
+<tr class="even">
+<td><code>DB_list</code></td>
+<td>char</td>
+<td>List of databases containing the fusion</td>
+</tr>
+<tr class="odd">
+<td><code>arriba.split_reads</code></td>
+<td>int</td>
+<td>Number of split reads supporting the fusion (Arriba)</td>
+</tr>
+<tr class="even">
+<td><code>arriba.discordant_mates</code></td>
+<td>int</td>
+<td>Number of discordant mate pairs supporting the fusion (Arriba)</td>
+</tr>
+<tr class="odd">
+<td><code>arriba.break_coverage</code></td>
+<td>int</td>
+<td>Coverage at first breakpoint (Arriba)</td>
+</tr>
+<tr class="even">
+<td><code>arriba.break2_coverage</code></td>
+<td>int</td>
+<td>Coverage at second breakpoint (Arriba)</td>
+</tr>
+<tr class="odd">
+<td><code>arriba.break_seq</code></td>
+<td>char</td>
+<td>Sequence at breakpoint (Arriba)</td>
+</tr>
+<tr class="even">
+<td><code>starfus.split_reads</code></td>
+<td>int</td>
+<td>Number of split reads supporting the fusion (STARFusion)</td>
+</tr>
+<tr class="odd">
+<td><code>starfus.discordant_mates</code></td>
+<td>int</td>
+<td>Number of discordant mate pairs supporting the fusion (STARFusion)</td>
+</tr>
+<tr class="even">
+<td><code>starfus.counter_fusion1</code></td>
+<td>int</td>
+<td>Counter fusion reads for first gene (STARFusion)</td>
+</tr>
+<tr class="odd">
+<td><code>starfus.counter_fusion2</code></td>
+<td>int</td>
+<td>Counter fusion reads for second gene (STARFusion)</td>
+</tr>
+<tr class="even">
+<td><code>starfus.splice_type</code></td>
+<td>char</td>
+<td>Type of splice junction (STARFusion)</td>
+</tr>
+<tr class="odd">
+<td><code>starfus.break_seq</code></td>
+<td>char</td>
+<td>Sequence at breakpoint (STARFusion)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="expression-data" class="section level3 unnumbered">
+<h3 class="unnumbered">Expression Data</h3>
+<ul>
+<li><strong>Required columns:</strong></li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>sample</code></td>
+<td>char</td>
+<td>Sample ID</td>
+</tr>
+<tr class="even">
+<td><code>feature_name</code></td>
+<td>char</td>
+<td>Gene name</td>
+</tr>
+<tr class="odd">
+<td><code>geneid</code></td>
+<td>char</td>
+<td>Gene ID (Ensembl, RefSeq, or other)</td>
+</tr>
+<tr class="even">
+<td><code>all_kegg_gene_names</code></td>
+<td>char</td>
+<td>KEGG gene names</td>
+</tr>
+<tr class="odd">
+<td><code>log2FC</code></td>
+<td>num</td>
+<td>Log2 fold change</td>
+</tr>
+<tr class="even">
+<td><code>p_value</code></td>
+<td>num</td>
+<td>P-value</td>
+</tr>
+<tr class="odd">
+<td><code>p_adj</code></td>
+<td>num</td>
+<td>Adjusted p-value</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Optional columns:</strong></li>
+</ul>
+<table>
+<colgroup>
+<col width="29%" />
+<col width="22%" />
+<col width="48%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>pathway</code></td>
+<td>char</td>
+<td>Pathway name (if available, otherwise automatically retrieved from KEGG)</td>
+</tr>
+<tr class="even">
+<td><code>refseq_id</code></td>
+<td>char</td>
+<td>RefSeq gene ID</td>
+</tr>
+<tr class="odd">
+<td><code>type</code></td>
+<td>char</td>
+<td>Gene type</td>
+</tr>
+<tr class="even">
+<td><code>gene_definition</code></td>
+<td>char</td>
+<td>Gene definition/description</td>
+</tr>
+<tr class="odd">
+<td><code>num_of_paths</code></td>
+<td>int</td>
+<td>Number of pathways</td>
+</tr>
+</tbody>
+</table>
+<div id="goi" class="section level4 unnumbered">
+<h4 class="unnumbered">GOI</h4>
+<ul>
+<li><strong>Required columns:</strong></li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>gene</code></td>
+<td>char</td>
+<td>Gene name</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Optional columns:</strong></li>
+</ul>
+<table>
+<thead>
+<tr class="header">
+<th>Column</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>pathway</code></td>
+<td>char</td>
+<td>Pathway name</td>
+</tr>
+</tbody>
+</table>
+<div class="alert alert-info">
+<p><strong>Note:</strong> If column <code>pathway</code> is not available, app will automatically use pathways from KEGG DB</p>
+</div>
+<p>Example of <code>genes_of_interest.tsv</code></p>
+<div class="example-table">
+<table>
+<thead>
+<tr class="header">
+<th>gene</th>
+<th>pathway</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>BRCA1</td>
+<td>DNA damage/repair</td>
+</tr>
+<tr class="even">
+<td>TP53</td>
+<td>RTK Signaling</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!--chapter:end:01-data-requirements.Rmd-->
+</div>
+</div>
+</div>
+</div>
+<div id="upload-data" class="section level1 unnumbered">
+<h1 class="unnumbered">Upload data</h1>
+<p>This module serves as the starting point for the SequiaViz application. Before uploading data, ensure that your input files and directories are properly formatted according to the specifications outlined in chapter <a href="#data-requirements">Data Requirements</a> and section below.</p>
+<div id="step-1-directory-patient-and-dataset-selection" class="section level2 unnumbered">
+<h2 class="unnumbered">Step 1: Directory, patient and dataset selection</h2>
+<ol style="list-style-type: decimal">
+<li><p><strong>Select main directory</strong> containing data for all patients.</p>
+<p>In example bellow, the <strong>main directory</strong> is <code>project_root</code>, which contains subdirectories for each patient (<code>patient_001</code>, …, <code>patient_N</code>) and general files like <code>genes_of_interest.tsv</code> and <code>mutation_loads.tsv</code>.</p>
+<p>If you select a broader directory, such as <code>user</code>, it may contain unnecessary files that could interfere with the tool’s ability to select correct files. To avoid this, it is recommended to select the most specific directory possible, such as <code>project_root</code>.</p></li>
+</ol>
+<pre><code>home/
+└── user/
+    └── project_root/
+        ├── genes_of_interest.tsv                     # table of genes of interest
+        ├── mutation_loads.tsv                        # tumor mutational burden table
+        ├── patient_001/
+        │   ├── somatic_variants.tsv                  # somatic variants table
+        │   ├── germline_variants.tsv                 # germline variants table
+        │   ├── fusions.tsv                           # detected gene fusions table
+        │   ├── tumor.bam                             # tumor DNA BAM
+        │   ├── tumor.bam.bai                         # index for tumor DNA BAM
+        │   ├── normal.bam                            # normal DNA BAM
+        │   ├── normal.bam.bai                        # index for normal DNA BAM
+        │   ├── fusion.bam                            # tumor RNA BAM
+        │   ├── fusion.bam.bai                        # index for tumor RNA BAM
+        │   ├── chimeric.bam                          # chimeric BAM
+        │   ├── chimeric.bam.bai                      # index for chimeric BAM
+        │   ├── arriba_report.pdf                     # arriba report
+        │   ├── arriba_results.tsv                    # arriba result table
+        │   └── expression.tsv                        # gene expression table
+        └── patient_N/
+            └── ... </code></pre>
+<ol start="2" style="list-style-type: decimal">
+<li><p><strong>Add patient IDs</strong></p>
+<p>Enter one or more patient IDs. If you have multiple IDs, you can input them all at once, separated by commas or new lines.</p></li>
+<li><p><strong>Select dataset types</strong> you want to visualize.</p>
+<p>For each dataset, you can define specific patterns to identify relevant files:</p>
+<ul>
+<li><strong>Set patterns</strong> for BAM files (e.g., “tumor”, “FFPE”, “normal”, “ctrl”, “chimeric”). If no pattern is set, BAM and BAI files will not be searched for.</li>
+<li><strong>Set reference tissues</strong> for expression analysis (e.g., “blood”, “blood_vessel”, “liver”). If no tissue is specified, the tool will search for a file named <code>expression.tsv</code>.</li>
+</ul>
+<p>If a dataset is not selected, its files will be ignored.</p></li>
+</ol>
+<div class="alert alert-info">
+<p><strong>Note:</strong> In case of more words in tissue names (e.g., “blood vessel”), use underscores instead of spaces (e.g., “blood_vessel”). Also, in Validation step, make extra sure, that correct file was paired to correct tissue.</p>
+</div>
+</div>
+<div id="step-2-validation-and-confirmation" class="section level2 unnumbered">
+<h2 class="unnumbered">Step 2: Validation and confirmation</h2>
+<ol style="list-style-type: decimal">
+<li>The application <strong>searches</strong> the selected directory and identifies all relevant files.</li>
+<li>It <strong>displays an overview</strong> of the files found for each patient and selected dataset.</li>
+<li>It <strong>marks problems</strong> using colored icons:
+<ul>
+<li>🟢 <strong>Green</strong>: All required files are found (e.g., variant file, fusion file, expression file).</li>
+<li>🟠 <strong>Orange</strong>: Optional files are missing (e.g., BAM files for IGV visualization). You can continue without these files, but some features will be unavailable.</li>
+<li>🔴 <strong>Red</strong>: Required files are missing or there are too many files. You must resolve these issues before proceeding. See the Common Errors and Solutions section below for help.</li>
+</ul></li>
+<li><strong>Confirm configuration</strong> to continue</li>
+</ol>
+<div class="alert alert-info">
+<p><strong>Note:</strong> If you realize in Step 2 that you made a mistake in Step 1, you can go back to Step 1 using the <strong>Back</strong> to Selection button and adjust your configuration. If you didn’t make a mistake but notice that some files are missing, you can add them to the directory or rename them as needed. Then, use the <strong>Refresh</strong> button to search for files again.</p>
+</div>
+<div class="alert alert-success">
+<p><strong>Tip:</strong> If you have previously worked on a configuration and saved the session, you can upload it directly using the <strong>Load Session</strong> button. This will allow the application to skip the Selection and Validation steps and load the configuration from the saved file.</p>
+</div>
+<div class="alert alert-warning">
+<p><strong>Caution:</strong> If present, the <code>genes_of_interest.tsv</code> and <code>mutation_loads.tsv</code> files will appear as detected files for each patient, even though only one file is shared among all patients.</p>
+</div>
+</div>
+<div id="common-errors-and-solutions" class="section level2 unnumbered">
+<h2 class="unnumbered">Common Errors and Solutions</h2>
+<div id="required-file-missing" class="section level4 unnumbered">
+<h4 class="unnumbered"><strong>“Required file missing”</strong></h4>
+<p><strong>Cause</strong>: A required file for the selected dataset type is missing.<br />
+<strong>Solution</strong>:</p>
+<ul>
+<li>Verify that the file exists in the patient directory.</li>
+<li>Check the file name to ensure it includes the patient ID (pay special attention to case sensitivity).</li>
+<li>Confirm that the file has the correct extension (e.g., <code>.tsv</code>, <code>.xlsx</code>).</li>
+</ul>
+</div>
+<div id="multiple-files-found" class="section level4 unnumbered">
+<h4 class="unnumbered"><strong>“Multiple files found”</strong></h4>
+<p><strong>Cause</strong>: Multiple files of the same type were found for a single patient.<br />
+<strong>Solution</strong>:</p>
+<ul>
+<li>Remove or rename duplicate files.</li>
+<li>Ensure that each patient has only one file of each type.</li>
+<li>Review BAM file patterns to ensure they are not too general.</li>
+</ul>
+</div>
+<div id="missing-bam-or-bai" class="section level4 unnumbered">
+<h4 class="unnumbered"><strong>“Missing BAM or BAI”</strong></h4>
+<p><strong>Cause</strong>: A BAM file is missing its corresponding index file (.bai).<br />
+<strong>Solution</strong>:</p>
+<ul>
+<li>Generate the missing <code>.bai</code> file using the command <code>samtools index</code>.</li>
+<li>Ensure that the <code>.bai</code> file is named correctly.</li>
+<li>For example, if the BAM file is <code>file.bam</code>, the index file must be <code>file.bam.bai</code> or <code>file.bai</code>.</li>
+</ul>
+</div>
+<div id="missing-pdf-or-tsv" class="section level4 unnumbered">
+<h4 class="unnumbered"><strong>“Missing PDF or TSV”</strong></h4>
+<p><strong>Cause</strong>: The output from the Arriba analysis is incomplete.<br />
+<strong>Solution</strong>:</p>
+<ul>
+<li>Ensure that both the <code>.pdf</code> and <code>.tsv</code> files from the Arriba analysis are present.</li>
+<li>Verify that both files include the string “arriba” in their names and have the correct extensions (<code>.tsv</code>, <code>.pdf</code>).</li>
+</ul>
+<p><strong>FILL ALSO USE CASE FOR EXPRESSION FILES - MORE TISSUES THAN FILES OR MORE FILES THEN TISSUES –&gt; TROUBLES WITH MATCHING TISSUE NAMES</strong> {-}</p>
+</div>
+<div id="section" class="section level4 unnumbered">
+<h4 class="unnumbered"><strong>” “</strong></h4>
+<p><strong>Cause</strong>: The number of tissues does not match the number of expression files found, or the tissue names cannot be matched to the files.<br />
+<strong>Solution</strong>:</p>
+<ul>
+<li>Verify that each tissue has a corresponding expression file.</li>
+<li>Ensure that tissue names in the configuration match the file names (use underscores instead of spaces, e.g., <code>blood_vessel</code> instead of <code>blood vessel</code>).</li>
+<li>Double-check the pairing of tissues and files during the validation step.</li>
+</ul>
+<!--chapter:end:02-upload-data.Rmd-->
+</div>
+</div>
+</div>
+<div id="core-module-features" class="section level1 unnumbered">
+<h1 class="unnumbered">Core Module Features</h1>
+<p>The following features are common across multiple analysis modules: <strong>Variant Calling</strong>, <strong>Fusion Genes</strong>, and <strong>Expression Profile</strong>. These shared functionalities provide a consistent and intuitive user experience throughout the application.</p>
+<div id="interactive-data-tables" class="section level2 unnumbered">
+<h2 class="unnumbered">Interactive Data Tables</h2>
+<p>All data in the analysis modules are displayed using the <code>reactable</code> package, providing fully interactive tables with real-time responsiveness.</p>
+<ul>
+<li><strong>Sorting:</strong> Click any column header to sort data in ascending or descending order</li>
+<li><strong>Built-in filtering:</strong> Use the search boxes within each column to filter data on-the-fly</li>
+<li><strong>Resizable columns:</strong> Adjust column widths by dragging the column borders</li>
+<li><strong>Multi-column operations:</strong> Combine filters and sorts across multiple columns simultaneously</li>
+</ul>
+<div class="alert alert-success">
+<p><strong>Tip:</strong> Hold the <code>Shift</code> key while clicking column headers to sort by multiple columns simultaneously.
+To clear sorting, hold <code>Shift</code> and click again — the order cycles through <strong>ascending → descending → unsorted</strong>.</p>
+</div>
+</div>
+<div id="filtering-menu" class="section level2 unnumbered">
+<h2 class="unnumbered">Filtering Menu</h2>
+<p>While the interactive table provides basic filtering capabilities, the dedicated filtering menu offers more sophisticated filtering options for parameters that require specific logic:</p>
+<ul>
+<li><strong>Custom Column Selection:</strong> Show or hide columns to focus on relevant data</li>
+<li><strong>Module-Specific Filters:</strong> Each module provides specialized filtering options tailored to its data type</li>
+</ul>
+<p><img src="screenshots/variant-calling-filter.png" width="100%" /></p>
+<div class="alert alert-success">
+<p><strong>Performance Tip:</strong>
+Apply filters <strong>before</strong> reviewing or marking items. Working with a filtered subset significantly <strong>reduces</strong> data reload times and keeps the application responsive.</p>
+</div>
+</div>
+<div id="review-and-selection" class="section level2 unnumbered">
+<h2 class="unnumbered">Review and Selection</h2>
+<p>All analysis modules allow you to curate variants, fusions, or genes through an intuitive selection:</p>
+<ul>
+<li><strong>Mark Items:</strong> Select variants, fusions, or genes directly from the interactive table</li>
+<li><strong>Clinical Significance:</strong> Assign relevant clinical classifications based on the module type</li>
+<li><strong>Review Panel:</strong> Selected variants, fusions, or genes appear in a dedicated table for easy review</li>
+<li><strong>Edit Selection:</strong> Remove variants, fusions, or genes from your selection if needed</li>
+</ul>
+<p><img src="screenshots/variant-calling-pathogenic.png" width="100%" /></p>
+<div class="alert alert-warning">
+<p><strong>Note:</strong> Only selected variants, fusions, or genes will be included in the final report. For modules with IGV integration, only selected variants, fusions, or genes can be inspected in IGV.</p>
+</div>
+</div>
+<div id="integrated-genome-viewer-igv" class="section level2 unnumbered">
+<h2 class="unnumbered">Integrated Genome Viewer (IGV)</h2>
+<p>Validate findings at the read level with seamless IGV integration.</p>
+<ul>
+<li><strong>Multi-Patient Analysis:</strong> Select multiple patients simultaneously for comparative viewing</li>
+<li><strong>Direct Launch:</strong> Open IGV directly from the module with pre-loaded data</li>
+<li><strong>Read-Level Validation:</strong> Inspect sequencing reads, coverage, and alignment quality</li>
+<li><strong>Context Visualization:</strong> View findings in their genomic context with annotations</li>
+</ul>
+<p><img src="screenshots/variant-calling-igv.png" width="100%" /></p>
+<div class="alert alert-danger">
+<p>The IGV functionality relies on the availability of <strong>BAM/BAI files</strong>. Ensure these files are loaded during data import to enable IGV data exploration.</p>
+</div>
+</div>
+<div id="data-export" class="section level2 unnumbered">
+<h2 class="unnumbered">Data Export</h2>
+<p>Export your data in multiple formats for downstream analysis or reporting:</p>
+<ul>
+<li><strong>Supported Formats:</strong> TSV, XLSX, CSV</li>
+<li><strong>Export Options:</strong>
+<ul>
+<li>Export the currently <strong>filtered table</strong> (only visible items)</li>
+<li>Export the <strong>complete dataset</strong> (all items)</li>
+<li>Export visualizations as images</li>
+</ul></li>
+</ul>
+<p><img src="screenshots/variant-calling-download.png" width="100%" /></p>
+<!--chapter:end:03-common-features.Rmd-->
+</div>
+</div>
+<div id="summary-and-report" class="section level1 unnumbered">
+<h1 class="unnumbered">Summary and Report</h1>
+<p>The <strong>Summary and Report</strong> module provides a comprehensive overview of user-selected oncogenic and pathogenic variants, true-positive fusions, and deregulated genes across all modules. This module is designed to streamline the process of generating clinical reports by integrating findings from the entire analysis workflow.</p>
+<div id="overview-of-features" class="section level2 unnumbered">
+<h2 class="unnumbered">Overview of Features</h2>
+<p>Each dataset type is color-coded for easy identification:</p>
+<ul>
+<li>Somatic variants: <code style="color: #7ac143; background-color: #f8fcf6ff; border: 1.5px solid #7ac143; padding: 2px 6px; border-radius: 3px; font-weight: bold;">Light green</code></li>
+<li>Germline variants: <code style="color: #45818e; background-color: #f1f8f9ff; border: 1.5px solid #45818e; padding: 2px 6px; border-radius: 3px; font-weight: bold;">Dark green</code></li>
+<li>Fusion genes: <code style="color: #f1c232; background-color: #fffdf7ff; border: 1.5px solid #f1c232; padding: 2px 6px; border-radius: 3px; font-weight: bold;">Yellow</code></li>
+<li>RNA expression profiles: <code style="color: #3c78d8ff; background-color: #f2f6fcff; border: 1.5px solid #3c78d8ff; padding: 2px 6px; border-radius: 3px; font-weight: bold;">Blue</code></li>
+</ul>
+<div id="info-boxes" class="section level3 unnumbered">
+<h3 class="unnumbered">Info Boxes</h3>
+<p>Each dataset has an info box summarizing key metrics and findings from the analysis, providing a quick overview of the results. If a value is not available, it will be displayed as “N/A”.</p>
+<p><img src="screenshots/summary-report-infobox.png" width="100%" /></p>
+<p><br></p>
+<table>
+<colgroup>
+<col width="12%" />
+<col width="44%" />
+<col width="43%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><strong>Module</strong></th>
+<th><strong>Feature</strong></th>
+<th><strong>Details</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Somatic Variant Calling</td>
+<td>Tumor mutational burden (TMB)</td>
+<td>Value taken from <code>mutation_loads.tsv</code> file, if available.</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>Variants for review</td>
+<td>Number of somatic variants after applying filters: <br> • <code>gnomAD_NFE &lt;= 0.01</code> <br> • <code>coverage_depth &gt; 10</code> <br> • <code>Consequence != "synonymous_variant"</code> <br> • <code>gene_region == "exon" or "splice"</code></td>
+</tr>
+<tr class="odd">
+<td>Germline Variant Calling</td>
+<td>Variants for review</td>
+<td>Number of germline variants after applying filters: <br> • <code>gnomAD_NFE &lt;= 0.01</code> <br> • <code>coverage_depth &gt; 10</code> <br> • <code>Consequence != "synonymous_variant"</code> <br> • <code>gene_region == "exon" or "splice"</code></td>
+</tr>
+<tr class="even">
+<td></td>
+<td>Pathogenic and likely-pathogenic variants</td>
+<td>Number of germline variants classified by <code>CLINVAR</code> as <code>Pathogenic</code>, <code>Likely_pathogenic</code>, <code>Pathogenic/Likely_pathogenic</code>, <code>Pathogenic_(VUS)</code>,<code>Likely_pathogenic (VUS)</code>,<code>Pathogenic_(VUS)</code></td>
+</tr>
+<tr class="odd">
+<td>Fusion Genes Detection</td>
+<td>Fused genes with high confidence</td>
+<td>Number of fusion genes classified by Arriba as <code>high</code> confidence.</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>Potentially fused genes</td>
+<td>Number of fusion genes present in the table.</td>
+</tr>
+<tr class="odd">
+<td>RNA Expression Profile</td>
+<td>Tissue comparison</td>
+<td>Number of tissues used as reference.</td>
+</tr>
+<tr class="even">
+<td></td>
+<td>Deregulated genes for review</td>
+<td>Number of deregulated genes after applying filters: <br> • <code>log2FC &gt; 1</code> <br> • <code>log2FC &lt; -1</code> <br> • <code>p-value &lt; 0.05</code> <br> • <code>coverage &gt; 30 TPM</code> <br> <strong>(Currently not implemented)</strong></td>
+</tr>
+<tr class="odd">
+<td></td>
+<td>Altered pathways</td>
+<td>Number of altered pathways with <code>p-value &lt; 0.05</code>. <strong>(Currently not implemented)</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="selected-findings" class="section level3 unnumbered">
+<h3 class="unnumbered">Selected findings</h3>
+<p>This section displays a consolidated view of all flagged variants, fusions, and deregulated genes selected in previous modules. It provides an easy way to review findings before generating the final report.</p>
+<p><img src="screenshots/summary-report-selected.png" width="100%" /></p>
+<p><br></p>
+<p>Expandable boxes contain the following details:</p>
+<div id="somatic-and-germline-variant-calling" class="section level4 unnumbered">
+<h4 class="unnumbered">Somatic and Germline Variant Calling</h4>
+<ul>
+<li><strong>Box content</strong>: Gene name, variant type, and ClinVar classification (if available).</li>
+<li><strong>Variant info</strong>: Location, Ref, Alt, HGVSc, HGVSp, Variant type.</li>
+<li><strong>Frequency</strong>: Allelic frequency, GnomAD frequency.</li>
+</ul>
+</div>
+<div id="fusion-genes-detection-1" class="section level4 unnumbered">
+<h4 class="unnumbered">Fusion Genes Detection</h4>
+<ul>
+<li><strong>Box content</strong>: Gene 1, Gene 2, and Arriba confidence level.</li>
+<li><strong>Fusion info</strong>: Gene 1, Gene 2, Position 1, Position 2, Strand 1, Strand 2.</li>
+<li><strong>Frequency</strong>: Overall support, Arriba site.</li>
+</ul>
+</div>
+<div id="rna-expression-profile" class="section level4 unnumbered">
+<h4 class="unnumbered">RNA Expression Profile</h4>
+<ul>
+<li>This section is not expandable. It contains a summary of all flagged genes, including genes of interest and all deregulated genes.</li>
+</ul>
+</div>
+</div>
+<div id="report-generation" class="section level3 unnumbered">
+<h3 class="unnumbered">Report Generation</h3>
+<p>Reports can be generated using either a predefined template or a user-uploaded custom template to ensure the report format aligns with institutional or regulatory requirements.</p>
+<p><img src="screenshots/summary-report-download.png" width="100%" />
+<br></p>
+</div>
+<div id="limitations" class="section level3 unnumbered alert alert-danger">
+<h3 class="unnumbered">Limitations</h3>
+<ul>
+<li>The automatically generated report should be regarded as a <strong>draft</strong> rather than a final clinical document.</li>
+<li>Due to limited access to some metadata and the challenge of retrieving context-specific textual annotations for variants, the report requires <strong>manual review</strong> and completion by a clinician.</li>
+<li>The module ensures that all findings are presented in a structured format suitable for clinical interpretation.</li>
+</ul>
+</div>
+</div>
+<div id="creating-custom-templates" class="section level2 unnumbered">
+<h2 class="unnumbered">Creating Custom Templates</h2>
+<p>The module supports keyword-based variable substitution to populate the report with patient-specific findings.</p>
+<div id="available-keywords" class="section level3 unnumbered">
+<h3 class="unnumbered">Available Keywords</h3>
+<table>
+<colgroup>
+<col width="21%" />
+<col width="78%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><strong>Keyword</strong></th>
+<th><strong>Description</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>&lt;&lt;patient_info&gt;&gt;</code></td>
+<td>Contains patient-specific information such as patient ID, diagnosis, and report generation date.</td>
+</tr>
+<tr class="even">
+<td><code>&lt;&lt;summary_somatic&gt;&gt;</code></td>
+<td>List of oncogenic somatic variants flagged during the review process.</td>
+</tr>
+<tr class="odd">
+<td><code>&lt;&lt;summary_germline&gt;&gt;</code></td>
+<td>Lists of pathogenic germline variants flagged during the review process.</td>
+</tr>
+<tr class="even">
+<td><code>&lt;&lt;summary_fusion&gt;&gt;</code></td>
+<td>Lists of true-positive gene fusions flagged during the review process.</td>
+</tr>
+<tr class="odd">
+<td><code>&lt;&lt;somatic_table&gt;&gt;</code></td>
+<td>A detailed table of somatic variants informations, including gene, transcript, variant, VAF, consequence, and classification.</td>
+</tr>
+<tr class="even">
+<td><code>&lt;&lt;germline_table&gt;&gt;</code></td>
+<td>A detailed table of germline variants informations, including gene, transcript, variant, MAF, consequence, phenotype, zygosity, inheritance, and classification.</td>
+</tr>
+<tr class="odd">
+<td><code>&lt;&lt;fusion_table&gt;&gt;</code></td>
+<td>A detailed table of gene fusions informations, including gene pair, transcripts, overall support, and phasing.</td>
+</tr>
+<tr class="even">
+<td><code>&lt;&lt;expression_table&gt;&gt;</code></td>
+<td>A detailed table of deregulated genes informations, including gene, transcript, expression level, log2FC, and therapeutic options.</td>
+</tr>
+<tr class="odd">
+<td><code>&lt;&lt;mutation_burden&gt;&gt;</code></td>
+<td>Displays the tumor mutation burden (TMB) value of the patient.</td>
+</tr>
+<tr class="even">
+<td><code>&lt;&lt;somatic_interpretation&gt;&gt;</code></td>
+<td>Provides textual interpretation of somatic variants list, including links to external resources.</td>
+</tr>
+<tr class="odd">
+<td><code>&lt;&lt;germline_interpretation&gt;&gt;</code></td>
+<td>Provides textual interpretation of germline variants list, including links to external resources.</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="how-to-use-keywords" class="section level3 unnumbered">
+<h3 class="unnumbered">How to Use Keywords</h3>
+<ol style="list-style-type: decimal">
+<li><p><strong>Insert Keywords</strong>: Place the keywords in your <code>.docx</code> template where you want the corresponding data to appear.</p>
+<ul>
+<li><p>Example:</p>
+<pre><code>Patient Information:
+&lt;&lt;patient_info&gt;&gt;
+
+Summary of Somatic Variants:
+&lt;&lt;summary_somatic&gt;&gt;
+
+Detailed Somatic Variant Table:
+&lt;&lt;somatic_table&gt;&gt;</code></pre></li>
+</ul></li>
+<li><p><strong>Formatting</strong>: Ensure that the placeholders are surrounded by double angle brackets
+(<code>&lt;&lt; &gt;&gt;</code>) and match the exact keyword names.</p></li>
+<li><p><strong>Save as <code>.docx</code></strong>: Save your template as a <code>.docx</code> file and upload it using the <strong>Upload custom template</strong> option in the application.</p></li>
+</ol>
+</div>
+<div id="notes-1" class="section level3 unnumbered alert alert-info">
+<h3 class="unnumbered">Notes</h3>
+<ul>
+<li>The placeholder <code>&lt;&lt;patient_info&gt;&gt;</code> is essential for generating a meaningful report. Ensure it is included in your template.</li>
+<li>If certain data (e.g., <code>&lt;&lt;fusion_table&gt;&gt;</code>) is not available for a patient, the placeholder will be replaced with a default message.</li>
+<li>Test your template with sample data to ensure all placeholders are replaced correctly.</li>
+<li>Use your institution’s branding and formatting guidelines to style the template.</li>
+</ul>
+</div>
+<p>This guidance ensures that users can create custom templates tailored to their specific needs while maintaining compatibility with the application’s reporting system.</p>
+<!--chapter:end:04-summary-report.Rmd-->
+</div>
+</div>
+<div id="variant-calling" class="section level1 unnumbered">
+<h1 class="unnumbered">Variant Calling</h1>
+<p>The <strong>Variant Calling</strong> module is divided into two submodules - <strong>Somatic</strong> Variant Calling and <strong>Germline</strong> Variant Calling. Both submodules provide tools for reviewing, filtering, and selecting variants for further exploring and reporting through interactive tables, advanced filtering options, and integrated visualizations to streamline the review process.</p>
+<p>For information about core features shared across analysis modules (interactive tables, filtering, data selection, IGV integration, and data export), please refer to the <strong>Core Module Features</strong> chapter.</p>
+<div id="overview-of-features-1" class="section level2 unnumbered">
+<h2 class="unnumbered">Overview of Features</h2>
+<div id="variant-specific-filtering" class="section level3 unnumbered">
+<h3 class="unnumbered">Variant-Specific Filtering</h3>
+<p>In addition to the core filtering capabilities, the Variant Calling module provides specialized filtering options:</p>
+<ul>
+<li><strong>Gene Region:</strong> Filter specifically for exon and splice regions</li>
+<li><strong>Consequence:</strong> Select from multiple consequence types</li>
+<li><strong>Coverage Depth:</strong> Set minimum coverage thresholds</li>
+<li><strong>Population Frequency:</strong> Filter by gnomAD allele frequencies</li>
+<li><strong>ClinVar Significance:</strong> (Germline only) Filter variants by clinical significance</li>
+</ul>
+<p><img src="screenshots/variant-calling-filter.png" width="100%" /></p>
+<div class="alert alert-warning">
+<p><strong>Default Filters Applied:</strong> When you first view the data, the following filters are automatically applied to ensure optimal performance and focus on relevant variants.</p>
+<p>• <code>gnomAD_NFE ≤ 0.01</code> (rare variants only)</p>
+<p>• <code>coverage_depth &gt; 10</code> (sufficient read support)</p>
+<p>• <code>Consequence ≠ "synonymous_variant"</code> (exclude silent mutations)</p>
+<p>• <code>gene_region == "exon" OR "splice"</code> (coding regions only)</p>
+</div>
+</div>
+</div>
+<div id="submodule-specific-features" class="section level2 unnumbered">
+<h2 class="unnumbered">Submodule-Specific Features</h2>
+<div id="somatic-variant-calling-1" class="section level3 unnumbered">
+<h3 class="unnumbered">Somatic Variant Calling</h3>
+<p>The somatic submodule is designed for analyzing tumor-specific variants with specialized metrics and visualizations:</p>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>Cancer Databases:</strong> Filter by <code>COSMIC</code> and <code>CGC_Somatic</code> annotations</li>
+</ul>
+<div id="tumor-variant-frequency-histogram" class="section level4 unnumbered">
+<h4 class="unnumbered">Tumor Variant Frequency Histogram</h4>
+<p>This histogram displays the distribution of tumor variant allele frequencies (VAF) across all somatic variants. Selected variants are marked as blue lines.</p>
+</div>
+<div id="sankey-diagram" class="section level4 unnumbered">
+<h4 class="unnumbered">Sankey Diagram</h4>
+<p>The Sankey diagram visualizes the relationships between somatic variants, their associated
+genes, and the biological pathways in which these genes participate. This integrative
+view highlights how molecular alterations connect to functional contexts, offering insights
+into pathway-level disruptions.</p>
+</div>
+</div>
+<div id="germline-variant-calling-1" class="section level3 unnumbered">
+<h3 class="unnumbered">Germline Variant Calling</h3>
+<p>The germline submodule focuses on hereditary variants with clinical interpretation tools:</p>
+<p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>Clinical Annotations:</strong> <code>ClinVar significance</code></li>
+<li><strong>Hereditary Cancer Database</strong> Filter by <code>CGC_Germline</code> and <code>TruSight</code> Genes panels</li>
+</ul>
+</div>
+</div>
+<div id="table-columns" class="section level2 unnumbered">
+<h2 class="unnumbered">Table Columns</h2>
+<p>The following table describes the columns available in the interactive tables for both submodules:</p>
+<table>
+<colgroup>
+<col width="16%" />
+<col width="65%" />
+<col width="8%" />
+<col width="9%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th><strong>Column</strong></th>
+<th><strong>Description</strong></th>
+<th><strong>Somatic</strong></th>
+<th><strong>Germline</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>Gene_symbol</code></td>
+<td>The gene associated with the variant.</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td><code>var_name</code></td>
+<td>The name of the variant.</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td><code>HGVSc</code></td>
+<td>HGVS coding sequence annotation.</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td><code>HGVSp</code></td>
+<td>HGVS protein sequence annotation.</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td><code>variant_type</code></td>
+<td>The type of variant (e.g., SNP, insertion, deletion).</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td><code>tumor_variant_freq</code></td>
+<td>The variant allele frequency in the tumor sample.</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>tumor_depth</code></td>
+<td>The sequencing depth at the variant position in the tumor sample.</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>variant_freq</code></td>
+<td>The variant allele frequency in the germline sample.</td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td><code>coverage_depth</code></td>
+<td>The sequencing depth at the variant position in the germline sample.</td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td><code>gnomAD_NFE</code></td>
+<td>The population frequency of the variant in the gnomAD Non-Finnish European population.</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td><code>Consequence</code></td>
+<td>The predicted functional consequence of the variant (e.g., missense, synonymous).</td>
+<td>✓</td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td><code>clinvar_sig</code></td>
+<td>The clinical significance of the variant according to ClinVar (e.g., pathogenic, likely pathogenic).</td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr class="odd">
+<td><code>COSMIC</code></td>
+<td>Indicates whether the variant is listed in the COSMIC database.</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>CGC_Somatic</code></td>
+<td>Indicates whether the variant is associated with cancer in the CGC database.</td>
+<td>✓</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>CGC_Germline</code></td>
+<td>Indicates whether the variant is associated with hereditary cancer in the CGC database.</td>
+<td></td>
+<td>✓</td>
+</tr>
+<tr class="even">
+<td><code>TruSight Genes</code></td>
+<td>Indicates whether the variant is included in the TruSight Cancer Panel.</td>
+<td></td>
+<td>✓</td>
+</tr>
+</tbody>
+</table>
+<div class="alert alert-warning">
+<p><strong>Note:</strong> The application recognizes additional columns beyond the required ones.
+If your dataset includes extra columns, they will still appear in the table and can be used for filtering or display.
+However, these columns will not have customized labels — only minor formatting is applied (dots and underscores are replaced with spaces).</p>
+</div>
+</div>
+<div id="limitations-1" class="section level2 unnumbered alert alert-danger">
+<h2 class="unnumbered">Limitations</h2>
+<ul>
+<li>The IGV integration requires BAM/BAI files to be available for the selected patient.</li>
+</ul>
+</div>
+<!--chapter:end:05-variant-calling.Rmd-->
+</div>
+<div id="fusion-genes-1" class="section level1 unnumbered">
+<h1 class="unnumbered">Fusion Genes</h1>
+<p>The <strong>Fusion Genes</strong> module enables users to review, validate, and select causal gene fusions for inclusion in clinical reports. This module integrates supporting evidence, visualization tools, and filtering options to streamline the review process.</p>
+<p>For information about core features shared across analysis modules (interactive tables, filtering, data selection, IGV integration, and data export), please refer to the <strong>Core Module Features</strong> chapter.</p>
+<div id="overview-of-features-2" class="section level2 unnumbered">
+<h2 class="unnumbered">Overview of Features</h2>
+<div id="fusion-specific-table-features" class="section level3 unnumbered">
+<h3 class="unnumbered">Fusion-Specific Table Features</h3>
+<p>The interactive fusion table includes specialized features tailored for fusion analysis:</p>
+<ul>
+<li><strong>Expandable Rows</strong>: Expand rows to view detailed annotations and supporting evidence, including the Arriba report and IGV snapshot in split-view mode.</li>
+<li><strong>Visual Check Column</strong>: Use the ✔️ and ✖️ buttons to mark fusions as true-positive or false-positive. This helps track which fusions have been manually reviewed.</li>
+<li><strong>Notes Column</strong>: Add custom notes for each fusion, such as reasons for marking it as false-positive, observations about low coverage, or other case-specific details.</li>
+</ul>
+<div class="alert alert-success">
+<p><strong>Tip:</strong> Use the <strong>expandable rows</strong> to quickly review Arriba annotations and IGV snapshots. This helps <strong>identify obvious false positives</strong>, such as cases where no signal is visible at one of the gene positions.</p>
+</div>
+<div id="expanded-rows" class="section level4 unnumbered">
+<h4 class="unnumbered"><strong>Expanded Rows</strong></h4>
+<p>The expanded row functionality provides a detailed view of each fusion, helping users quickly assess its validity:</p>
+<ul>
+<li><strong>Arriba Report</strong>: Displays the full Arriba report for the selected fusion. The report includes:
+<ul>
+<li>Fusion partners and their respective orientation.</li>
+<li>Exons retained within the fusion transcript.</li>
+<li>Number of supporting read counts.</li>
+<li>A snippet of the sequence surrounding the breakpoint.</li>
+</ul></li>
+<li><strong>IGV Snapshot</strong>: Shows a split-view layout of the fusion breakpoint, with both gene positions displayed side by side. This visualization helps users quickly identify false positives, such as cases where no signal is visible at one of the gene positions.</li>
+</ul>
+<div class="alert alert-danger">
+<p>The <strong>expanded row</strong> functionality relies on the availability of <strong>Arriba TSV</strong> and <strong>PNG files</strong> for the report, as well as <strong>BAM/BAI files</strong> and <strong>chimeric BAM/BAI files</strong> for IGV snapshots. Ensure these files are loaded during data import to enable these features.</p>
+</div>
+</div>
+</div>
+<div id="fusion-specific-filtering" class="section level3 unnumbered">
+<h3 class="unnumbered">Fusion-Specific Filtering</h3>
+<p>In addition to core filtering capabilities, the Fusion Genes module provides specialized filtering:</p>
+<ul>
+<li><strong>Tissues:</strong> Hide or show specific tissue comparisons</li>
+<li><strong>Pathways:</strong> Filter data by pathway classifications</li>
+</ul>
+</div>
+<div id="fusion-specific-igv-integration" class="section level3 unnumbered">
+<h3 class="unnumbered">Fusion-Specific IGV Integration</h3>
+<p>The IGV integration in this module is optimized for fusion breakpoint validation:</p>
+<ul>
+<li><strong>Breakpoint Visualization</strong>: Inspect fusion breakpoints in tumor BAM files.</li>
+<li><strong>Chimeric Reads</strong>: View chimeric BAM files (if available) alongside tumor BAM files for additional evidence.</li>
+<li><strong>Split-View Layout</strong>: Display both fusion breakpoints side by side for simultaneous comparison.</li>
+</ul>
+<p>For more details on working with chimeric reads in IGV, refer to the <a href="https://github.com/suhrig/arriba/wiki/06-Visualization">Arriba Visualization Guide</a>.</p>
+<div class="alert alert-warning">
+<p><strong>Note:</strong> The IGV integration in this module uses <code>igv.js</code>, a web-based implementation of IGV. While it provides essential functionalities for read-level validation, it may not include all advanced features available in the IGV desktop application.</p>
+</div>
+<!--chapter:end:06-fusion-genes.Rmd-->
+</div>
+</div>
+</div>
+<div id="expression-profile-1" class="section level1 unnumbered">
+<h1 class="unnumbered">Expression Profile</h1>
+<p>The <strong>Expression Profile</strong> module enables users to explore and analyze gene expression changes across multiple tumor sites, such as primary and metastatic lesions, identify pathways with significant deregulation based on gene expression changes, and include findings in clinical reports.</p>
+<p>For information about core features shared across analysis modules (interactive tables, filtering, data selection, IGV integration, and data export), please refer to the <strong>Core Module Features</strong> chapter.</p>
+<div id="overview-of-features-3" class="section level2 unnumbered">
+<h2 class="unnumbered">Overview of Features</h2>
+<div id="expression-specific-table-features" class="section level3 unnumbered">
+<h3 class="unnumbered">Expression-Specific Table Features</h3>
+<p>Expression data is displayed in an interactive table with specialized highlighting:</p>
+<ul>
+<li><strong>Color-Coded Rows</strong>: Deregulated genes are highlighted based on their expression changes.
+<ul>
+<li><code style="color: #000000; background-color: #FFE9E9; border: 2px solid #FFE9E9; padding: 2px 6px; border-radius: 3px;">red</code> for up-regulated genes, where <code style="color: #000000; background-color: #FFE9E9; padding: 2px 6px; border-radius: 3px; font-weight: bold;">log2FC &gt; 1</code></li>
+<li><code style="color: #000000; background-color: #E6F7FF; border: 2px solid #E6F7FF; padding: 2px 6px; border-radius: 3px;">blue</code> for down-regulated genes, where <code style="color: #000000; background-color: #E6F7FF; padding: 2px 6px; border-radius: 3px; font-weight: bold;">log2FC &lt; -1</code></li>
+<li><code style="color: #000000; background-color: #FFEFDE; border: 2px solid #FFEFDE; padding: 2px 6px; border-radius: 3px;">orange</code> for genes with <code style="color: #000000; background-color: #FFEFDE; padding: 2px 6px; border-radius: 3px; font-weight: bold;">p-value &lt; 0.05</code></li>
+<li><code style="color: #000000; background-color: #E7FAEF; border: 2px solid #E7FAEF; padding: 2px 6px; border-radius: 3px;">green</code> for genes with <code style="color: #000000; background-color: #E7FAEF; padding: 2px 6px; border-radius: 3px; font-weight: bold;">p-adjustment &lt; 0.05</code></li>
+</ul></li>
+<li><strong>Custom Gene Lists</strong>: Upload a list of genes of interest with pathway classifications for focused analysis.</li>
+</ul>
+</div>
+<div id="expression-specific-filtering" class="section level3 unnumbered">
+<h3 class="unnumbered">Expression-Specific Filtering</h3>
+<p>In addition to core filtering capabilities, the Expression Profile module provides specialized filtering options:</p>
+<ul>
+<li><strong>Tissues:</strong> Hide or show specific tissue comparisons</li>
+<li><strong>Pathways:</strong> Filter data by pathway classifications</li>
+<li><strong>Tissue values:</strong> Filter data based on tissue types with predefined buttons</li>
+</ul>
+</div>
+<div id="volcano-plot" class="section level3 unnumbered">
+<h3 class="unnumbered">Volcano Plot</h3>
+<p>The module includes a volcano plot for quick visual identification of deregulated genes:</p>
+<ul>
+<li><strong>Log2FC vs. FDR</strong>: Genes are plotted based on their fold change and statistical significance.</li>
+<li><strong>Highlight Genes of Interest</strong>: Genes from the uploaded list are highlighted for easy identification.</li>
+</ul>
+<div class="alert alert-warning">
+<p><strong>Note:</strong> Ensure that the uploaded gene list matches the dataset to avoid missing highlights in the volcano plot.
+<br>
+Only flagged deregulated genes will be included in the final clinical report.</p>
+</div>
+<!--chapter:end:07-expression_profile.Rmd-->
+</div>
+</div>
+</div>
+<div id="network-graph" class="section level1 unnumbered">
+<h1 class="unnumbered">Network Graph</h1>
+<p>The <strong>Network Graph</strong> module provides an interactive visualization of protein-protein interactions and pathway-level insights using patient-specific gene data. This module leverages Cytoscape.js for dynamic graph rendering and integrates <a href="https://string-db.org/">STRING DB</a> interactions with pathway annotations from <a href="https://www.genome.jp/kegg/">KEGG DB</a>.</p>
+<div id="overview" class="section level2 unnumbered">
+<h2 class="unnumbered">Overview</h2>
+<p>The module consists of two interconnected graph views:</p>
+<ul>
+<li><strong>Main Graph</strong>: Displays all genes within a selected pathway and their interactions</li>
+<li><strong>Subgraph</strong>: Displays a focused view of selected nodes from the main graph for detailed analysis</li>
+</ul>
+<p>Both graphs share common visualization settings and respond to the same filtering criteria, ensuring consistent analysis across views.</p>
+</div>
+<div id="graph-visualization-elements" class="section level2 unnumbered">
+<h2 class="unnumbered">Graph Visualization Elements</h2>
+<p><span style="font-weight: bold; font-size: 20px;">Nodes</span> represent genes, colored by log2FC values between tumor and matched healthy control tissues (if available).</p>
+<ul>
+<li><strong>Upregulated Genes</strong> (log2FC &gt; 1): Nodes are colored red, with intensity increasing as the log2FC value increases</li>
+<li><strong>No Change</strong> (log2FC ≈ 0): Nodes are colored white</li>
+<li><strong>Downregulated Genes</strong> (log2FC &lt; -1): Nodes are colored blue, with intensity increasing as the log2FC value becomes more negative</li>
+</ul>
+<p><span style="font-weight: bold; font-size: 20px;">Edges</span> represent STRING DB protein-protein interactions</p>
+</div>
+<div id="working-with-the-main-graph" class="section level2 unnumbered">
+<h2 class="unnumbered">Working with the Main Graph</h2>
+<div id="pathway-and-layout-selection" class="section level3 unnumbered">
+<h3 class="unnumbered">Pathway and Layout Selection</h3>
+<ul>
+<li><strong>Pathway</strong>: Select a pathway to display interactions among genes within it</li>
+<li><strong>Layout Algorithms</strong>: Choose from two layout algorithms to optimize graph readability.
+<ul>
+<li><strong>cola</strong>: Ideal for hierarchical structures and smaller graphs (less than 100 nodes)</li>
+<li><strong>FCoSE</strong>: Best for large and complex networks (above 100 nodes)</li>
+<li>For more information about the layout algorithms, refer to the <a href="https://blog.js.cytoscape.org/2020/05/11/layouts/">Cytoscape.js Layouts Blog</a>.</li>
+</ul></li>
+<li><strong>Tissue</strong>: Choose a reference tissue (if available) to color the network accordingly (under the main graph)</li>
+</ul>
+</div>
+<div id="edge-display-and-filtering" class="section level3 unnumbered">
+<h3 class="unnumbered">Edge Display and Filtering</h3>
+<ul>
+<li><strong>Evidence-based display</strong>: Shows multiple edges between nodes, with each edge representing a different type of evidence (experiments, databases, textmining, gene fusion, neighborhood, co‑expression, co‑occurrence).</li>
+<li><strong>Confidence-based display</strong>: Shows a single edge between nodes, with edge properties reflecting the combined confidence score</li>
+<li><strong>Interaction sources</strong>: Display edges based on specific evidence types (e.g., experimental, text mining, co-expression)</li>
+<li><strong>Interaction score</strong>: Selection of confidence threshold (0-1) to filter edges based on interaction confidence</li>
+</ul>
+<div class="alert alert-success">
+<p><strong>Tip:</strong> Adjusting confidence thresholds may significantly alter the network structure in both graphs. Use this feature to focus on high-confidence interactions.</p>
+</div>
+</div>
+<div id="highlighting-variants-and-genes" class="section level3 unnumbered">
+<h3 class="unnumbered">Highlighting Variants and Genes</h3>
+<p>Mark specific genes of interest by highlighting their node borders with distinctive colors.</p>
+<ul>
+<li><strong>Add Selected</strong>: Highlight variants or fusions from previous modules in the network.
+<ul>
+<li><strong>Oncogenic variants</strong> (from somatic module)</li>
+<li><strong>Pathogenic variants</strong> (from germline module)</li>
+<li><strong>Fusion genes</strong> (from fusion module)</li>
+</ul></li>
+</ul>
+<p>Node borders will be colored according to the variant type, making them easily identifiable in both the main graph.</p>
+<div class="alert alert-success">
+<p><strong>Tip:</strong> Use variant highlighting to quickly identify genes with actionable mutations within pathway contexts.</p>
+</div>
+</div>
+<div id="node-selection-and-interaction" class="section level3 unnumbered">
+<h3 class="unnumbered">Node Selection and Interaction</h3>
+<ul>
+<li>Select nodes by clicking on them</li>
+<li>Drag selected nodes to reposition them within the graph</li>
+<li>Unselect nodes by clicking on the same node again</li>
+</ul>
+<p><br></p>
+<p>Three buttons are available for <strong>graph manipulation</strong>:</p>
+<ul>
+<li><strong>Fit Graph</strong>: Automatically adjust the view to fit all nodes within the visible area. If nodes are selected, it will fit the selection instead</li>
+<li><strong>Clear Selection</strong>: Unselect all selected nodes</li>
+<li><strong>Select First Neighbors</strong>: Select all nodes directly connected to the currently selected nodes (useful for exploring local network neighborhoods)</li>
+</ul>
+</div>
+</div>
+<div id="creating-and-managing-the-subgraph" class="section level2 unnumbered">
+<h2 class="unnumbered">Creating and Managing the Subgraph</h2>
+<p>The subgraph provides a focused view for analyzing specific genes and their interactions in detail.
+It is <strong>automatically created</strong> when you select one or more nodes in the main graph.</p>
+<p>You can add or remove nodes from the subgraph in two ways:</p>
+<p><strong>Via Main Graph Selection:</strong></p>
+<ul>
+<li>Click nodes in the main graph to add them to the subgraph</li>
+<li>Click selected nodes again to remove them from the subgraph</li>
+</ul>
+<p><strong>Via Subgraph Controls:</strong></p>
+<ul>
+<li><strong>Add Genes</strong>: Include genes not present in the current pathway by entering gene names</li>
+<li><strong>Remove Nodes</strong>: Remove specific nodes from the subgraph</li>
+</ul>
+<div class="alert alert-warning">
+<p><strong>Note:</strong> When adding genes not present in the original pathway, ensure that the gene names are correctly formatted to avoid unrecognized entries.</p>
+</div>
+</div>
+<div id="understanding-graph-data-tables" class="section level2 unnumbered">
+<h2 class="unnumbered">Understanding Graph Data Tables</h2>
+<p><strong>Tables Under Graphs:</strong></p>
+<p>Both the main graph and subgraph have associated tables that provide detailed information:</p>
+<ul>
+<li>Gene names</li>
+<li>Log2FC values</li>
+<li>P-values</li>
+<li>Pathway names</li>
+<li>Number of pathways the gene is present in</li>
+</ul>
+<p><strong>Table Interaction:</strong></p>
+<ul>
+<li><strong>Sort</strong> tables by clicking on column names</li>
+<li><strong>Search</strong> for specific genes using the search box</li>
+<li>Click on a row in the table to <strong>highlight</strong> the corresponding node in yellow in the graph</li>
+</ul>
+</div>
+<div id="summary-of-key-concepts" class="section level2 unnumbered">
+<h2 class="unnumbered">Summary of Key Concepts</h2>
+<div class="alert alert-info">
+<p><strong>Understanding the Workflow:</strong></p>
+<ol style="list-style-type: decimal">
+<li><strong>Start with the Main Graph</strong>: Select a pathway and configure layout/visualization settings</li>
+<li><strong>Configure Edge Display</strong>: Choose between evidence-based or confidence-based edge display</li>
+<li><strong>Apply Filters</strong>: Set confidence thresholds and evidence type filters to focus on relevant interactions</li>
+<li><strong>Highlight Important Genes</strong>: Mark pathogenic, oncogenic, or fusion genes for easy identification</li>
+<li><strong>Select Nodes of Interest</strong>: Click nodes in the main graph to create a focused subgraph</li>
+<li><strong>Refine the Subgraph</strong>: Add additional genes or remove unwanted nodes as needed</li>
+<li><strong>Analyze</strong>: Use both graphs together, knowing they share the same filtering and display settings</li>
+</ol>
+</div>
+<div class="alert alert-success">
+<p><strong>Tip:</strong> Use the drag-and-drop functionality to rearrange nodes for a clearer view of pathway interactions.</p>
+</div>
+<!--chapter:end:08-network-graph.Rmd-->
+</div>
+</div>
+<!--bookdown:body:end-->
+  </main>
+
+  <div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <div id="book-on-this-page"></div>
+
+      <div class="book-extra">
+        <ul class="list-unstyled">
+          <li><a id="book-source" href="#">View source <i class="fab fa-github"></i></a></li>
+          <li><a id="book-edit" href="#">Edit this page <i class="fab fa-github"></i></a></li>
+        </ul>
+      </div>
+    </nav>
+  </div>
+
+</div>
+</div> <!-- .container -->
+
+<footer class="bg-primary text-light mt-5">
+  <div class="container"><div class="row">
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>"<strong>SequiaViz Documentation</strong>" was written by Kateřina Jurásková. It was last built on 2025-11-28.</p>
+  </div>
+
+  <div class="col-12 col-md-6 mt-3">
+    <p>This book was built by the <a class="text-light" href="https://bookdown.org">bookdown</a> R package.</p>
+  </div>
+
+</div></div>
+</footer>
+
+
+</body>
+
+</html>

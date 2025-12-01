@@ -17,7 +17,7 @@ box::use(
 prepare_volcano <- function(dt, tissue) {
   # Dynamicky vybereme relevantní sloupce pro konkrétní tkáň
   
-  fc_col <- paste0("log2FC_", tissue)
+  fc_col <- paste0("log2fc_", tissue)
   pval_col <- paste0("p_value_", tissue)
   padj_col <- paste0("p_adj_", tissue)
   

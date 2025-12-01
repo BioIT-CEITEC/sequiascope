@@ -5,7 +5,7 @@ box::use(
   bs4Dash[actionButton],
   htmltools[div,tags,tagList],
   reactable,
-  reactable[colDef,JS,colGroup],
+  reactable[colDef,JS,colGroup,colFormat],
   stats[setNames], #na.omit,
   shinyWidgets[radioGroupButtons],
   # data.table[uniqueN]
@@ -471,7 +471,7 @@ colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues =
       all_kegg_gene_names = colDef(name = "KEGG gene names", minWidth = 180),
       pathway = colDef(name = "Pathway", minWidth = 150),
       num_of_paths = colDef(name = "Pathway (n)", minWidth = 100),
-      mean_log2fc = colDef(name = "Mean log2FC", minWidth = 120)
+      mean_log2fc = colDef(name = "Mean log2FC", minWidth = 120, format = colFormat(digits = 3))
     )
     
     # Dynamic tissue-specific columns
@@ -493,6 +493,7 @@ colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues =
         dynamic_columns[[col_log2fc]] <- colDef(
           name = "log2FC",  # Simple name without tissue
           minWidth = 100,
+          format = colFormat(digits = 3),  # Format as number with 3 decimals
           style = JS(sprintf("function(rowInfo, colInfo) {
             var value = rowInfo.values[colInfo.id];
             var color = value > 1 ? '#FFE9E9' : (value < -1 ? '#E6F7FF' : '#FFFFFF');
@@ -505,9 +506,17 @@ colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues =
         dynamic_columns[[col_p_value]] <- colDef(
           name = "p-value",  # Simple name without tissue
           minWidth = 100,
+          cell = JS("function(cellInfo) {
+            var val = cellInfo.value;
+            if (val === null || val === undefined || val === '') return '';
+            var num = typeof val === 'number' ? val : parseFloat(val);
+            if (isNaN(num)) return val;
+            return num.toExponential(3);
+          }"),
           style = JS("function(rowInfo, colInfo) {
             var value = rowInfo.values[colInfo.id];
-            var color = (value <= 0.05) ? '#FFEFDE' : '#FFFFFF';
+            var num = typeof value === 'number' ? value : parseFloat(value);
+            var color = (!isNaN(num) && num <= 0.05) ? '#FFEFDE' : '#FFFFFF';
             return { backgroundColor: color };
           }")
         )
@@ -517,9 +526,17 @@ colnames_map_list <- function(tag, all_columns = NULL, session = NULL, tissues =
         dynamic_columns[[col_p_adj]] <- colDef(
           name = "p-adj",  # Simple name without tissue
           minWidth = 100,
+          cell = JS("function(cellInfo) {
+            var val = cellInfo.value;
+            if (val === null || val === undefined || val === '') return '';
+            var num = typeof val === 'number' ? val : parseFloat(val);
+            if (isNaN(num)) return val;
+            return num.toExponential(3);
+          }"),
           style = JS("function(rowInfo, colInfo) {
             var value = rowInfo.values[colInfo.id];
-            var color = (value <= 0.05) ? '#E7FAEF' : '#FFFFFF';
+            var num = typeof value === 'number' ? value : parseFloat(value);
+            var color = (!isNaN(num) && num <= 0.05) ? '#E7FAEF' : '#FFFFFF';
             return { backgroundColor: color, borderRight: '1px dashed rgba(0,0,0,0.3)' };
           }")
         )

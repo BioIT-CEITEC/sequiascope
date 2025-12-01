@@ -1,33 +1,57 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Upload data | SequiaViz Documentation</title>
-<meta name="author" content="Kateřina Jurásková">
-<meta name="generator" content="bookdown 0.45 with bs4_book()">
-<meta property="og:title" content="Upload data | SequiaViz Documentation">
-<meta property="og:type" content="book">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Upload data | SequiaViz Documentation">
-<!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
-<script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.9.0/transition.js"></script><script src="libs/bs3compat-0.9.0/tabs.js"></script><script src="libs/bs3compat-0.9.0/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
-<script src="libs/bs4_book-1.0.0/bs4_book.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- CSS --><style type="text/css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <title>Upload data | SequiaViz Documentation</title>
+
+    <meta name="author" content="Kateřina Jurásková" />
+  
+   
+   <meta name="generator" content="placeholder" />
+  <meta property="og:title" content="Upload data | SequiaViz Documentation" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Upload data | SequiaViz Documentation" />
+  
+  
+  
+  <!-- JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script>
+  <script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script>
+    <script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet" />
+    <script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script>
+    <script src="libs/bs3compat-0.9.0/transition.js"></script>
+    <script src="libs/bs3compat-0.9.0/tabs.js"></script>
+    <script src="libs/bs3compat-0.9.0/bs3compat.js"></script>
+    <link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet" />
+    <script src="libs/bs4_book-1.0.0/bs4_book.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script>
+
+  <!-- CSS -->
+  <style type="text/css">
     
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
   </style>
-<link rel="stylesheet" href="custom-styles.css">
-<meta name="description" content="This module serves as the starting point for the SequiaViz application. Before uploading data, ensure that your input files and directories are properly formatted according to the specifications...">
-<meta property="og:description" content="This module serves as the starting point for the SequiaViz application. Before uploading data, ensure that your input files and directories are properly formatted according to the specifications...">
-<meta name="twitter:description" content="This module serves as the starting point for the SequiaViz application. Before uploading data, ensure that your input files and directories are properly formatted according to the specifications...">
+      <link rel="stylesheet" href="custom-styles.css" />
+  
 </head>
+
 <body data-spy="scroll" data-target="#toc">
 
 <div class="container-fluid">
 <div class="row">
-  <header class="col-sm-12 col-lg-3 sidebar sidebar-book"><a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book">
+    <a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
 
     <div class="d-flex align-items-start justify-content-between">
       <h1>
@@ -39,40 +63,29 @@
     <div id="main-nav" class="collapse-lg">
       <form role="search">
         <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
-</form>
+      </form>
 
-      <nav aria-label="Table of contents"><h2>Table of contents</h2>
-        <ul class="book-toc list-unstyled">
-<li><a class="" href="index.html">Introduction</a></li>
-<li><a class="" href="how-to-install-and-run.html">How to install and run</a></li>
-<li><a class="" href="data-requirements.html">Data requirements</a></li>
-<li><a class="active" href="upload-data.html">Upload data</a></li>
-<li><a class="" href="core-module-features.html">Core Module Features</a></li>
-<li><a class="" href="summary-and-report.html">Summary and Report</a></li>
-<li><a class="" href="variant-calling.html">Variant Calling</a></li>
-<li><a class="" href="fusion-genes-1.html">Fusion Genes</a></li>
-<li><a class="" href="expression-profile-1.html">Expression Profile</a></li>
-<li><a class="" href="network-graph.html">Network Graph</a></li>
-</ul>
+      <nav aria-label="Table of contents">
+        <h2>Table of contents</h2>
+        <div id="book-toc"></div>
 
         <div class="book-extra">
-          
+          <p><a id="book-repo" href="#">View book source <i class="fab fa-github"></i></a></li></p>
         </div>
       </nav>
-</div>
-  </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><div id="upload-data" class="section level1 unnumbered">
-<h1>Upload data<a class="anchor" aria-label="anchor" href="#upload-data"><i class="fas fa-link"></i></a>
-</h1>
+    </div>
+  </header>
+
+  <main class="col-sm-12 col-md-9 col-lg-7" id="content">
+<div id="upload-data" class="section level1 unnumbered">
+<h1>Upload data</h1>
 <p>This module serves as the starting point for the SequiaViz application. Before uploading data, ensure that your input files and directories are properly formatted according to the specifications outlined in chapter <a href="data-requirements.html#data-requirements">Data Requirements</a> and section below.</p>
 <div id="step-1-directory-patient-and-dataset-selection" class="section level2 unnumbered">
-<h2>Step 1: Directory, patient and dataset selection<a class="anchor" aria-label="anchor" href="#step-1-directory-patient-and-dataset-selection"><i class="fas fa-link"></i></a>
-</h2>
+<h2>Step 1: Directory, patient and dataset selection</h2>
 <ol style="list-style-type: decimal">
-<li>
-<p><strong>Select main directory</strong> containing data for all patients.</p>
+<li><p><strong>Select main directory</strong> containing data for all patients.</p>
 <p>In example bellow, the <strong>main directory</strong> is <code>project_root</code>, which contains subdirectories for each patient (<code>patient_001</code>, …, <code>patient_N</code>) and general files like <code>genes_of_interest.tsv</code> and <code>mutation_loads.tsv</code>.</p>
-<p>If you select a broader directory, such as <code>user</code>, it may contain unnecessary files that could interfere with the tool’s ability to select correct files. To avoid this, it is recommended to select the most specific directory possible, such as <code>project_root</code>.</p>
-</li>
+<p>If you select a broader directory, such as <code>user</code>, it may contain unnecessary files that could interfere with the tool’s ability to select correct files. To avoid this, it is recommended to select the most specific directory possible, such as <code>project_root</code>.</p></li>
 </ol>
 <pre><code>home/
 └── user/
@@ -97,29 +110,22 @@
         └── patient_N/
             └── ... </code></pre>
 <ol start="2" style="list-style-type: decimal">
-<li>
-<p><strong>Add patient IDs</strong></p>
-<p>Enter one or more patient IDs. If you have multiple IDs, you can input them all at once, separated by commas or new lines.</p>
-</li>
-<li>
-<p><strong>Select dataset types</strong> you want to visualize.</p>
+<li><p><strong>Add patient IDs</strong></p>
+<p>Enter one or more patient IDs. If you have multiple IDs, you can input them all at once, separated by commas or new lines.</p></li>
+<li><p><strong>Select dataset types</strong> you want to visualize.</p>
 <p>For each dataset, you can define specific patterns to identify relevant files:</p>
 <ul>
-<li>
-<strong>Set patterns</strong> for BAM files (e.g., “tumor”, “FFPE”, “normal”, “ctrl”, “chimeric”). If no pattern is set, BAM and BAI files will not be searched for.</li>
-<li>
-<strong>Set reference tissues</strong> for expression analysis (e.g., “blood”, “blood_vessel”, “liver”). If no tissue is specified, the tool will search for a file named <code>expression.tsv</code>.</li>
+<li><strong>Set patterns</strong> for BAM files (e.g., “tumor”, “FFPE”, “normal”, “ctrl”, “chimeric”). If no pattern is set, BAM and BAI files will not be searched for.</li>
+<li><strong>Set reference tissues</strong> for expression analysis (e.g., “blood”, “blood_vessel”, “liver”). If no tissue is specified, the tool will search for a file named <code>expression.tsv</code>.</li>
 </ul>
-<p>If a dataset is not selected, its files will be ignored.</p>
-</li>
+<p>If a dataset is not selected, its files will be ignored.</p></li>
 </ol>
 <div class="alert alert-info">
 <p><strong>Note:</strong> In case of more words in tissue names (e.g., “blood vessel”), use underscores instead of spaces (e.g., “blood_vessel”). Also, in Validation step, make extra sure, that correct file was paired to correct tissue.</p>
 </div>
 </div>
 <div id="step-2-validation-and-confirmation" class="section level2 unnumbered">
-<h2>Step 2: Validation and confirmation<a class="anchor" aria-label="anchor" href="#step-2-validation-and-confirmation"><i class="fas fa-link"></i></a>
-</h2>
+<h2>Step 2: Validation and confirmation</h2>
 <ol style="list-style-type: decimal">
 <li>The application <strong>searches</strong> the selected directory and identifies all relevant files.</li>
 <li>It <strong>displays an overview</strong> of the files found for each patient and selected dataset.</li>
@@ -128,10 +134,8 @@
 <li>🟢 <strong>Green</strong>: All required files are found (e.g., variant file, fusion file, expression file).</li>
 <li>🟠 <strong>Orange</strong>: Optional files are missing (e.g., BAM files for IGV visualization). You can continue without these files, but some features will be unavailable.</li>
 <li>🔴 <strong>Red</strong>: Required files are missing or there are too many files. You must resolve these issues before proceeding. See the Common Errors and Solutions section below for help.</li>
-</ul>
-</li>
-<li>
-<strong>Confirm configuration</strong> to continue</li>
+</ul></li>
+<li><strong>Confirm configuration</strong> to continue</li>
 </ol>
 <div class="alert alert-info">
 <p><strong>Note:</strong> If you realize in Step 2 that you made a mistake in Step 1, you can go back to Step 1 using the <strong>Back</strong> to Selection button and adjust your configuration. If you didn’t make a mistake but notice that some files are missing, you can add them to the directory or rename them as needed. Then, use the <strong>Refresh</strong> button to search for files again.</p>
@@ -144,13 +148,11 @@
 </div>
 </div>
 <div id="common-errors-and-solutions" class="section level2 unnumbered">
-<h2>Common Errors and Solutions<a class="anchor" aria-label="anchor" href="#common-errors-and-solutions"><i class="fas fa-link"></i></a>
-</h2>
+<h2>Common Errors and Solutions</h2>
 <div id="required-file-missing" class="section level4 unnumbered">
-<h4>
-<strong>“Required file missing”</strong><a class="anchor" aria-label="anchor" href="#required-file-missing"><i class="fas fa-link"></i></a>
-</h4>
-<p><strong>Cause</strong>: A required file for the selected dataset type is missing.<br><strong>Solution</strong>:</p>
+<h4><strong>“Required file missing”</strong></h4>
+<p><strong>Cause</strong>: A required file for the selected dataset type is missing.<br />
+<strong>Solution</strong>:</p>
 <ul>
 <li>Verify that the file exists in the patient directory.</li>
 <li>Check the file name to ensure it includes the patient ID (pay special attention to case sensitivity).</li>
@@ -158,10 +160,9 @@
 </ul>
 </div>
 <div id="multiple-files-found" class="section level4 unnumbered">
-<h4>
-<strong>“Multiple files found”</strong><a class="anchor" aria-label="anchor" href="#multiple-files-found"><i class="fas fa-link"></i></a>
-</h4>
-<p><strong>Cause</strong>: Multiple files of the same type were found for a single patient.<br><strong>Solution</strong>:</p>
+<h4><strong>“Multiple files found”</strong></h4>
+<p><strong>Cause</strong>: Multiple files of the same type were found for a single patient.<br />
+<strong>Solution</strong>:</p>
 <ul>
 <li>Remove or rename duplicate files.</li>
 <li>Ensure that each patient has only one file of each type.</li>
@@ -169,10 +170,9 @@
 </ul>
 </div>
 <div id="missing-bam-or-bai" class="section level4 unnumbered">
-<h4>
-<strong>“Missing BAM or BAI”</strong><a class="anchor" aria-label="anchor" href="#missing-bam-or-bai"><i class="fas fa-link"></i></a>
-</h4>
-<p><strong>Cause</strong>: A BAM file is missing its corresponding index file (.bai).<br><strong>Solution</strong>:</p>
+<h4><strong>“Missing BAM or BAI”</strong></h4>
+<p><strong>Cause</strong>: A BAM file is missing its corresponding index file (.bai).<br />
+<strong>Solution</strong>:</p>
 <ul>
 <li>Generate the missing <code>.bai</code> file using the command <code>samtools index</code>.</li>
 <li>Ensure that the <code>.bai</code> file is named correctly.</li>
@@ -180,10 +180,9 @@
 </ul>
 </div>
 <div id="missing-pdf-or-tsv" class="section level4 unnumbered">
-<h4>
-<strong>“Missing PDF or TSV”</strong><a class="anchor" aria-label="anchor" href="#missing-pdf-or-tsv"><i class="fas fa-link"></i></a>
-</h4>
-<p><strong>Cause</strong>: The output from the Arriba analysis is incomplete.<br><strong>Solution</strong>:</p>
+<h4><strong>“Missing PDF or TSV”</strong></h4>
+<p><strong>Cause</strong>: The output from the Arriba analysis is incomplete.<br />
+<strong>Solution</strong>:</p>
 <ul>
 <li>Ensure that both the <code>.pdf</code> and <code>.tsv</code> files from the Arriba analysis are present.</li>
 <li>Verify that both files include the string “arriba” in their names and have the correct extensions (<code>.tsv</code>, <code>.pdf</code>).</li>
@@ -191,45 +190,42 @@
 <p><strong>FILL ALSO USE CASE FOR EXPRESSION FILES - MORE TISSUES THAN FILES OR MORE FILES THEN TISSUES –&gt; TROUBLES WITH MATCHING TISSUE NAMES</strong> {-}</p>
 </div>
 <div id="section" class="section level4 unnumbered">
-<h4>
-<strong>” “</strong><a class="anchor" aria-label="anchor" href="#section"><i class="fas fa-link"></i></a>
-</h4>
-<p><strong>Cause</strong>: The number of tissues does not match the number of expression files found, or the tissue names cannot be matched to the files.<br><strong>Solution</strong>:</p>
+<h4><strong>” “</strong></h4>
+<p><strong>Cause</strong>: The number of tissues does not match the number of expression files found, or the tissue names cannot be matched to the files.<br />
+<strong>Solution</strong>:</p>
 <ul>
 <li>Verify that each tissue has a corresponding expression file.</li>
 <li>Ensure that tissue names in the configuration match the file names (use underscores instead of spaces, e.g., <code>blood_vessel</code> instead of <code>blood vessel</code>).</li>
 <li>Double-check the pairing of tissues and files during the validation step.</li>
 </ul>
+
 </div>
 </div>
 </div>
-  <div class="chapter-nav">
-<div class="prev"><a href="data-requirements.html">Data requirements</a></div>
-<div class="next"><a href="core-module-features.html">Core Module Features</a></div>
-</div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
-    <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
-      <ul class="nav navbar-nav">
-<li><a class="nav-link" href="#upload-data">Upload data</a></li>
-<li><a class="nav-link" href="#step-1-directory-patient-and-dataset-selection">Step 1: Directory, patient and dataset selection</a></li>
-<li><a class="nav-link" href="#step-2-validation-and-confirmation">Step 2: Validation and confirmation</a></li>
-<li><a class="nav-link" href="#common-errors-and-solutions">Common Errors and Solutions</a></li>
-</ul>
+  </main>
+
+  <div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <div id="book-on-this-page"></div>
 
       <div class="book-extra">
         <ul class="list-unstyled">
-          
+          <li><a id="book-source" href="#">View source <i class="fab fa-github"></i></a></li>
+          <li><a id="book-edit" href="#">Edit this page <i class="fab fa-github"></i></a></li>
         </ul>
-</div>
+      </div>
     </nav>
-</div>
+  </div>
 
 </div>
 </div> <!-- .container -->
 
-<footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
+<footer class="bg-primary text-light mt-5">
+  <div class="container"><div class="row">
 
   <div class="col-12 col-md-6 mt-3">
-    <p>"<strong>SequiaViz Documentation</strong>" was written by Kateřina Jurásková. It was last built on 2025-11-12.</p>
+    <p>"<strong>SequiaViz Documentation</strong>" was written by Kateřina Jurásková. It was last built on 2025-11-28.</p>
   </div>
 
   <div class="col-12 col-md-6 mt-3">
@@ -238,5 +234,8 @@
 
 </div></div>
 </footer>
+
+
 </body>
+
 </html>
