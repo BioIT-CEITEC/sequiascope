@@ -349,54 +349,42 @@ Shiny.addCustomMessageHandler('cy-init', function(data) {
         }, 100);
         
     } else {
-        console.log('⏱️ [cy-init] UPDATING existing instance...');
+        console.log('⏱️ [cy-init] DESTROYING old instance and creating new...');
         const updateStart = performance.now();
         
-        const cy = cytoscapeInstances[instanceKey];
+        // 🔑 DESTROY old instance to free memory
+        const oldCy = cytoscapeInstances[instanceKey];
+        if (oldCy) {
+            console.log('🗑️ Destroying old Cytoscape instance');
+            oldCy.destroy();
+        }
         
         // 🔑 VYČISTIT lastSentSelection - nová pathway, nový stav
         lastSentSelection[data.patientId] = [];
         console.log('🧹 Cleared lastSentSelection cache');
         
-        // 🔑 RYCHLÁ AKTUALIZACE: Batch update pro lepší performance
+        // 🔑 CREATE NEW INSTANCE instead of updating
+        console.log('⏱️ Creating fresh instance...');
         const batchStart = performance.now();
-        cy.batch(() => {
-            // Odstranit staré elementy
-            cy.elements().remove();
-            
-            // Přidat nové elementy
-            cy.add(data.elements);
-        });
+        cytoscapeInstances[instanceKey] = initializeCytoscape(containerId, data);
         const batchEnd = performance.now();
-        console.log(`⏱️ [cy-init] Batch update completed in ${((batchEnd - batchStart) / 1000).toFixed(2)}s`);
+        console.log(`⏱️ [cy-init] Fresh instance created in ${((batchEnd - batchStart) / 1000).toFixed(2)}s`);
         
-        // 🔑 KLÍČOVÁ OPRAVA: Po update MUSÍME znovu aplikovat stylesheet!
-        cy.style(getCytoscapeStylesheet());
+        const nodes = cytoscapeInstances[instanceKey].nodes().length;
+        const edges = cytoscapeInstances[instanceKey].edges().length;
+        console.log(`📊 New instance - Nodes: ${nodes}, Edges: ${edges}`);
         
-        // 🔑 Spustit layout (bez animace pro rychlost)
-        const layoutStart = performance.now();
-        const layout = cy.layout({ name: 'cola', animate: false });
-        
-        layout.on('layoutstop', () => {
-            const layoutEnd = performance.now();
-            console.log(`⏱️ [cy-init] Layout completed in ${((layoutEnd - layoutStart) / 1000).toFixed(2)}s`);
-            
-            // 🔑 Signal R that rendering is complete
-            signalComplete(performance.now() - startTime);
-        });
-        
-        layout.run();
-        
-        const nodes = cy.nodes().length;
-        const edges = cy.edges().length;
-        console.log(`📊 Updated instance - Nodes: ${nodes}, Edges: ${edges}, edge styles applied`);
-        
-        // 🔍 Debug: Zkontrolovat ukázkové edge data po update
-        const sampleEdges = cy.edges().slice(0, 3);
+        // 🔍 Debug: Zkontrolovat ukázkové edge data
+        const sampleEdges = cytoscapeInstances[instanceKey].edges().slice(0, 3);
         sampleEdges.forEach((edge, i) => {
             const data = edge.data();
             console.log(`🔍 Sample edge ${i + 1}: ${data.source} → ${data.target}, source_type: ${data.source_type}, color: ${edge.style('line-color')}`);
         });
+        
+        // 🔑 Signal completion after a short delay (layout is running)
+        setTimeout(() => {
+            signalComplete(performance.now() - startTime);
+        }, 100);
     }
 
     // 🔑 NEZNOVU vybírat previouslySelectedNodes - R pošle správnou selection!
@@ -421,16 +409,16 @@ Shiny.addCustomMessageHandler('cy-subset', function(data) {
     if (!cytoscapeInstances[instanceKey]) {
         cytoscapeInstances[instanceKey] = initializeCytoscape(containerId, data, true);
     } else {
-        cytoscapeInstances[instanceKey].batch(() => {
-            cytoscapeInstances[instanceKey].elements().remove();
-            cytoscapeInstances[instanceKey].add(data.elements);
-        });
-
-        cytoscapeInstances[instanceKey].resize();
-        // 🔑 NEJDŘÍVE layout
-        cytoscapeInstances[instanceKey].layout({ name: 'cola', animate: false }).run();
-        // 🔑 PAK stylesheet
-        cytoscapeInstances[instanceKey].style(getCytoscapeStylesheet());
+        // 🔑 DESTROY old subset instance to free memory
+        console.log('🗑️ Destroying old subset instance');
+        const oldSubset = cytoscapeInstances[instanceKey];
+        if (oldSubset) {
+            oldSubset.destroy();
+        }
+        
+        // 🔑 CREATE NEW SUBSET INSTANCE
+        console.log('⏱️ Creating fresh subset instance...');
+        cytoscapeInstances[instanceKey] = initializeCytoscape(containerId, data, true);
     }
 });
 
