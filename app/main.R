@@ -27,7 +27,7 @@ box::use(
   rhino,
   shiny[h1,h2,h3,bootstrapPage,div,moduleServer,NS,renderUI,tags,uiOutput,icon,observeEvent,observe,reactive,isTruthy,onFlushed,appendTab,removeTab,withProgress,
         fluidRow,fluidPage,mainPanel,tabPanel,titlePanel,tagList,HTML,textInput,sidebarLayout,sidebarPanel,includeScript,invalidateLater,isolate,
-        br,updateTabsetPanel,imageOutput,renderImage,reactiveVal,req,fixedPanel,reactiveValues,fileInput,showNotification],
+        br,updateTabsetPanel,imageOutput,renderImage,reactiveVal,req,fixedPanel,reactiveValues,fileInput,showNotification,showTab,hideTab],
   bs4Dash[dashboardPage, dashboardHeader, dashboardSidebar, dashboardBody, sidebarMenu, menuItem, menuSubItem, dashboardControlbar,tabItems, tabItem, bs4Card,infoBox,tabBox,tabsetPanel,bs4ValueBox,
           controlbarMenu,controlbarItem,column,box,boxLabel,descriptionBlock,boxProfile,boxProfileItem,attachmentBlock,boxComment,userBlock,updateTabItems,boxDropdown,boxDropdownItem,dropdownDivider,
           navbarMenu,navbarTab,actionButton,updateNavbarTabs, insertTab],
@@ -423,7 +423,21 @@ server <- function(id) {
       germline_patients <- get_patients(confirmed_paths, "germline")
       fusion_patients <- get_patients(confirmed_paths, "fusion")
       expression_patients <- get_patients(confirmed_paths, "expression")
-      
+
+      # Show/hide Variant Calling tabs based on available data
+      if (length(somatic_patients) > 0) {
+        showTab(inputId = "variant_calling_tabs", target = "somatic",
+                select = (length(germline_patients) == 0))
+      } else {
+        hideTab(inputId = "variant_calling_tabs", target = "somatic")
+      }
+      if (length(germline_patients) > 0) {
+        showTab(inputId = "variant_calling_tabs", target = "germline",
+                select = (length(somatic_patients) == 0))
+      } else {
+        hideTab(inputId = "variant_calling_tabs", target = "germline")
+      }
+
       update_waiter_progress(session, 15, "Checking session...")
       
       session_dir <- isolate(shared_data$session_dir())
