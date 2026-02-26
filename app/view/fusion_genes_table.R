@@ -40,7 +40,9 @@ ui <- function(id) {
   tagList(
     tags$head(tags$style(HTML(".download-dropdown-wrapper .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
                                .download-dropdown-wrapper .dropdown-toggle::after {display: none !important;}
-                               .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))),
+                               .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
+                               button:has(.fa-play) .glyphicon-triangle-bottom { display: none !important; }
+                               button:has(.fa-play) .fa-play { font-size: 0.75em; }"))),
     div(style = "position: relative;",
       uiOutput(ns("prerun_loading")),
       div(id = ns("main_content"),
@@ -240,7 +242,7 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
             h3(paste0("Preparing Fusion Data for ", patient_id, "..."), 
                style = "margin-bottom: 10px; color: #fff;"),
             tags$div(
-              style = "font-size: 1.2em; color: #ffd43b; margin-bottom: 25px; font-weight: 600;",
+              style = "font-size: 1.2em; color: #4dabf7; margin-bottom: 25px; font-weight: 600;",
               fusion_info
             ),
             tags$div(
@@ -275,14 +277,18 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
     prepare_data <- reactive({
       req(prerun_ready())
       
-      output_dir <- shared_data$output_path()
+      session_dir <- shared_data$session_dir()
 
       message("[fusion] Loading input data for: ", file$fusion)
       data <- load_data(file$fusion, "fusion", selected_samples)
-      manifest_dt <- read_fusion_manifest(selected_samples, www_dir = output_dir)
+      manifest_dt <- read_fusion_manifest(selected_samples, www_dir = session_dir)
       # Add arriba.confidence_sort to column names since it will be created in prepare function
       all_col_names <- c(colnames(data), "arriba.confidence_sort")
-      patient_dt <- prepare_fusion_genes_table(selected_samples, as.data.table(data), manifest_dt, all_col_names, shared_data, session = list(ns = session$ns) )
+      result <- prepare_fusion_genes_table(selected_samples, as.data.table(data), manifest_dt, all_col_names, shared_data, session = list(ns = session$ns))
+      
+      # prepare_fusion_genes_table returns list(dt, columns) when manifest exists,
+      # or bare data.table when manifest is NULL (should not happen in normal workflow)
+      patient_dt <- if (is.list(result) && !is.data.table(result)) result$dt else result
 
       message(sprintf("[fusion] Rows: %d | has_svg: %d | has_png: %d",
                       nrow(patient_dt), sum(patient_dt$has_svg, na.rm = TRUE), sum(patient_dt$has_png, na.rm = TRUE)))
@@ -294,11 +300,14 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
                 paste(c(bad$sample, bad$gene1, bad$gene2, bad$chr1, bad$pos1, bad$chr2, bad$pos2), collapse=" | "))
       }
       
-      patient_dt
+      result
     })
     
     data <- reactive(prepare_data()$dt)
-    colnames_list <- prepare_data()$columns
+    colnames_list <- reactive({
+      res <- prepare_data()
+      if (is.list(res) && !is.data.table(res)) res$columns else NULL
+    })
     
     fusion_data_to_render <- reactiveVal(NULL)
     observeEvent(data(), ignoreInit = FALSE, {
@@ -319,15 +328,21 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
     # mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     mapped_checkbox_names <- reactive({
       req(data())
-      req(colnames_list)
-      map_checkbox_names(map_list, colnames_list$all_columns)
+      req(colnames_list())
+      map_checkbox_names(map_list, colnames_list()$all_columns)
     })
     
-    filter_state <- filterTab_server("filterTab_dropdown", colnames_list, data(), mapped_checkbox_names,  is_restoring = is_restoring_session)
+    filter_state <- filterTab_server("filterTab_dropdown", colnames_list, data(), mapped_checkbox_names, is_restoring = is_restoring_session)
     
     ############
     notes_state <- reactiveVal(data.frame(row = integer(), value = character()))
-    selected_columns <- reactiveVal(colnames_list$default_columns)
+    selected_columns <- reactiveVal(NULL)
+    observe({
+      cl <- colnames_list()
+      if (!is.null(cl) && !is.null(cl$default_columns) && is.null(isolate(selected_columns()))) {
+        selected_columns(cl$default_columns)
+      }
+    })
     selected_fusions <- reactiveVal(data.frame(gene1 = character(), gene2 = character()))
     visual_check_state <- reactiveVal(data.frame(row = integer(), value = character()))
     fusion_data_to_render <- reactiveVal(NULL)
@@ -369,7 +384,7 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
                           details = function(index) {
                             svg_file <- dt$svg_path[index]
                             png_file <- dt$png_path[index]
-                            output_dir <- shared_data$output_path()
+                            output_dir <- shared_data$session_dir()
                             
                             # Helper function to read and encode image as base64 data URI
                             read_as_base64 <- function(file_path, mime_type) {
@@ -788,7 +803,7 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
       # Normalizuj current selection
       current_selection <- isolate(input$colFilter_checkBox)
       default_selection <- if (!initialized() || is.null(current_selection) || length(current_selection) == 0) {
-        colnames_list$default_columns
+        colnames_list()$default_columns
       } else {
         current_selection
       }
@@ -796,7 +811,7 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
       selected_values <- normalize_column_selection(
         selection = default_selection,
         choices_map = col_choices_ordered,
-        default_cols = colnames_list$default_columns
+        default_cols = colnames_list()$default_columns
       )
 
       updatePrettyCheckboxGroup(
@@ -834,9 +849,9 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
     observeEvent(input$show_default, {
       req(mapped_checkbox_names())
       default_values <- normalize_column_selection(
-        selection = colnames_list$default_columns,
+        selection = colnames_list()$default_columns,
         choices_map = mapped_checkbox_names(),
-        default_cols = colnames_list$default_columns
+        default_cols = colnames_list()$default_columns
       )
 
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = default_values)
@@ -854,7 +869,7 @@ filterTab_server <- function(id,colnames_list,data,mapped_checkbox_names, is_res
         wanted_values <- normalize_column_selection(
           selection = wanted,
           choices_map = isolate(mapped_checkbox_names()),
-          default_cols = colnames_list$default_columns
+          default_cols = colnames_list()$default_columns
         )
         
         message(sprintf("Final selected values: %s", paste(wanted_values, collapse = ", ")))

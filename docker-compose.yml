@@ -32,6 +32,6 @@ services:
     environment:
       - INPUT_DIR=/input_files
       - OUTPUT_BASE_DIR=/output_files
-      - WATCH_DIR=/output_files/igv_snapshots
+      - WATCH_DIR=/output_files/sessions
       - PROCESSED_DIR=/output_files/.processed_batches
 

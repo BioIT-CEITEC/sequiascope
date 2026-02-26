@@ -255,6 +255,7 @@ save_session <- function(file = "session_data.json", shared_data, module_types =
   session_metadata <- list(
     data = session,
     session_dir = nz(shared_data$session_dir(), NULL),
+    dataset_name = if (!is.null(shared_data$data_path())) basename(shared_data$data_path()) else NULL,
     saved_at = Sys.time(),
     fusion_prerun_completed = fusion_prerun_completed,  # Add fusion prerun status
     igv_genome = nz(shared_data$igv_genome(), NULL)  # Add IGV genome selection

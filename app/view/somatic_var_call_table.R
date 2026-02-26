@@ -40,7 +40,9 @@ ui <- function(id) {
   tagList(
     tags$head(tags$style(HTML(".download-dropdown-wrapper .dropdown-toggle {border-radius: 0; padding: 0; background-color: transparent; border: none; float: right; margin-top: -1px;}
                                .download-dropdown-wrapper .dropdown-toggle::after {display: none !important;}
-                               .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}"))),
+                               .download-dropdown-wrapper .glyphicon-triangle-bottom {display: none !important; width: 0 !important; margin: 0 !important; padding: 0 !important;}
+                               button:has(.fa-play) .glyphicon-triangle-bottom { display: none !important; }
+                               button:has(.fa-play) .fa-play { font-size: 0.75em; }"))),
     fluidRow(
       div(class = "download-dropdown-wrapper", style = "width: 100%; text-align: right; display: flex; flex-direction: row-reverse;",
          dropdownButton(label = NULL,right = TRUE,width = "240px",icon = HTML('<i class="fa-solid fa-download download-button"></i>'),

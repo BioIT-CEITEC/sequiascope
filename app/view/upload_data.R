@@ -1,7 +1,7 @@
 box::use(
   shiny[NS,tagList,fileInput,moduleServer,observe,reactive,textOutput,updateTextInput,renderText,req,textInput,observeEvent,textAreaInput,column,fluidRow,reactiveVal,
         isTruthy,actionButton,icon,updateTextAreaInput,uiOutput,renderUI,bindEvent,fluidPage,radioButtons,verbatimTextOutput,renderPrint,reactiveValuesToList,showNotification,
-        outputOptions,conditionalPanel,reactiveValues,isolate],
+        outputOptions,conditionalPanel,reactiveValues,isolate,showModal,removeModal,modalDialog,modalButton,selectizeInput],
   htmltools[tags,HTML,div,span,h2,h3,h4,br],
   shinyFiles[shinyDirButton,shinyDirChoose,parseDirPath,getVolumes],
   shinyWidgets[prettySwitch,updatePrettySwitch,pickerInput,updatePickerInput, dropdownButton,tooltipOptions,radioGroupButtons],
@@ -10,7 +10,8 @@ box::use(
   stringr[str_detect,regex],
   shinyalert[shinyalert],
   waiter[waiter_show, waiter_hide, spin_fading_circles],
-  jsonlite[fromJSON]
+  jsonlite[fromJSON],
+  stats[setNames],
   # shinyjs[useShinyjs,runjs],
 )
 # 
@@ -200,65 +201,82 @@ server <- function(id, shared_data) {
       register_module(shared_data, "upload", module_id = "upload", methods)
     })
     
+    # ── Load session: open modal with searchable session picker ──────────────
     observeEvent(step1$load_request(), {
-      shinyalert(
-        title = "Confirm Load",
-        text  = "Do you really want to load the session? This will overwrite current selections.",
-        type  = "warning",
-        showCancelButton = TRUE,
-        confirmButtonText = "Yes, load it",
-        cancelButtonText  = "Cancel",
-        callbackR = function(ok) {
-          if (isTRUE(ok)) {
-            # Show waiter - id = NA for fullscreen
-            waiter_show(
-              id = NA,
-              html = tagList(
-                spin_fading_circles(),
-                h3("Loading session data...", style = "color: white; margin-top: 20px;")
-              ),
-              color = "rgba(0, 0, 0, 0.8)"
-            )
-            
-            session_base <- file.path(shared_data$output_path(),"sessions")
-            
-            if (!dir.exists(session_base)) {
-              waiter_hide(id = NA)
-              showNotification("❌ No sessions directory found!", type = "error")
-              return()
-            }
-            
-            session_dirs <- list.dirs(session_base, full.names = TRUE, recursive = FALSE)
-            
-            if (length(session_dirs) == 0) {
-              waiter_hide(id = NA)
-              showNotification("❌ No session directories found!", type = "error")
-              return()
-            }
-            
-            latest_session <- session_dirs[which.max(file.info(session_dirs)$mtime)]
-            session_file <- file.path(latest_session, "session_data.json")
-            
-            if (!file.exists(session_file)) {
-              waiter_hide(id = NA)
-              showNotification(paste("❌ Session file not found:", session_file), type = "error")
-              return()
-            }
-            
-            abs_session_dir <- normalizePath(latest_session, mustWork = TRUE)
-            shared_data$session_dir(abs_session_dir)
-            shared_data$is_loading_session(TRUE)
-            
-            load_session(session_file, shared_data)
-            
-            waiter_hide(id = NA)
-            showNotification("✅ Session successfully loaded.", type = "message")
-            step(2)
-          } else {
-            showNotification("Loading session was canceled.", type = "default")
-          }
-        }
-      )
+      session_base <- file.path(shared_data$output_path(), "sessions")
+
+      if (!dir.exists(session_base)) {
+        showNotification("❌ No sessions directory found!", type = "error")
+        return()
+      }
+
+      session_dirs <- list.dirs(session_base, full.names = TRUE, recursive = FALSE)
+      session_dirs <- session_dirs[file.exists(file.path(session_dirs, "session_data.json"))]
+
+      if (length(session_dirs) == 0) {
+        showNotification("❌ No saved sessions found!", type = "error")
+        return()
+      }
+
+      mtimes       <- file.info(session_dirs)$mtime
+      session_dirs <- session_dirs[order(mtimes, decreasing = TRUE)]
+      mtimes       <- mtimes[order(mtimes, decreasing = TRUE)]
+      labels       <- paste0(basename(session_dirs), "  (", format(mtimes, "%d.%m.%Y %H:%M"), ")")
+      default_name <- basename(session_dirs)[1]  # first = newest
+      choices_named <- stats::setNames(basename(session_dirs), labels)
+
+      showModal(modalDialog(
+        title = "Load session",
+        tags$style(HTML("
+          .modal-dialog   { top: 50%; transform: translateY(-50%); margin: 0 auto; }
+          .modal-content  { border-radius: 12px; }
+          .modal-header  { border-bottom: 1px solid #f0f0f0; padding: 16px 20px; }
+          .modal-title   { font-size: 18px; font-weight: 600; }
+          .modal-footer  { border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; }
+        ")),
+        selectizeInput(
+          inputId  = ns("session_picker"),
+          label    = "Select project to load:",
+          choices  = choices_named,
+          selected = default_name,
+          width    = "100%",
+          options  = list(placeholder = "Search...", onInitialize = I('function() { this.setValue(""); }'))
+        ),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton(ns("confirm_load_session_btn"), "Load session",
+                       style = "background-color: #74c0fc; color: white; border-color: #74c0fc;",
+                       icon  = icon("upload"))
+        ),
+        easyClose = TRUE
+      ))
+    })
+
+    observeEvent(input$confirm_load_session_btn, {
+      removeModal()
+
+      selected_name <- input$session_picker
+      if (is.null(selected_name) || selected_name == "") {
+        showNotification("⚠️ Please select a session first.", type = "warning")
+        return()
+      }
+
+      selected_dir <- file.path(shared_data$output_path(), "sessions", selected_name)
+      session_file <- file.path(selected_dir, "session_data.json")
+
+      if (!file.exists(session_file)) {
+        showNotification(paste("❌ Session file not found:", session_file), type = "error")
+        return()
+      }
+
+      abs_session_dir <- normalizePath(selected_dir, mustWork = TRUE)
+      shared_data$session_dir(abs_session_dir)
+      shared_data$is_loading_session(TRUE)
+
+      load_session(session_file, shared_data)
+
+      showNotification(paste0("✅ Session '", selected_name, "' successfully loaded."), type = "message")
+      step(2)
     })
     
     return(list(confirmed_paths = reactive(confirmed_paths_state())))

@@ -72,11 +72,12 @@ box::use(
   # app/logic/helper_igv[start_static_server,stop_static_server],
   app/view/networkGraph_cytoscape,
   app/logic/session_utils[load_session, save_session, cleanup_old_sessions, create_session_cache],
-  app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data,prerun_fusion_patient,get_fusion_prerun_status],
+  app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data,prerun_fusion_patient,get_fusion_prerun_status,check_fusion_status,cleanup_patient_fusion_outputs],
   app/logic/test_background_process[test_background_worker_single,test_background_worker],
   app/logic/helper_main[get_patients, get_files_by_patient, add_dataset_tabs, add_summary_boxes],
   app/logic/helper_waiter[show_waiter_with_progress, update_waiter_progress, wait_for_summary_rendered, get_waiter_js],
   app/logic/navigation_lock[lock_navigation, unlock_navigation, get_navigation_lock_css, get_navigation_lock_js],
+  app/logic/helper_prerun_dialog[check_and_show_fusion_dialog],
 )
 
 #####################################################
@@ -89,30 +90,39 @@ ui <- function(id){
   useShinyjs()
   useWaiter()
   tags$head(
-    tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"),
-    tags$style(HTML("#app-plots_tabBox_box {box-shadow: none !important; border: none !important;}")))
+    tags$link(rel = "stylesheet", href = "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"))
     
   dashboardPage(
     dark = NULL, 
+    help = NULL,
     preloader = list(html = spin_1(), color = "#333e48"),
     header = dashboardHeader(
       nav = navbarMenu(id = ns("navbarMenu"),
         navbarTab("Upload data", tabName = ns("upload_data")),
-        # navbarTab("Variant calling", tabName = ns("variant_calling")),
         navbarTab("Summary", tabName = ns("summary")),
-        navbarTab("Fusion genes", tabName = ns("fusion_genes")),
-
         navbarTab("Variant calling", tabName = ns("variant_calling")),
-
+        navbarTab("Fusion genes", tabName = ns("fusion_genes")),
         navbarTab("Expression profile", tabName = ns("expression_profile")),
         navbarTab("IGV", tabName = ns("hidden_igv")),
         navbarTab("Network graph", tabName = ns("network_graph"))
       ),
       rightUi = tagList(
-        tags$li(class = "dropdown", actionButton(ns("save_session_btn"), label = NULL, icon = icon("floppy-disk", style = "color: #1D89FF;"), title = "Save session")))),
+        tags$li(class = "dropdown",
+          tags$a(href = "javascript:void(0);",onclick = sprintf("Shiny.setInputValue('%s', Math.random(), {priority: 'event'});", ns("save_session_btn")),title = "Save session",class = "btn btn-link",style = "color: #74c0fc; font-size: 18px; padding: 12px 10px;",icon("floppy-disk"))),
+        tags$li(class = "dropdown",
+          tags$a(href = "https://katjur01.github.io/seqUIaSCOPE/",target = "_blank", title = "Open documentation", class = "btn btn-link", style = "color: #74c0fc; font-size: 18px; padding: 12px 10px; margin-right: 30px;", icon("circle-question"))))),
     sidebar = dashboardSidebar(disable = TRUE),
     body = dashboardBody(#style = "background-color: white;",
       tags$head(
+        tags$style(HTML("
+          .navbar-nav > li > a.btn-link:focus,
+          .navbar-nav > li > a.btn-link:active,
+          .navbar-nav > li > a.btn-link:hover {
+            background-color: transparent !important;
+            box-shadow: none !important;
+            outline: none !important;
+          }
+        ")),
         tags$script(src = "static/js/app.min.js"),
         tags$script(src = "static/js/cytoscape_init.js"),
         get_waiter_js(),
@@ -238,7 +248,7 @@ ui <- function(id){
                   fluidPage(
                     tags$style(HTML(".btn-group > .btn.active {background-color: skyblue; color: white;}
                                      .btn-mygrey {background-color: lightgray; color: black;}")),
-                    div(class = "patient-tabs", style = "box-shadow: none !important;",
+                    div(class = "patient-tabs",
                         tabsetPanel(id = ns("expression_tabset")))
                     ))),
         tabItem(tabName = ns("network_graph"),
@@ -280,15 +290,10 @@ server <- function(id) {
     output_dirname <- config$output_dir  # e.g. "output_files"
     
     # Load custom genome configuration (if defined)
-    custom_genome_config <- if (!is.null(config$custom_genome)) {
-      config$custom_genome
-    } else {
-      NULL
-    }
-    if (!is.null(custom_genome_config)) {
-      message("🧬 Custom genome configured: ", custom_genome_config$display_name, " (", custom_genome_config$igv_id, ")")
-    }
+    custom_genome_config <- if (!is.null(config$custom_genome)) config$custom_genome else NULL
     
+    if (!is.null(custom_genome_config)) message("🧬 Custom genome configured: ", custom_genome_config$display_name, " (", custom_genome_config$igv_id, ")")
+  
     # Detect environment: check if /output_files exists (Docker/K8s mount) or use local
     if (dir.exists(paste0("/", output_dirname))) {
       output_base <- paste0("/", output_dirname)
@@ -332,19 +337,19 @@ server <- function(id) {
       fusion_prerun_future = list(),      # patient_id -> future object
       fusion_prerun_observer = list(),    # patient_id -> observer object
       fusion_prerun_errors = reactiveVal(character()),  # Track all errors
-      fusion_prerun_total_fusions = list()  # patient_id -> reactiveVal(number of fusions)
+      fusion_prerun_total_fusions = list(),  # patient_id -> reactiveVal(number of fusions)
+
+      upload_modules = reactiveVal(list()),
+      upload_pending = reactiveVal(list()),
+      somatic_modules = reactiveVal(list()),  # patient -> list(methods)
+      somatic_pending = reactiveVal(list()),  # patient -> state (k načtení)
+      germline_modules = reactiveVal(list()),
+      germline_pending = reactiveVal(list()),
+      fusion_modules = reactiveVal(list()),
+      fusion_pending = reactiveVal(list()),
+      expression_modules = reactiveVal(list()),
+      expression_pending = reactiveVal(list())
     )
-    shared_data$upload_modules <- reactiveVal(list())
-    shared_data$upload_pending <- reactiveVal(list()) 
-    shared_data$somatic_modules <- reactiveVal(list())  # patient -> list(methods)
-    shared_data$somatic_pending <- reactiveVal(list())  # patient -> state (k načtení)
-    shared_data$germline_modules <- reactiveVal(list())
-    shared_data$germline_pending <- reactiveVal(list()) 
-    shared_data$fusion_modules <- reactiveVal(list())
-    shared_data$fusion_pending <- reactiveVal(list()) 
-    shared_data$expression_modules <- reactiveVal(list())
-    shared_data$expression_pending <- reactiveVal(list()) 
-    
     ############################
     ### Output path setup (already detected above)
     shared_data$output_path <- reactiveVal(output_base)
@@ -369,11 +374,15 @@ server <- function(id) {
       lock_navigation(session, ns("upload_data"))
     })
     
+    # Initialize fusion prerun reactive values (BEFORE observeEvent)
+    shared_data$fusion_prerun_started <- reactiveVal(FALSE)
+    shared_data$fusion_prerun_user_confirmed <- reactiveVal(FALSE)
+    shared_data$pending_data_load <- reactiveVal(NULL)  # Store confirmed_paths when waiting for user dialog
+    
     #######################################################################################
     #### upload data module - lock all other tabs until data is uploaded and confirmed ####
     #######################################################################################
     upload <- upload_data$server("upload_data_table", shared_data)
-  
     
     # Observer removed - now using per-patient tracking
     # (fusion_prerun_status is now a list, not a reactiveVal)
@@ -381,16 +390,33 @@ server <- function(id) {
     observeEvent(upload$confirmed_paths(), {
       message("🚀 [OBSERVE] confirmed_paths changed - starting data loading...")
       output_dir <- shared_data$output_path()
-      # Unlock all navigation tabs after successful data confirmation
-      unlock_navigation(session)
-      
-      # Show waiter with progress bar at the start
-      show_waiter_with_progress(session)
-      
+      unlock_navigation(session) # Unlock all navigation tabs after successful data confirmation
       confirmed_paths <- upload$confirmed_paths()   # make visible to helper above; or pass as arg
       mounted_summary <- reactiveValues(mounted = character(0))
       
+      # Check for existing fusion outputs and show resume/clean-start dialog if needed
+      if (check_and_show_fusion_dialog(confirmed_paths, output_dir, shared_data)) return()
       
+      # No existing outputs - proceed directly with data loading
+      shared_data$fusion_prerun_user_confirmed(TRUE)
+      shared_data$pending_data_load(confirmed_paths)
+    }, ignoreInit = TRUE)
+    
+    # ═══════════════════════════════════════════════════════════════════════════
+    # SEPARATE OBSERVER: Start data loading when user confirms (or no dialog shown)
+    # ═══════════════════════════════════════════════════════════════════════════
+    observe({
+      req(shared_data$fusion_prerun_user_confirmed())  # Wait for user confirmation
+      confirmed_paths <- isolate(shared_data$pending_data_load())
+      req(confirmed_paths)  # Only proceed if we have paths
+      
+      message("[DATA LOAD] Starting data loading with user confirmation")
+      
+      output_dir <- shared_data$output_path()
+      mounted_summary <- reactiveValues(mounted = character(0))
+      
+      # Show waiter with progress bar
+      show_waiter_with_progress(session)
       update_waiter_progress(session, 10, "Initializing...")
       
       somatic_patients <- get_patients(confirmed_paths, "somatic")
@@ -404,7 +430,7 @@ server <- function(id) {
       
       # If session_dir is relative path (old format), convert to absolute path in output_files
       if (!is.null(session_dir) && session_dir != "" && !startsWith(session_dir, output_dir)) {
-        session_name <- basename(session_dir)  # e.g., "session_20240204_123456"
+        session_name <- basename(session_dir)  # e.g., "MOII_e117" or "demo_data"
         session_dir <- file.path(output_dir, "sessions", session_name)
         shared_data$session_dir(session_dir)  # Update with absolute path
         message("📂 Converted relative session path to absolute: ", session_dir)
@@ -450,12 +476,39 @@ server <- function(id) {
             length(fusion_patients) > 0 || length(expression_patients) > 0) {
           
           if (is.null(existing_session_dir) || existing_session_dir == "") {
-            # Create new session directory only if none exists
-            timestamp <- format(Sys.time(), "%Y%m%d_%H%M%S")
-            new_session_dir <- file.path(output_dir, "sessions", paste0("session_", timestamp))
-            dir.create(new_session_dir, recursive = TRUE)
-            shared_data$session_dir(new_session_dir)
-            message("📂 New session directory: ", new_session_dir)
+            # Create session directory based on dataset name (from input folder)
+            data_path <- isolate(shared_data$data_path())
+            
+            if (!is.null(data_path) && data_path != "") {
+              # Get dataset name from input folder path (e.g., "MOII_e117" or "demo_data")
+              dataset_name <- basename(data_path)
+              
+              # Sanitize folder name (remove problematic characters)
+              dataset_name <- gsub("[^A-Za-z0-9_-]", "_", dataset_name)
+              
+              # Create session directory (without timestamp for reusability)
+              new_session_dir <- file.path(output_dir, "sessions", dataset_name)
+              
+              # Check if session already exists
+              if (dir.exists(new_session_dir)) {
+                # Session exists - reuse it (cache, manifests, IGV snapshots will be preserved)
+                message("♻️  Reusing existing session: ", dataset_name)
+                message("    Cache and processed fusion data will be preserved for faster loading")
+              } else {
+                # Create new session directory
+                dir.create(new_session_dir, recursive = TRUE)
+                message("📂 New session directory: ", dataset_name)
+              }
+              
+              shared_data$session_dir(new_session_dir)
+            } else {
+              # Fallback to timestamp if data_path is not available
+              timestamp <- format(Sys.time(), "%d_%m_%Y_%H%M%S")
+              new_session_dir <- file.path(output_dir, "sessions", paste0("session_", timestamp))
+              dir.create(new_session_dir, recursive = TRUE)
+              shared_data$session_dir(new_session_dir)
+              message("📂 New session directory (fallback): ", new_session_dir)
+            }
           } else {
             # Reuse existing session directory
             new_session_dir <- existing_session_dir
@@ -582,22 +635,20 @@ server <- function(id) {
       }, ignoreInit = TRUE)
       
       
-      
       # ═══════════════════════════════════════════════════════════════════════════
       # FUSION PRERUN - PARALLEL processing for each patient
       # ═══════════════════════════════════════════════════════════════════════════
       
-      # Initialize flag to track if prerun has started
-      if (is.null(shared_data$fusion_prerun_started)) {
-        shared_data$fusion_prerun_started <- reactiveVal(FALSE)
-      }
-      
-      # Only run prerun once per session
-      if (!shared_data$fusion_prerun_started()) {
+      # Start preprocessing only if user confirmed and not already started
+      if (isTRUE(shared_data$fusion_prerun_user_confirmed()) && !shared_data$fusion_prerun_started()) {
         fusion_patients <- get_patients(confirmed_paths, "fusion")
-        patients_to_run <- fusion_patients_to_prerun(fusion_patients, output_dir)
-
-
+        current_session_dir <- isolate(shared_data$session_dir())
+        
+        # Only proceed if we have a valid session directory
+        if (is.null(current_session_dir) || current_session_dir == "") {
+          message("[PRERUN INIT] No session directory - skipping fusion prerun")
+        } else {
+          patients_to_run <- fusion_patients_to_prerun(fusion_patients, current_session_dir)
 
         if (length(patients_to_run) > 0) {
           message("[PRERUN INIT] Starting PARALLEL fusion prerun for ", length(patients_to_run), " patients: ", paste(patients_to_run, collapse = ", "))
@@ -655,13 +706,25 @@ server <- function(id) {
           message("[MAIN] About to launch future for ", patient_id)
           
           # Use explicit globals list to speed up future creation
+          # Pass session_dir instead of output_dir for fusion outputs
+          current_session_dir <- isolate(shared_data$session_dir())
+          
+          # Get IGV genome selection
+          genome_val <- isolate(shared_data$igv_genome())
+          current_igv_genome <- if (!is.null(genome_val) && length(genome_val) > 0 && genome_val != "no_snapshot") {
+            genome_val
+          } else {
+            "hg38"  # Default
+          }
+          
           patient_future <- future({
-            prerun_fusion_patient(patient_id, file_list, prog_file, output_base_dir = output_dir)
+            prerun_fusion_patient(patient_id, file_list, prog_file, session_dir = current_session_dir, igv_genome = current_igv_genome)
           }, globals = list(
             patient_id = patient_id,
             file_list = file_list, 
             prog_file = prog_file,
-            output_dir = output_dir,
+            current_session_dir = current_session_dir,
+            current_igv_genome = current_igv_genome,
             prerun_fusion_patient = prerun_fusion_patient
           ), seed = TRUE, stdout = TRUE, conditions = "message")
           
@@ -824,8 +887,11 @@ server <- function(id) {
           }
           shared_data$fusion_prerun_started(TRUE)
         }
+        }  # End of session_dir check
+      } else if (!shared_data$fusion_prerun_user_confirmed()) {
+        message("[PRERUN INIT] Fusion prerun waiting for user confirmation")
       } else {
-        message("[PRERUN INIT] Fusion prerun skipped - already started")
+        message("[PRERUN INIT] Fusion prerun already started - skipping")
       }
 
       # Optionally focus the whole Variant calling page
@@ -840,10 +906,12 @@ server <- function(id) {
       # Request JS to notify when Summary is fully rendered (with proper namespace)
       wait_for_summary_rendered(session, ns)
       
-      # Reset flag for this data load
+      # Reset flags for this data load
       waiter_hidden(FALSE)
+      shared_data$pending_data_load(NULL)
+      shared_data$fusion_prerun_user_confirmed(FALSE)  # Reset to prevent re-triggering
   
-    }, ignoreInit = TRUE)
+    })
     
     # Hide waiter when Summary tab is fully rendered
     observeEvent(input$summary_rendered, {

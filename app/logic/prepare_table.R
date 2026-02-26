@@ -103,9 +103,18 @@ prepare_fusion_genes_table <- function(sample, data, manifest_dt, all_colNames, 
     group_cols <- c("chr1", "pos1", "chr2", "pos2")
     agg_cols <- setdiff(names(data), group_cols)
     data_aggregated <- data[, c(lapply(.SD[, .(gene1, gene2)], function(x) paste(sort(unique(x)), collapse = ",")),lapply(.SD[, setdiff(agg_cols, c("gene1", "gene2")), with = FALSE], first)), by = group_cols]
-    manifest_prepared <- manifest_dt[, .(gene1, gene2, chr1, pos1, chr2, pos2,svg_path, png_path)]
-   
-    merge_dt <- merge(data_aggregated,manifest_prepared,by = c("chr1", "pos1", "chr2", "pos2", "gene1", "gene2"),all.x = TRUE,all.y = TRUE)
+
+    # Merge only on genomic position — NOT on gene names.
+    # Gene2 can appear as "AC126544.1,AC126544.2" in the fusion file (one row) but
+    # as two separate rows in the manifest (split_genes). Merging on gene names would
+    # produce duplicates and orphan rows. PNG/SVG are assigned per genomic position
+    # in the batch file, so position is the correct and sufficient merge key.
+    manifest_by_pos <- manifest_dt[, .(
+      png_path = png_path[!is.na(png_path) & nzchar(png_path)][1],
+      svg_path = svg_path[!is.na(svg_path) & nzchar(svg_path)][1]
+    ), by = group_cols]
+
+    merge_dt <- merge(data_aggregated, manifest_by_pos, by = group_cols, all.x = TRUE)
 
     merge_dt[, position1 := paste0(chr1, ":", pos1)]
     merge_dt[, position2 := paste0(chr2, ":", pos2)]
