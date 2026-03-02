@@ -1,0 +1,34 @@
+# docker-compose.hub.yml
+# Ready-to-use compose file that pulls pre-built images from Docker Hub.
+# No build required. Use this file if you just want to run sequiaScope with command:
+#
+#   docker compose -f docker-compose.hub.yml up -d
+#
+services:
+  app:
+    image: juraskovakaterina/sequiascope-app:latest
+    container_name: sequiascope-app
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./input_files:/input_files:ro
+      - ./output_files:/output_files
+    depends_on:
+      - igv
+    environment:
+      - IGV_HOST=localhost
+      - IGV_PORT=8081
+
+  igv:
+    image: juraskovakaterina/sequiascope-igv:latest
+    container_name: sequiascope-igv
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./input_files:/input_files
+      - ./output_files:/output_files
+    environment:
+      - INPUT_DIR=/input_files
+      - OUTPUT_BASE_DIR=/output_files
+      - WATCH_DIR=/output_files/sessions
+      - PROCESSED_DIR=/output_files/.processed_batches

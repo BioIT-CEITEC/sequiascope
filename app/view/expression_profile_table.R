@@ -212,8 +212,7 @@ server <- function(id, patient, shared_data, patient_files, file_list) {
           deregulated_genes <- dt[abs(as.numeric(get(log2fc_col))) > 1 & as.numeric(get(padj_col)) < 0.05]
           
           # DEBUG: Kolik genů má tato tkáň?
-          message("🔍 [", label, "] Tissue: ", tissue, " has ", nrow(deregulated_genes), " deregulated genes")
-          message("    Unique geneids: ", uniqueN(deregulated_genes$geneid))
+
           
           # Přidat geneid do seznamu
           if (nrow(deregulated_genes) > 0 && "geneid" %in% names(deregulated_genes)) {
@@ -229,8 +228,7 @@ server <- function(id, patient, shared_data, patient_files, file_list) {
         }
         
         # DEBUG: Celkový výsledek
-        message("📊 [", label, "] Total collected genes (with duplicates): ", length(all_deregulated_genes))
-        message("📊 [", label, "] Unique genes after concatenation: ", uniqueN(all_deregulated_genes))
+
         
         return(list(
           genes = uniqueN(all_deregulated_genes),
@@ -865,7 +863,7 @@ filterTab_server <- function(id,colnames_list, data, mapped_checkbox_names, tiss
     observeEvent(input$show_all, {
       req(mapped_checkbox_names())
       all_values <- ch(unname(mapped_checkbox_names()))
-      message("#### all_values :",paste0(all_values,collapse =", "))
+
       updatePrettyCheckboxGroup(session, "colFilter_checkBox", selected = all_values)
     })
     

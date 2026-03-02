@@ -218,9 +218,12 @@ server <- function(id, shared_data) {
         return()
       }
 
-      mtimes       <- file.info(session_dirs)$mtime
-      session_dirs <- session_dirs[order(mtimes, decreasing = TRUE)]
-      mtimes       <- mtimes[order(mtimes, decreasing = TRUE)]
+      # Sort by mtime of session_data.json (= last save), not the folder itself.
+      json_files   <- file.path(session_dirs, "session_data.json")
+      mtimes       <- file.info(json_files)$mtime
+      ord          <- order(mtimes, decreasing = TRUE)
+      session_dirs <- session_dirs[ord]
+      mtimes       <- mtimes[ord]
       labels       <- paste0(basename(session_dirs), "  (", format(mtimes, "%d.%m.%Y %H:%M"), ")")
       default_name <- basename(session_dirs)[1]  # first = newest
       choices_named <- stats::setNames(basename(session_dirs), labels)

@@ -380,14 +380,20 @@ process_patient_igv <- function(sample, file_list, session_dir, prog_file = NULL
       exit_code <- runIGVSnapshotParallel(batch_file, timeout_seconds = dynamic_timeout,
                                            prog_file = prog_file, prog_start = 15L, prog_end = 90L)
       
+      sentinel_file <- file.path(igv_snapshot_dir, ".no_igv_watcher")
       if (exit_code == 0) {
         message("[IGV] ✅ Snapshots created successfully: ", batch_file)
+        # Remove sentinel if it existed from a previous K8s run — IGV is now available.
+        if (file.exists(sentinel_file)) unlink(sentinel_file)
         return(TRUE)
       } else if (exit_code == 2) {
         message("[IGV] ⏱️ Timeout waiting for IGV watcher")
         return(FALSE)
       } else if (exit_code == 3) {
         message("[IGV] ⚠️  IGV watcher neběží – snapshots přeskočeny, tabulka se načte bez obrázků")
+        # Write sentinel so future app loads don't retry the 15s watcher wait.
+        dir.create(igv_snapshot_dir, recursive = TRUE, showWarnings = FALSE)
+        writeLines(format(Sys.time()), sentinel_file)
         return(FALSE)
       } else {
         message("[IGV] ❌ IGV processing failed")
@@ -764,6 +770,15 @@ fusion_patients_to_prerun <- function(fusion_patients, session_dir) {
         0
       }
       
+      # If IGV watcher was absent in a previous run, skip PNG check entirely.
+      # The sentinel is cleared automatically if the watcher succeeds later.
+      no_igv_sentinel <- file.path(session_dir, "igv_snapshots", sample, ".no_igv_watcher")
+      if (file.exists(no_igv_sentinel)) {
+        message("[PRERUN CHECK] ", sample, " – .no_igv_watcher sentinel found, skipping PNG check")
+        need[i] <- (actual_svgs < expected_svgs)  # still run Arriba SVG if missing
+        next
+      }
+
       # Need prerun if counts don't match (incomplete processing)
       need[i] <- (actual_pngs < expected_pngs) || (actual_svgs < expected_svgs)
       

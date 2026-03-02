@@ -271,10 +271,20 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
       matched <- character(0)
     }
   } else if (config_key == "expression_expression") {
-    # Expression uses OR logic for keyword_regex (as before)
-    matched <- relevant_files[
+    # Expression uses OR logic for keyword_regex (e.g. "expression|RNAseq").
+    # This matches on the full path, so files inside an expression/ or RNAseq/
+    # folder are found even if the filename itself has no tissue suffix.
+    candidates <- relevant_files[
       str_detect(relevant_files, config$extensions) &
         str_detect(relevant_files, regex(keyword_regex, ignore_case = TRUE))]
+    if (search_without_pattern) {
+      # tissue = "none": we want ONLY {patient_id}.tsv — no tissue suffix in filename.
+      # e.g. DZ1601.tsv ✓   DZ1601_spleen.tsv ✗   DZ1601_testis.tsv ✗
+      strict_basename <- paste0("^", patient, "\\.[^.]+$")
+      matched <- candidates[str_detect(basename(candidates), regex(strict_basename, ignore_case = TRUE))]
+    } else {
+      matched <- candidates
+    }
   } else {
     # For other types: AND logic - file must contain ALL keywords
     matched <- relevant_files[str_detect(relevant_files, config$extensions)]

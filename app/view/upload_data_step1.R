@@ -99,7 +99,15 @@ step1_server <- function(id, path, patients, datasets, tumor_pattern, normal_pat
     # wd <- c(input_files = input_files_path)
     # shinyDirChoose(input, "dir", roots = wd)
     
-    wd <- c(home = getwd(), input_files = "/input_files")
+    # Prefer /input_files as the default root so the browser opens there.
+    # Fall back to working directory when running outside Docker (locally without mount).
+    wd <- if (dir.exists("/input_files")) {
+      c(input_files = "/input_files", home = getwd())
+    } else if (dir.exists(file.path(getwd(), "input_files"))) {
+      c(input_files = file.path(getwd(), "input_files"), home = getwd())
+    } else {
+      c(home = getwd())
+    }
     shinyDirChoose(input, "dir", roots = wd)
 
     observeEvent(input$dir, {

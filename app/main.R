@@ -987,6 +987,21 @@ server <- function(id) {
       waiter_hidden(FALSE)
       shared_data$pending_data_load(NULL)
       shared_data$fusion_prerun_user_confirmed(FALSE)  # Reset to prevent re-triggering
+
+      # Server-side fallback: in K8s / slow environments the 'wait-for-summary'
+      # custom message may arrive before JS has registered its handler (page still
+      # loading behind a reverse proxy). The message is silently dropped, so the
+      # JS setInterval and its own 5-second safeguard never start.
+      # This later() fires once after 10 s; if JS already triggered waiter_hidden
+      # it is a no-op, otherwise it force-hides the waiter from R.
+      later::later(function() {
+        if (!isolate(waiter_hidden())) {
+          message("\u23f1\ufe0f Waiter server-side fallback (10s) - JS message likely lost, forcing hide")
+          waiter_hide(id = NA)
+          waiter_hidden(TRUE)
+          session$sendCustomMessage("data-loaded", list())
+        }
+      }, delay = 10)
   
     })
     

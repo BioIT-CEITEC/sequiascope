@@ -159,8 +159,6 @@ add_dataset_tabs <- function(session,
   # Identify which patients are new (don't have tabs yet)
   old_vals <- added_tab_values[[dataset_name]]
   
-  message("🔎 [add_dataset_tabs] Reading added_tab_values for ", dataset_name, ": ", 
-          if(length(old_vals)) paste(old_vals, collapse = ", ") else "(empty)")
   old_patient_ids <- if (length(old_vals)) {
     # Extract patient IDs from tab values (format: "{prefix}{patient_id}")
     gsub(paste0("^", tab_value_prefix), "", old_vals)
@@ -172,17 +170,10 @@ add_dataset_tabs <- function(session,
   new_patient_ids <- setdiff(patients, old_patient_ids)
   removed_patient_ids <- setdiff(old_patient_ids, patients)
   
-  message("🔍 [add_dataset_tabs] Dataset: ", dataset_name)
-  message("   All patients: ", paste(patients, collapse = ", "))
-  message("   Old patients: ", paste(old_patient_ids, collapse = ", "))
-  message("   New patients: ", paste(new_patient_ids, collapse = ", "))
-  message("   Removed patients: ", paste(removed_patient_ids, collapse = ", "))
-  
   # Remove tabs for patients that are no longer in the list
   if (length(removed_patient_ids) > 0) {
     removed_vals <- paste0(tab_value_prefix, removed_patient_ids)
     lapply(removed_vals, function(val) {
-      message("🗑️  Removing tab: ", val)
       removeTab(inputId = tabset_input_id, target = val)
     })
     # Update old_vals to exclude removed tabs
@@ -211,8 +202,12 @@ add_dataset_tabs <- function(session,
     if (identical(dataset_name, "network")) { # just for expression dataset
       tissues <- patient_files$tissues
       tissues <- unique(tissues)
-      tissues <- tissues[!is.na(tissues) & tissues != "none"]
-      ui_args$tissue_list <- tissues
+      # For network graph we must keep "none" if that is the only tissue, because
+      # networkGraph_cytoscape uses radioGroupButtons(choices = tissue_list) and
+      # req(input$selected_tissue) — an empty choices vector would leave the input
+      # NULL and block all data loading in the network module.
+      real_tissues <- tissues[!is.na(tissues) & tissues != "none"]
+      ui_args$tissue_list <- if (length(real_tissues) > 0) real_tissues else "none"
       ui_args$patient <- patient_id
     }
     
@@ -268,9 +263,6 @@ add_dataset_tabs <- function(session,
   }))
   # Append new tab values to existing ones (don't replace)
   added_tab_values[[dataset_name]] <- c(old_vals, new_vals)
-  
-  message("✅ [add_dataset_tabs] Saved tab values for ", dataset_name, ": ", 
-          paste(added_tab_values[[dataset_name]], collapse = ", "))
   
   # 5) Select first patient tab after DOM is flushed
   if (length(patients)) {

@@ -397,16 +397,7 @@ server <- function(id, patient, shared_data) {
     is_default_template_available <- reactive({
       path <- default_template_path()
       
-      message("[REPORT TEMPLATE] ========== DEBUG ==========")
-      message("[REPORT TEMPLATE] Path from config: ", if(is.null(path)) "NULL" else paste0("'", path, "'"))
-      message("[REPORT TEMPLATE] is.null(path): ", is.null(path))
-      message("[REPORT TEMPLATE] nzchar(path): ", if(!is.null(path)) nzchar(path) else "N/A (path is NULL)")
-      message("[REPORT TEMPLATE] file.exists(path): ", if(!is.null(path) && nzchar(path)) file.exists(path) else "N/A")
-      
       result <- !is.null(path) && nzchar(path) && file.exists(path)
-      message("[REPORT TEMPLATE] Final is_available: ", result)
-      message("[REPORT TEMPLATE] =============================")
-      
       return(result)
     })
     
@@ -418,30 +409,20 @@ server <- function(id, patient, shared_data) {
         return()
       }
       
-      message("[BUTTON STATE] ========== OBSERVE TRIGGERED ==========")
-      message("[BUTTON STATE] template_choice: ", input$template_choice)
-      message("[BUTTON STATE] is_default_template_available(): ", is_default_template_available())
-      
       # Small delay to ensure DOM is ready (especially for dropdown content)
       shinyjs::delay(100, {
         if (input$template_choice == "default") {
-          # If default template is selected, check if it's available
           if (is_default_template_available()) {
-            message("[BUTTON STATE] Action: ENABLE button, HIDE warning")
             shinyjs::enable("download_report")
             shinyjs::hide("template_warning")
           } else {
-            message("[BUTTON STATE] Action: DISABLE button, SHOW warning")
             shinyjs::disable("download_report")
             shinyjs::show("template_warning")
           }
         } else {
-          # If custom template is selected, always enable button (req() will handle validation)
-          message("[BUTTON STATE] Action: ENABLE button (custom template), HIDE warning")
           shinyjs::enable("download_report")
           shinyjs::hide("template_warning")
         }
-        message("[BUTTON STATE] ========================================")
       })
     })
 

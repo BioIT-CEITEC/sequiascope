@@ -165,10 +165,13 @@ prepare_expression_table <- function(combined_dt) {
   
   # Převeď long → wide format
   # Formula: všechny ID sloupce ~ tissue, pro hodnoty log2FC, p_value, p_adj
+  # fun.aggregate = first: pokud existují duplicitní řádky (např. gen v více pathways),
+  # hodnoty log2fc/p_value/p_adj jsou na úrovni genu stejné — bereme první výskyt.
   wide_dt <- dcast(
     combined_dt,
     as.formula(paste(paste(id_cols, collapse = " + "), "~ tissue")),
-    value.var = c("log2fc", "p_value", "p_adj")
+    value.var = c("log2fc", "p_value", "p_adj"),
+    fun.aggregate = function(x) x[1L]
   )
 
   # pomocné metriky
