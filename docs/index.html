@@ -4,13 +4,13 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>Introduction | SequiaViz Documentation</title>
+<title>Introduction | SeqUIaSCOPE Documentation</title>
 <meta name="author" content="Kateřina Jurásková">
-<meta name="generator" content="bookdown 0.45 with bs4_book()">
-<meta property="og:title" content="Introduction | SequiaViz Documentation">
+<meta name="generator" content="bookdown 0.46 with bs4_book()">
+<meta property="og:title" content="Introduction | SeqUIaSCOPE Documentation">
 <meta property="og:type" content="book">
 <meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="Introduction | SequiaViz Documentation">
+<meta name="twitter:title" content="Introduction | SeqUIaSCOPE Documentation">
 <!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
 <script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.9.0/transition.js"></script><script src="libs/bs3compat-0.9.0/tabs.js"></script><script src="libs/bs3compat-0.9.0/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
@@ -31,7 +31,7 @@
 
     <div class="d-flex align-items-start justify-content-between">
       <h1>
-        <a href="index.html" title="">SequiaViz Documentation</a>
+        <a href="index.html" title="">SeqUIaSCOPE Documentation</a>
       </h1>
       <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
     </div>
@@ -42,18 +42,7 @@
 </form>
 
       <nav aria-label="Table of contents"><h2>Table of contents</h2>
-        <ul class="book-toc list-unstyled">
-<li><a class="active" href="index.html">Introduction</a></li>
-<li><a class="" href="how-to-install-and-run.html">How to install and run</a></li>
-<li><a class="" href="data-requirements.html">Data requirements</a></li>
-<li><a class="" href="upload-data.html">Upload data</a></li>
-<li><a class="" href="core-module-features.html">Core Module Features</a></li>
-<li><a class="" href="summary-and-report.html">Summary and Report</a></li>
-<li><a class="" href="variant-calling.html">Variant Calling</a></li>
-<li><a class="" href="fusion-genes-1.html">Fusion Genes</a></li>
-<li><a class="" href="expression-profile-1.html">Expression Profile</a></li>
-<li><a class="" href="network-graph.html">Network Graph</a></li>
-</ul>
+        <ul class="book-toc list-unstyled"><li><a class="active" href="index.html">Introduction</a></li></ul>
 
         <div class="book-extra">
           
@@ -63,7 +52,8 @@
   </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><!--bookdown:title:end--><!--bookdown:title:start--><div id="introduction" class="section level1 unnumbered">
 <h1>Introduction<a class="anchor" aria-label="anchor" href="#introduction"><i class="fas fa-link"></i></a>
 </h1>
-<p>SequiaViz is an open-source platform for patient-centric integration and visualization of multi-omics data in clinical oncology diagnostics. It combines results from variant calling, fusion detection, and expression profiling with embedded genome browsing, dynamic pathway visualization, and automated clinical reporting—all within a secure, locally deployable framework.</p>
+<p>SeqUIaSCOPE is a web application designed for routine clinical oncology diagnostics through patient-centric integration and visualization of genomic variants, fusion events, and expression profiles.
+It includes embedded genome browsing, pathway-level interpretation, and customizable reporting.</p>
 <div id="key-features" class="section level2 unnumbered">
 <h2>Key features<a class="anchor" aria-label="anchor" href="#key-features"><i class="fas fa-link"></i></a>
 </h2>
@@ -93,29 +83,47 @@
 <div id="live-demo" class="section level2 unnumbered">
 <h2>Live demo<a class="anchor" aria-label="anchor" href="#live-demo"><i class="fas fa-link"></i></a>
 </h2>
-<p>We are hosting a live demo of SequiaViz to showcase its capabilities and allow users to explore the platform in action.
-<strong>Access the demo at: <a href="http://your-demo-link.com">Live Demo</a></strong></p>
+<p>We are hosting a live demo of SeqUIaSCOPE to showcase its capabilities and allow users to explore the platform in action.
+<strong>Access the demo at: <a href="https://sequiascope.dyn.cloud.e-infra.cz/">Live Demo</a></strong></p>
 <div class="alert alert-warning" style="margin-top: 0.5rem;">
 <p><strong>Important Notes:</strong></p>
 <ul>
-<li>Demo data is anonymized and does not represent real clinical cases</li>
+<li>Demo data are anonymized and does not represent real clinical cases</li>
 <li>Some features may have limited functionality due to data sensitivity requirements</li>
-<li>Session data is not persisted between visits</li>
-<li>While the demo runs the full version of SequiaViz, uploading your own data is not supported. We strongly discourage uploading sensitive or personal data to the demo environment. For production use with your own data, deploy SequiaViz locally using Docker.</li>
-<li>For production use with sensitive data, deploy SequiaViz locally using Docker</li>
+<li>Genome browsing is available only for the fusion gene dataset, limited to one specific fusion (KMT2A::MLLT3) and the immediate vicinity of its breakpoints</li>
+<li>While the demo runs the full version of SeqUIaScope, uploading your own data is not supported</li>
+<li>For production use with your own data, deploy SeqUIaSCOPE locally using Docker or on cluster using Helm chart</li>
 </ul>
+</div>
+<div id="how-to-load-demo-data" class="section level3 unnumbered">
+<h3>How to load demo data:<a class="anchor" aria-label="anchor" href="#how-to-load-demo-data"><i class="fas fa-link"></i></a>
+</h3>
+<div class="inline-figure"><img src="screenshots/upload_data_step1.png" width="100%"></div>
+<ol style="list-style-type: decimal">
+<li>Select <strong>demo_data</strong> folder as a directory with patient data</li>
+<li>Add patient name as <strong>DZ1601</strong>
+</li>
+<li>Select all datasets (Somatic variant calling, Germline variant calling, Fusion gene detection and Expression profile).</li>
+<li>Leave patterns for somatic and germline variants empty.</li>
+<li>Fill fusion detection pattern for tumor BAM file as <strong>fusion</strong> and for chimeric BAM file as <strong>chimeric</strong>. Genome for IGV snapshot should be set to GRCh38/hg38</li>
+<li>Fill reference tissues for expression profile as <strong>spleen, testis</strong>
+</li>
+</ol>
+<hr>
 </div>
 </div>
 </div>
   <div class="chapter-nav">
 <div class="empty"></div>
-<div class="next"><a href="how-to-install-and-run.html">How to install and run</a></div>
+<div class="empty"></div>
 </div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
     <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
       <ul class="nav navbar-nav">
 <li><a class="nav-link" href="#introduction">Introduction</a></li>
 <li><a class="nav-link" href="#key-features">Key features</a></li>
-<li><a class="nav-link" href="#live-demo">Live demo</a></li>
+<li>
+<a class="nav-link" href="#live-demo">Live demo</a><ul class="nav navbar-nav"><li><a class="nav-link" href="#how-to-load-demo-data">How to load demo data:</a></li></ul>
+</li>
 </ul>
 
       <div class="book-extra">
@@ -132,7 +140,7 @@
 <footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
 
   <div class="col-12 col-md-6 mt-3">
-    <p>"<strong>SequiaViz Documentation</strong>" was written by Kateřina Jurásková. It was last built on 2025-11-28.</p>
+    <p>"<strong>SeqUIaSCOPE Documentation</strong>" was written by Kateřina Jurásková. It was last built on 2026-03-04.</p>
   </div>
 
   <div class="col-12 col-md-6 mt-3">

@@ -1,5 +1,5 @@
 --- 
-title: "SequiaViz Documentation"
+title: "SeqUIaSCOPE Documentation"
 author: "Kateřina Jurásková"
 date: "`r Sys.Date()`"
 site: bookdown::bookdown_site
@@ -13,7 +13,8 @@ output:
 
 # Introduction {-}
 
-SequiaViz is an open-source platform for patient-centric integration and visualization of multi-omics data in clinical oncology diagnostics. It combines results from variant calling, fusion detection, and expression profiling with embedded genome browsing, dynamic pathway visualization, and automated clinical reporting—all within a secure, locally deployable framework.
+SeqUIaSCOPE is a web application designed for routine clinical oncology diagnostics through patient-centric integration and visualization of genomic variants, fusion events, and expression profiles. 
+It includes embedded genome browsing, pathway-level interpretation, and customizable reporting.
 
 ## Key features {-}
 
@@ -29,121 +30,175 @@ SequiaViz is an open-source platform for patient-centric integration and visuali
 - **User-Friendly Interface**: Guided workflow, real-time tables, and downloadable results
 
 ## Live demo  {-}
-We are hosting a live demo of SequiaViz to showcase its capabilities and allow users to explore the platform in action.
-**Access the demo at: [Live Demo](http://your-demo-link.com)**
+We are hosting a live demo of SeqUIaSCOPE to showcase its capabilities and allow users to explore the platform in action.
+**Access the demo at: [Live Demo](https://sequiascope.dyn.cloud.e-infra.cz/)**
 
 ::: {.alert .alert-warning style="margin-top: 0.5rem;"}
 **Important Notes:**
 
-- Demo data is anonymized and does not represent real clinical cases
+- Demo data are anonymized and does not represent real clinical cases
 - Some features may have limited functionality due to data sensitivity requirements
-- Session data is not persisted between visits
-- While the demo runs the full version of SequiaViz, uploading your own data is not supported. We strongly discourage uploading sensitive or personal data to the demo environment. For production use with your own data, deploy SequiaViz locally using Docker.
-- For production use with sensitive data, deploy SequiaViz locally using Docker
+- Genome browsing is available only for the fusion gene dataset, limited to one specific fusion (KMT2A::MLLT3) and the immediate vicinity of its breakpoints
+- While the demo runs the full version of SeqUIaScope, uploading your own data is not supported
+- For production use with your own data, deploy SeqUIaSCOPE locally using Docker or on cluster using Helm chart
 :::
+
+### How to load demo data: {-}
+
+```{r, echo=FALSE, out.width="100%"}
+knitr::include_graphics("./screenshots/upload_data_step1.png")
+```
+
+1. Select **demo_data** folder as a directory with patient data
+2. Add patient name as **DZ1601**
+3. Select all datasets (Somatic variant calling, Germline variant calling, Fusion gene detection and Expression profile).
+4. Leave patterns for somatic and germline variants empty.
+5. Fill fusion detection pattern for tumor BAM file as **fusion** and for chimeric BAM file as **chimeric**. Genome for IGV snapshot should be set to GRCh38/hg38
+6. Fill reference tissues for expression profile as **spleen, testis**
+
+
+---
 
 # How to install and run {-}
 
-SequiaViz is deployed using Docker containers for easy local deployment. The setup consists of two interconnected services managed through Docker Compose.
+SeqUIaSCOPE can be deployed in two ways:
 
-## Prerequisites {-}
+- **On a cluster** using Kubernetes + Helm — suitable for shared or production environments
+- **Locally** using Docker Compose — suitable for single-machine use
 
-SequiaViz currently supports **Linux only**. Before you can run SequiaViz locally, ensure you have the following installed:
+Pre-built images for both scenarios are available on Docker Hub — no need to build anything yourself:
 
-### 1. Docker Installation {-}
-- **Linux**: Install Docker using your package manager (e.g., `sudo apt-get install docker.io` on Ubuntu).
+| Image | Docker Hub | Description |
+|-|----|----|
+| App | [`juraskovakaterina/sequiascope-app`](https://hub.docker.com/r/juraskovakaterina/sequiascope-app) | The main Shiny application (port 8080) |
+| IGV | [`juraskovakaterina/sequiascope-igv`](https://hub.docker.com/r/juraskovakaterina/sequiascope-igv) | IGV static server (port 8081) |
 
-Verify installation by running:
+---
+
+## Option A — Cluster deployment (Kubernetes + Helm) {-}
+
+For cluster environments, SeqUIaSCOPE can be deployed using the provided Helm chart. Full instructions and configuration options are maintained in a separate repository:
+
+👉 **[sequiascope-helm](https://github.com/KrKOo/sequiascope-helm)**
+
+The Helm chart uses the same pre-built Docker Hub images listed above.
+
+---
+
+## Option B — Local deployment (Docker Compose) {-}
+
+### Prerequisites {-}
+
+- [Docker](https://docs.docker.com/engine/install/) ≥ 24
+- [Docker Compose](https://docs.docker.com/compose/install/) (if not already installed)
+
 ```bash
 docker --version
-docker run hello-world
+docker compose version
 ```
 
-### 2. Docker Compose {-}
-Docker Compose comes bundled with Docker Desktop. Verify it's installed:
+### Installation {-}
+
+#### 1. Prepare your working directory: {-}
+
 ```bash
-docker-compose --version
+mkdir -p sequiascope/input_files sequiascope/output_files
+cd sequiascope
 ```
 
-### 3. System Requirements {-}
-- **Disk Space**: At least 10 GB free space for Docker images and data
-- **RAM**: Minimum 4 GB, recommended 8 GB or more
-- **CPU**: Multi-core processor recommended
-- **Internet Connection**: Required to pull Docker images and for STRING DB API access (needed for dynamic pathway visualization)
+#### 2. Download the compose file: {-}
 
-### 4. Input Files {-}
-Prepare your data files in an `input_files` directory in your project folder. For details on required file formats and specifications, see the [Data Requirements](#data-requirements) chapter.
+```bash
+curl -O https://raw.githubusercontent.com/katjur01/sequiaScope/main/docker-compose.hub.yml
+```
 
-## Steps to Run {-}
+The application uses two separate volumes:
 
-1. **Clone or Download the Repository**:  
-   Get the project files including the `docker-compose.yml`:
-   ```bash
-   git clone <repository-url>
-   cd sequiaViz
-   ```
+- input_files: Read-only bind mount for input data
+- output_files: Writable bind mount for session and output data
 
-2. **Prepare Your Data**:  
-   Place your input files in the `input_files` directory:
-   ```bash
-   mkdir -p input_files
-   # Copy your data files here
-   ```
 
-3. **Start the Application with Docker Compose**:  
-   From the project directory, run:
-   ```bash
-   docker-compose up -d
-   ```
-   This command pulls the required images and starts both the SequiaViz application and IGV static server in the background.
+#### 3. Pull and start {-}
 
-4. **Access the Application**:  
-   Open your web browser and navigate to:
-   ```
-   http://localhost:8080
-   ```
+```bash
+docker compose -f docker-compose.hub.yml pull
+docker compose -f docker-compose.hub.yml up -d
+```
 
-5. **Verify Services Are Running**:  
-   Check container status:
-   ```bash
-   docker-compose ps
-   ```
-   You should see two containers running: `sequiaviz-shiny` and `igv-static`.
+#### 4. Open in browser {-}
+
+```
+http://localhost:8080
+```
+
+The app may take 10–20 seconds to initialize on first launch.
+
+#### 5. Stop {-}
+
+```bash
+docker compose -f docker-compose.hub.yml down
+```
+
+---
+
+## IGV snapshots {-}
+
+The `sequiascope-igv` container generates IGV screenshots for fusion gene visualizations when BAM files are provided. It watches `output_files/sessions/` and processes batch files written by the app.
+
+---
+
+## Configuration {-}
+
+The app reads a `reference_paths.json` from the working directory. The default config is embedded in the image. To override it, mount your own:
+
+```yaml
+volumes:
+  - ./input_files:/input_files:ro
+  - ./output_files:/output_files
+  - ./reference_paths.json:/srv/shiny-server/sequiaScope/app/reference_paths.json:ro
+```
+
+---
+
+## Build from source {-}
+
+Building from source is not required for standard use. If you need to modify the application itself:
+
+```bash
+git clone https://github.com/katjur01/seqUIaSCOPE.git
+cd seqUIaSCOPE
+docker compose build
+docker compose up -d
+```
+
+---
 
 ## Troubleshooting {-}
 
-**Container fails to start:**
-```bash
-docker-compose logs sequiaviz-shiny
-docker-compose logs igv-static
-```
+**App doesn't start**
 
-**Input files not accessible:**
-Ensure the `input_files` directory exists and contains your data files. Check file permissions.
+  ```bash
+  docker compose -f docker-compose.hub.yml logs app
+  ```
 
-**Slow performance:**
-Increase Docker's allocated CPU and RAM in Docker Desktop settings (Preferences → Resources).
+**No data visible after upload**
 
-## Stopping and Cleaning Up {-}
+  - Check that file names match expected patterns (see Data requirements)
+  - Verify the mount: `docker exec sequiascope-app ls /input_files`
 
-Stop the application:
-```bash
-docker-compose down
-```
+**IGV snapshots not generated**
 
-Remove all containers and images:
-```bash
-docker-compose down -v
-docker image prune -a
-```
+  - Check the IGV container is running: `docker ps | grep igv`
+  - Check IGV logs: `docker compose -f docker-compose.hub.yml logs igv`
+
 
 ::: {.alert .alert-info style="margin-top: 0.5rem;"}
 ## Notes {-}
-- The `input_files` directory is mounted as read-only for the IGV server and read-write for SequiaViz
+- The `input_files` directory is mounted as read-only for the IGV server and read-write for SeqUIaSCOPE
 - Both services communicate via the internal Docker network — no manual network configuration needed
 - Session data is stored within the containers; use Docker volumes for persistence if needed
 - All data remains on your local machine; nothing is sent to external servers
-- **For organizational deployment**: If you're interested in using SequiaViz but don't have Docker expertise, contact your bioinformatics team or IT department. They can help set up and maintain SequiaViz in your organization's infrastructure.
+- **For organizational deployment**: If you're interested in using SeqUIaSCOPE but don't have Docker expertise, contact your bioinformatics team or IT department. They can help set up and maintain SeqUIaSCOPE in your organization's infrastructure.
 :::
 
 

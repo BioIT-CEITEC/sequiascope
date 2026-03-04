@@ -1,37 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<title>How to install and run | SequiaViz Documentation</title>
-<meta name="author" content="Kateřina Jurásková">
-<meta name="generator" content="bookdown 0.45 with bs4_book()">
-<meta property="og:title" content="How to install and run | SequiaViz Documentation">
-<meta property="og:type" content="book">
-<meta name="twitter:card" content="summary">
-<meta name="twitter:title" content="How to install and run | SequiaViz Documentation">
-<!-- JS --><script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script><script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script><script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-<link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet">
-<script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script><script src="libs/bs3compat-0.9.0/transition.js"></script><script src="libs/bs3compat-0.9.0/tabs.js"></script><script src="libs/bs3compat-0.9.0/bs3compat.js"></script><link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet">
-<script src="libs/bs4_book-1.0.0/bs4_book.js"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script><script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script><!-- CSS --><style type="text/css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+  <title>How to install and run | SeqUIaSCOPE Documentation</title>
+
+    <meta name="author" content="Kateřina Jurásková" />
+  
+   
+   <meta name="generator" content="placeholder" />
+  <meta property="og:title" content="How to install and run | SeqUIaSCOPE Documentation" />
+  <meta property="og:type" content="book" />
+  
+  
+  
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="How to install and run | SeqUIaSCOPE Documentation" />
+  
+  
+  
+  <!-- JS -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.6/clipboard.min.js" integrity="sha256-inc5kl9MA1hkeYUt+EC3BhlIgyp/2jDIyBLS6k3UxPI=" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/fuse.js/6.4.6/fuse.js" integrity="sha512-zv6Ywkjyktsohkbp9bb45V6tEMoWhzFzXis+LrMehmJZZSys19Yxf1dopHx7WzIKxr5tK2dVcYmaCk2uqdjF4A==" crossorigin="anonymous"></script>
+  <script src="https://kit.fontawesome.com/6ecbd6c532.js" crossorigin="anonymous"></script>
+    <script src="libs/jquery-3.6.0/jquery-3.6.0.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <link href="libs/bootstrap-4.6.0/bootstrap.min.css" rel="stylesheet" />
+    <script src="libs/bootstrap-4.6.0/bootstrap.bundle.min.js"></script>
+    <script src="libs/bs3compat-0.9.0/transition.js"></script>
+    <script src="libs/bs3compat-0.9.0/tabs.js"></script>
+    <script src="libs/bs3compat-0.9.0/bs3compat.js"></script>
+    <link href="libs/bs4_book-1.0.0/bs4_book.css" rel="stylesheet" />
+    <script src="libs/bs4_book-1.0.0/bs4_book.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/autocomplete.js/0.38.0/autocomplete.jquery.min.js" integrity="sha512-GU9ayf+66Xx2TmpxqJpliWbT5PiGYxpaG8rfnBEk1LL8l1KGkRShhngwdXK1UgqhAzWpZHSiYPc09/NwDQIGyg==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous"></script>
+
+  <!-- CSS -->
+  <style type="text/css">
     
     div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
   </style>
-<link rel="stylesheet" href="custom-styles.css">
-<meta name="description" content="SequiaViz is deployed using Docker containers for easy local deployment. The setup consists of two interconnected services managed through Docker Compose. Prerequisites SequiaViz currently...">
-<meta property="og:description" content="SequiaViz is deployed using Docker containers for easy local deployment. The setup consists of two interconnected services managed through Docker Compose. Prerequisites SequiaViz currently...">
-<meta name="twitter:description" content="SequiaViz is deployed using Docker containers for easy local deployment. The setup consists of two interconnected services managed through Docker Compose. Prerequisites SequiaViz currently...">
+      <link rel="stylesheet" href="custom-styles.css" />
+  
 </head>
+
 <body data-spy="scroll" data-target="#toc">
 
 <div class="container-fluid">
 <div class="row">
-  <header class="col-sm-12 col-lg-3 sidebar sidebar-book"><a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
+  <header class="col-sm-12 col-lg-3 sidebar sidebar-book">
+    <a class="sr-only sr-only-focusable" href="#content">Skip to main content</a>
 
     <div class="d-flex align-items-start justify-content-between">
       <h1>
-        <a href="index.html" title="">SequiaViz Documentation</a>
+        <a href="index.html" title="">SeqUIaSCOPE Documentation</a>
       </h1>
       <button class="btn btn-outline-primary d-lg-none ml-2 mt-1" type="button" data-toggle="collapse" data-target="#main-nav" aria-expanded="true" aria-controls="main-nav"><i class="fas fa-bars"></i><span class="sr-only">Show table of contents</span></button>
     </div>
@@ -39,177 +63,180 @@
     <div id="main-nav" class="collapse-lg">
       <form role="search">
         <input id="search" class="form-control" type="search" placeholder="Search" aria-label="Search">
-</form>
+      </form>
 
-      <nav aria-label="Table of contents"><h2>Table of contents</h2>
-        <ul class="book-toc list-unstyled">
-<li><a class="" href="index.html">Introduction</a></li>
-<li><a class="active" href="how-to-install-and-run.html">How to install and run</a></li>
-<li><a class="" href="data-requirements.html">Data requirements</a></li>
-<li><a class="" href="upload-data.html">Upload data</a></li>
-<li><a class="" href="core-module-features.html">Core Module Features</a></li>
-<li><a class="" href="summary-and-report.html">Summary and Report</a></li>
-<li><a class="" href="variant-calling.html">Variant Calling</a></li>
-<li><a class="" href="fusion-genes-1.html">Fusion Genes</a></li>
-<li><a class="" href="expression-profile-1.html">Expression Profile</a></li>
-<li><a class="" href="network-graph.html">Network Graph</a></li>
-</ul>
+      <nav aria-label="Table of contents">
+        <h2>Table of contents</h2>
+        <div id="book-toc"></div>
 
         <div class="book-extra">
-          
+          <p><a id="book-repo" href="#">View book source <i class="fab fa-github"></i></a></li></p>
         </div>
       </nav>
-</div>
-  </header><main class="col-sm-12 col-md-9 col-lg-7" id="content"><div id="how-to-install-and-run" class="section level1 unnumbered">
-<h1>How to install and run<a class="anchor" aria-label="anchor" href="#how-to-install-and-run"><i class="fas fa-link"></i></a>
-</h1>
-<p>SequiaViz is deployed using Docker containers for easy local deployment. The setup consists of two interconnected services managed through Docker Compose.</p>
-<div id="prerequisites" class="section level2 unnumbered">
-<h2>Prerequisites<a class="anchor" aria-label="anchor" href="#prerequisites"><i class="fas fa-link"></i></a>
-</h2>
-<p>SequiaViz currently supports <strong>Linux only</strong>. Before you can run SequiaViz locally, ensure you have the following installed:</p>
-<div id="docker-installation" class="section level3 unnumbered">
-<h3>1. Docker Installation<a class="anchor" aria-label="anchor" href="#docker-installation"><i class="fas fa-link"></i></a>
-</h3>
+    </div>
+  </header>
+
+  <main class="col-sm-12 col-md-9 col-lg-7" id="content">
+<div id="how-to-install-and-run" class="section level1 unnumbered">
+<h1>How to install and run</h1>
+<p>SeqUIaSCOPE can be deployed in two ways:</p>
 <ul>
-<li>
-<strong>Linux</strong>: Install Docker using your package manager (e.g., <code>sudo apt-get install docker.io</code> on Ubuntu).</li>
+<li><strong>On a cluster</strong> using Kubernetes + Helm — suitable for shared or production environments</li>
+<li><strong>Locally</strong> using Docker Compose — suitable for single-machine use</li>
 </ul>
-<p>Verify installation by running:</p>
+<p>Pre-built images for both scenarios are available on Docker Hub — no need to build anything yourself:</p>
+<table>
+<colgroup>
+<col width="11%" />
+<col width="44%" />
+<col width="44%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th>Image</th>
+<th>Docker Hub</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>App</td>
+<td><a href="https://hub.docker.com/r/juraskovakaterina/sequiascope-app"><code>juraskovakaterina/sequiascope-app</code></a></td>
+<td>The main Shiny application (port 8080)</td>
+</tr>
+<tr class="even">
+<td>IGV</td>
+<td><a href="https://hub.docker.com/r/juraskovakaterina/sequiascope-igv"><code>juraskovakaterina/sequiascope-igv</code></a></td>
+<td>IGV static server (port 8081)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<div id="option-a-cluster-deployment-kubernetes-helm" class="section level2 unnumbered">
+<h2>Option A — Cluster deployment (Kubernetes + Helm)</h2>
+<p>For cluster environments, SeqUIaSCOPE can be deployed using the provided Helm chart. Full instructions and configuration options are maintained in a separate repository:</p>
+<p>👉 <strong><a href="https://github.com/KrKOo/sequiascope-helm">sequiascope-helm</a></strong></p>
+<p>The Helm chart uses the same pre-built Docker Hub images listed above.</p>
+<hr />
+</div>
+<div id="option-b-local-deployment-docker-compose" class="section level2 unnumbered">
+<h2>Option B — Local deployment (Docker Compose)</h2>
+<div id="prerequisites" class="section level3 unnumbered">
+<h3>Prerequisites</h3>
+<ul>
+<li><a href="https://docs.docker.com/engine/install/">Docker</a> ≥ 24</li>
+<li><a href="https://docs.docker.com/compose/install/">Docker Compose</a> (if not already installed)</li>
+</ul>
 <div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="how-to-install-and-run.html#cb1-1" tabindex="-1"></a><span class="ex">docker</span> <span class="at">--version</span></span>
-<span id="cb1-2"><a href="how-to-install-and-run.html#cb1-2" tabindex="-1"></a><span class="ex">docker</span> run hello-world</span></code></pre></div>
+<span id="cb1-2"><a href="how-to-install-and-run.html#cb1-2" tabindex="-1"></a><span class="ex">docker</span> compose version</span></code></pre></div>
 </div>
-<div id="docker-compose" class="section level3 unnumbered">
-<h3>2. Docker Compose<a class="anchor" aria-label="anchor" href="#docker-compose"><i class="fas fa-link"></i></a>
-</h3>
-<p>Docker Compose comes bundled with Docker Desktop. Verify it’s installed:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="how-to-install-and-run.html#cb2-1" tabindex="-1"></a><span class="ex">docker-compose</span> <span class="at">--version</span></span></code></pre></div>
+<div id="installation" class="section level3 unnumbered">
+<h3>Installation</h3>
+<div id="prepare-your-working-directory" class="section level4 unnumbered">
+<h4>1. Prepare your working directory:</h4>
+<div class="sourceCode" id="cb2"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb2-1"><a href="how-to-install-and-run.html#cb2-1" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> sequiascope/input_files sequiascope/output_files</span>
+<span id="cb2-2"><a href="how-to-install-and-run.html#cb2-2" tabindex="-1"></a><span class="bu">cd</span> sequiascope</span></code></pre></div>
 </div>
-<div id="system-requirements" class="section level3 unnumbered">
-<h3>3. System Requirements<a class="anchor" aria-label="anchor" href="#system-requirements"><i class="fas fa-link"></i></a>
-</h3>
+<div id="download-the-compose-file" class="section level4 unnumbered">
+<h4>2. Download the compose file:</h4>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="how-to-install-and-run.html#cb3-1" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-O</span> https://raw.githubusercontent.com/katjur01/sequiaScope/main/docker-compose.hub.yml</span></code></pre></div>
+<p>The application uses two separate volumes:</p>
 <ul>
-<li>
-<strong>Disk Space</strong>: At least 10 GB free space for Docker images and data</li>
-<li>
-<strong>RAM</strong>: Minimum 4 GB, recommended 8 GB or more</li>
-<li>
-<strong>CPU</strong>: Multi-core processor recommended</li>
-<li>
-<strong>Internet Connection</strong>: Required to pull Docker images and for STRING DB API access (needed for dynamic pathway visualization)</li>
+<li>input_files: Read-only bind mount for input data</li>
+<li>output_files: Writable bind mount for session and output data</li>
 </ul>
 </div>
-<div id="input-files" class="section level3 unnumbered">
-<h3>4. Input Files<a class="anchor" aria-label="anchor" href="#input-files"><i class="fas fa-link"></i></a>
-</h3>
-<p>Prepare your data files in an <code>input_files</code> directory in your project folder. For details on required file formats and specifications, see the <a href="data-requirements.html#data-requirements">Data Requirements</a> chapter.</p>
+<div id="pull-and-start" class="section level4 unnumbered">
+<h4>3. Pull and start</h4>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="how-to-install-and-run.html#cb4-1" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.hub.yml pull</span>
+<span id="cb4-2"><a href="how-to-install-and-run.html#cb4-2" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.hub.yml up <span class="at">-d</span></span></code></pre></div>
 </div>
-</div>
-<div id="steps-to-run" class="section level2 unnumbered">
-<h2>Steps to Run<a class="anchor" aria-label="anchor" href="#steps-to-run"><i class="fas fa-link"></i></a>
-</h2>
-<ol style="list-style-type: decimal">
-<li>
-<p><strong>Clone or Download the Repository</strong>:<br>
-Get the project files including the <code>docker-compose.yml</code>:</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="how-to-install-and-run.html#cb3-1" tabindex="-1"></a><span class="fu">git</span> clone <span class="op">&lt;</span>repository-url<span class="op">&gt;</span></span>
-<span id="cb3-2"><a href="how-to-install-and-run.html#cb3-2" tabindex="-1"></a><span class="bu">cd</span> sequiaViz</span></code></pre></div>
-</li>
-<li>
-<p><strong>Prepare Your Data</strong>:<br>
-Place your input files in the <code>input_files</code> directory:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="how-to-install-and-run.html#cb4-1" tabindex="-1"></a><span class="fu">mkdir</span> <span class="at">-p</span> input_files</span>
-<span id="cb4-2"><a href="how-to-install-and-run.html#cb4-2" tabindex="-1"></a><span class="co"># Copy your data files here</span></span></code></pre></div>
-</li>
-<li>
-<p><strong>Start the Application with Docker Compose</strong>:<br>
-From the project directory, run:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="how-to-install-and-run.html#cb5-1" tabindex="-1"></a><span class="ex">docker-compose</span> up <span class="at">-d</span></span></code></pre></div>
-<p>This command pulls the required images and starts both the SequiaViz application and IGV static server in the background.</p>
-</li>
-<li>
-<p><strong>Access the Application</strong>:<br>
-Open your web browser and navigate to:</p>
+<div id="open-in-browser" class="section level4 unnumbered">
+<h4>4. Open in browser</h4>
 <pre><code>http://localhost:8080</code></pre>
-</li>
-<li>
-<p><strong>Verify Services Are Running</strong>:<br>
-Check container status:</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb7-1"><a href="how-to-install-and-run.html#cb7-1" tabindex="-1"></a><span class="ex">docker-compose</span> ps</span></code></pre></div>
-<p>You should see two containers running: <code>sequiaviz-shiny</code> and <code>igv-static</code>.</p>
-</li>
-</ol>
+<p>The app may take 10–20 seconds to initialize on first launch.</p>
+</div>
+<div id="stop" class="section level4 unnumbered">
+<h4>5. Stop</h4>
+<div class="sourceCode" id="cb6"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb6-1"><a href="how-to-install-and-run.html#cb6-1" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.hub.yml down</span></code></pre></div>
+<hr />
+</div>
+</div>
+</div>
+<div id="igv-snapshots" class="section level2 unnumbered">
+<h2>IGV snapshots</h2>
+<p>The <code>sequiascope-igv</code> container generates IGV screenshots for fusion gene visualizations when BAM files are provided. It watches <code>output_files/sessions/</code> and processes batch files written by the app.</p>
+<hr />
+</div>
+<div id="configuration" class="section level2 unnumbered">
+<h2>Configuration</h2>
+<p>The app reads a <code>reference_paths.json</code> from the working directory. The default config is embedded in the image. To override it, mount your own:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="how-to-install-and-run.html#cb7-1" tabindex="-1"></a><span class="fu">volumes</span><span class="kw">:</span></span>
+<span id="cb7-2"><a href="how-to-install-and-run.html#cb7-2" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> ./input_files:/input_files:ro</span></span>
+<span id="cb7-3"><a href="how-to-install-and-run.html#cb7-3" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> ./output_files:/output_files</span></span>
+<span id="cb7-4"><a href="how-to-install-and-run.html#cb7-4" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> ./reference_paths.json:/srv/shiny-server/sequiaScope/app/reference_paths.json:ro</span></span></code></pre></div>
+<hr />
+</div>
+<div id="build-from-source" class="section level2 unnumbered">
+<h2>Build from source</h2>
+<p>Building from source is not required for standard use. If you need to modify the application itself:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="how-to-install-and-run.html#cb8-1" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/katjur01/seqUIaSCOPE.git</span>
+<span id="cb8-2"><a href="how-to-install-and-run.html#cb8-2" tabindex="-1"></a><span class="bu">cd</span> seqUIaSCOPE</span>
+<span id="cb8-3"><a href="how-to-install-and-run.html#cb8-3" tabindex="-1"></a><span class="ex">docker</span> compose build</span>
+<span id="cb8-4"><a href="how-to-install-and-run.html#cb8-4" tabindex="-1"></a><span class="ex">docker</span> compose up <span class="at">-d</span></span></code></pre></div>
+<hr />
 </div>
 <div id="troubleshooting" class="section level2 unnumbered">
-<h2>Troubleshooting<a class="anchor" aria-label="anchor" href="#troubleshooting"><i class="fas fa-link"></i></a>
-</h2>
-<p><strong>Container fails to start:</strong></p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb8-1"><a href="how-to-install-and-run.html#cb8-1" tabindex="-1"></a><span class="ex">docker-compose</span> logs sequiaviz-shiny</span>
-<span id="cb8-2"><a href="how-to-install-and-run.html#cb8-2" tabindex="-1"></a><span class="ex">docker-compose</span> logs igv-static</span></code></pre></div>
-<p><strong>Input files not accessible:</strong>
-Ensure the <code>input_files</code> directory exists and contains your data files. Check file permissions.</p>
-<p><strong>Slow performance:</strong>
-Increase Docker’s allocated CPU and RAM in Docker Desktop settings (Preferences → Resources).</p>
-</div>
-<div id="stopping-and-cleaning-up" class="section level2 unnumbered">
-<h2>Stopping and Cleaning Up<a class="anchor" aria-label="anchor" href="#stopping-and-cleaning-up"><i class="fas fa-link"></i></a>
-</h2>
-<p>Stop the application:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="how-to-install-and-run.html#cb9-1" tabindex="-1"></a><span class="ex">docker-compose</span> down</span></code></pre></div>
-<p>Remove all containers and images:</p>
-<div class="sourceCode" id="cb10"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb10-1"><a href="how-to-install-and-run.html#cb10-1" tabindex="-1"></a><span class="ex">docker-compose</span> down <span class="at">-v</span></span>
-<span id="cb10-2"><a href="how-to-install-and-run.html#cb10-2" tabindex="-1"></a><span class="ex">docker</span> image prune <span class="at">-a</span></span></code></pre></div>
+<h2>Troubleshooting</h2>
+<p><strong>App doesn’t start</strong></p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="how-to-install-and-run.html#cb9-1" tabindex="-1"></a><span class="ex">docker</span> compose <span class="at">-f</span> docker-compose.hub.yml logs app</span></code></pre></div>
+<p><strong>No data visible after upload</strong></p>
+<ul>
+<li>Check that file names match expected patterns (see Data requirements)</li>
+<li>Verify the mount: <code>docker exec sequiascope-app ls /input_files</code></li>
+</ul>
+<p><strong>IGV snapshots not generated</strong></p>
+<ul>
+<li>Check the IGV container is running: <code>docker ps | grep igv</code></li>
+<li>Check IGV logs: <code>docker compose -f docker-compose.hub.yml logs igv</code></li>
+</ul>
 </div>
 <div id="notes" class="section level2 unnumbered alert alert-info" style="margin-top: 0.5rem;">
-<h2>Notes<a class="anchor" aria-label="anchor" href="#notes"><i class="fas fa-link"></i></a>
-</h2>
+<h2>Notes</h2>
 <ul>
-<li>The <code>input_files</code> directory is mounted as read-only for the IGV server and read-write for SequiaViz</li>
+<li>The <code>input_files</code> directory is mounted as read-only for the IGV server and read-write for SeqUIaSCOPE</li>
 <li>Both services communicate via the internal Docker network — no manual network configuration needed</li>
 <li>Session data is stored within the containers; use Docker volumes for persistence if needed</li>
 <li>All data remains on your local machine; nothing is sent to external servers</li>
-<li>
-<strong>For organizational deployment</strong>: If you’re interested in using SequiaViz but don’t have Docker expertise, contact your bioinformatics team or IT department. They can help set up and maintain SequiaViz in your organization’s infrastructure.</li>
+<li><strong>For organizational deployment</strong>: If you’re interested in using SeqUIaSCOPE but don’t have Docker expertise, contact your bioinformatics team or IT department. They can help set up and maintain SeqUIaSCOPE in your organization’s infrastructure.</li>
 </ul>
 </div>
 
 </div>
-  <div class="chapter-nav">
-<div class="prev"><a href="index.html">Introduction</a></div>
-<div class="next"><a href="data-requirements.html">Data requirements</a></div>
-</div></main><div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
-    <nav id="toc" data-toggle="toc" aria-label="On this page"><h2>On this page</h2>
-      <ul class="nav navbar-nav">
-<li><a class="nav-link" href="#how-to-install-and-run">How to install and run</a></li>
-<li>
-<a class="nav-link" href="#prerequisites">Prerequisites</a><ul class="nav navbar-nav">
-<li><a class="nav-link" href="#docker-installation">1. Docker Installation</a></li>
-<li><a class="nav-link" href="#docker-compose">2. Docker Compose</a></li>
-<li><a class="nav-link" href="#system-requirements">3. System Requirements</a></li>
-<li><a class="nav-link" href="#input-files">4. Input Files</a></li>
-</ul>
-</li>
-<li><a class="nav-link" href="#steps-to-run">Steps to Run</a></li>
-<li><a class="nav-link" href="#troubleshooting">Troubleshooting</a></li>
-<li><a class="nav-link" href="#stopping-and-cleaning-up">Stopping and Cleaning Up</a></li>
-<li><a class="nav-link" href="#notes">Notes</a></li>
-</ul>
+  </main>
+
+  <div class="col-md-3 col-lg-2 d-none d-md-block sidebar sidebar-chapter">
+    <nav id="toc" data-toggle="toc" aria-label="On this page">
+      <h2>On this page</h2>
+      <div id="book-on-this-page"></div>
 
       <div class="book-extra">
         <ul class="list-unstyled">
-          
+          <li><a id="book-source" href="#">View source <i class="fab fa-github"></i></a></li>
+          <li><a id="book-edit" href="#">Edit this page <i class="fab fa-github"></i></a></li>
         </ul>
-</div>
+      </div>
     </nav>
-</div>
+  </div>
 
 </div>
 </div> <!-- .container -->
 
-<footer class="bg-primary text-light mt-5"><div class="container"><div class="row">
+<footer class="bg-primary text-light mt-5">
+  <div class="container"><div class="row">
 
   <div class="col-12 col-md-6 mt-3">
-    <p>"<strong>SequiaViz Documentation</strong>" was written by Kateřina Jurásková. It was last built on 2025-11-28.</p>
+    <p>"<strong>SeqUIaSCOPE Documentation</strong>" was written by Kateřina Jurásková. It was last built on 2026-03-04.</p>
   </div>
 
   <div class="col-12 col-md-6 mt-3">
@@ -218,5 +245,8 @@ Increase Docker’s allocated CPU and RAM in Docker Desktop settings (Preference
 
 </div></div>
 </footer>
+
+
 </body>
+
 </html>
