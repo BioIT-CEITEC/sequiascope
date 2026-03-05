@@ -9,7 +9,7 @@
     "_comment": "Custom reference genome for IGV. Paths are relative to /input_files mount. Remove this section if not using custom genome.",
     "display_name": "Custom genome",
     "igv_id": "custom",
-    "genome": "custome_genome/GRCh38.fa",
-    "index": "custome_genome/GRCh38.fa.fai"
+    "genome": "custom_genome/GRCh38.fa",
+    "index": "custom_genome/GRCh38.fa.fai"
   }
 }

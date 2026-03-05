@@ -65,14 +65,21 @@ step1_ui <- function(id) {
                        prettySwitch(ns("fusion_data"), label = "Fusion genes detection", status = "primary", slim = TRUE),
                        conditionalPanel(
                          condition = paste0("input['", ns("fusion_data"), "'] == true"),
-                         div(style = "display: flex;",
-                             column(4,textAreaInput(inputId = ns("fusion_tumor_pattern"), label = "Pattern for tumor BAM files:", placeholder = "e.g. tumor, fusion")),
-                             column(4,textAreaInput(inputId = ns("fusion_chimeric_pattern"), label = "Pattern for chimeric BAM files:", placeholder = "e.g. chimeric")),
-                             column(4,pickerInput(inputId = ns("igv_snapshot"),label = "Genome for IGV snapshot:", 
-                               choices = c("GRCh38/hg38","hg38 1kg/GATK","GRCh37/hg19","T2T CHM13-v2.0/hs1","Custom","Dont create IGV snapshots"),
-                               choicesOpt = list(icon = c("fa-check","fa-check","fa-check","fa-check","fa-sliders","fa-xmark")),
-                               options = pickerOptions(container = "body", iconBase = "fas"), width = "100%"))
-                             )
+                         div(style = "display: flex; flex-wrap: wrap; gap: 15px; padding-left: 40px; align-items: flex-start;",
+                             # BAM pattern inputs stay together as a pair and never split
+                             div(style = "display: flex; flex: 2 1 400px; gap: 15px;",
+                                 div(style = "flex: 1;",
+                                     textAreaInput(inputId = ns("fusion_tumor_pattern"), label = "Pattern for tumor BAM files:", placeholder = "e.g. tumor, fusion")),
+                                 div(style = "flex: 1;",
+                                     textAreaInput(inputId = ns("fusion_chimeric_pattern"), label = "Pattern for chimeric BAM files:", placeholder = "e.g. chimeric"))
+                             ),
+                             # Genome picker wraps to a new line on narrower screens
+                             div(style = "flex: 1 1 220px; min-width: 200px;",
+                                 pickerInput(inputId = ns("igv_snapshot"), label = "Genome for IGV snapshot:",
+                                   choices = c("GRCh38/hg38","hg38 1kg/GATK","GRCh37/hg19","T2T CHM13-v2.0/hs1","Custom","Dont create IGV snapshots"),
+                                   choicesOpt = list(icon = c("fa-check","fa-check","fa-check","fa-check","fa-sliders","fa-xmark")),
+                                   options = pickerOptions(container = "body", iconBase = "fas"), width = "100%"))
+                         )
                        ),
                        prettySwitch(ns("expression_data"), label = "Expression profile", status = "primary", slim = TRUE),
                        conditionalPanel(

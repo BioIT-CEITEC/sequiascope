@@ -57,9 +57,11 @@ COPY . /srv/shiny-server/sequiaScope
 COPY --from=frontend-builder /dist/js ./app/static/js
 
 # Instalace R balíčků
-RUN R -e "install.packages('remotes', repos='https://cloud.r-project.org')"
-RUN R -e "install.packages('BiocManager', repos='https://cloud.r-project.org')"
-RUN Rscript /srv/shiny-server/sequiaScope/dependencies.R
+# --no-init-file skips .Rprofile (renv activation) during build — suppresses
+# harmless "No 'renv' directory found" noise in every child R process.
+RUN Rscript --no-init-file -e "install.packages('remotes', repos='https://cloud.r-project.org')"
+RUN Rscript --no-init-file -e "install.packages('BiocManager', repos='https://cloud.r-project.org')"
+RUN Rscript --no-init-file /srv/shiny-server/sequiaScope/dependencies.R
 
 # Nastavení portu a spuštění
 EXPOSE 8080

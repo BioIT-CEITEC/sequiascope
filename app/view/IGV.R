@@ -1,5 +1,5 @@
 box::use(
-  shiny[br, NS,h3, tagList, div, observe, observeEvent, mainPanel, titlePanel, uiOutput, renderUI, fluidPage,fluidRow, moduleServer,
+  shiny[br, NS,h3, tagList, div, observe, observeEvent, mainPanel, titlePanel, uiOutput, renderUI, fluidPage,fluidRow, moduleServer,isolate,
         reactiveValues, column, req, reactive, reactiveVal,showModal,modalDialog,modalButton, conditionalPanel, textInput, updateTextInput],
   htmltools[tags,HTML],
   shinyalert[shinyalert],
@@ -54,6 +54,10 @@ igv_server <- function(id, shared_data, root_path) {
   moduleServer(id, function(input, output, session) {
     
     igv_needs_refresh <- reactiveVal(FALSE)
+    # Debounce guard: stores timestamp of last IGV load attempt.
+    # Prevents double-firing when Shiny/JS round-trip is slow and the user
+    # clicks Load IGV a second time before the first render completes.
+    igv_last_load_ts <- reactiveVal(0)
     
     # Synchronize hidden input with shared_data for conditionalPanel
     observe({
@@ -175,7 +179,14 @@ igv_server <- function(id, shared_data, root_path) {
     }, ignoreNULL = TRUE, ignoreInit = TRUE)
     
     observeEvent(input$loadIGVButton, {
-      
+      # R-side debounce: ignore clicks that arrive within 2 s of the previous one
+      now <- as.numeric(Sys.time())
+      if (now - isolate(igv_last_load_ts()) < 2) {
+        message("[IGV] Debounce: ignoring rapid duplicate loadIGVButton click")
+        return()
+      }
+      igv_last_load_ts(now)
+
       igv_needs_refresh(FALSE)
       
       message("Current selected_bams files: ", paste(selected_bams(), collapse = ", "))
@@ -302,6 +313,15 @@ igv_server <- function(id, shared_data, root_path) {
       
       var igvDiv = document.getElementById('%s');
       if (igvDiv) {
+        // JS-side singleton: destroy any existing browser before creating a new one.
+        // This prevents a second IGV instance appearing when the observer fires twice
+        // (e.g. slow Shiny round-trip + user clicks Load IGV again).
+        if (window.igvBrowser) {
+          try { igv.removeBrowser(window.igvBrowser); } catch(e) { console.warn('removeBrowser:', e); }
+          window.igvBrowser = null;
+        }
+        igvDiv.innerHTML = '';
+
         var options = {
           genome: %s,
           locus: '%s',

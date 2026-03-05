@@ -541,7 +541,7 @@ server <- function(id, patient, shared_data) {
         tryCatch({
           doc <- cursor_reach(doc, "<<summary_somatic>>")
           if (!is.null(somatic_dt()) && nrow(somatic_dt()) != 0) {
-            for (variant_text in summary_somatic()) {
+            for (variant_text in rev(summary_somatic())) {
               doc <- body_add_par(doc, variant_text, pos = "before")
             }
           }
@@ -554,7 +554,7 @@ server <- function(id, patient, shared_data) {
         tryCatch({
           doc <- cursor_reach(doc, "<<summary_germline>>")
           if (!is.null(germline_dt()) && nrow(germline_dt()) != 0) {
-            for (variant_text in summary_germline()) {
+            for (variant_text in rev(summary_germline())) {
               doc <- body_add_par(doc, variant_text, pos = "before")
             }
           }
@@ -567,7 +567,7 @@ server <- function(id, patient, shared_data) {
         tryCatch({
           doc <- cursor_reach(doc, "<<summary_fusion>>")
           if (!is.null(fusion_dt()) && nrow(fusion_dt()) != 0) {
-            for (variant_text in summary_fusion()) {
+            for (variant_text in rev(summary_fusion())) {
               doc <- body_add_par(doc, variant_text, pos = "before")
             }
           }
@@ -705,7 +705,7 @@ server <- function(id, patient, shared_data) {
           doc <- cursor_reach(doc, "<<somatic_interpretation>>")
 
           if (!is.null(somatic_interpretation())) {
-            for (fpar_obj in somatic_interpretation()) {
+            for (fpar_obj in rev(somatic_interpretation())) {
               doc <- body_add_fpar(doc, fpar_obj, pos = "before")
             }
           }
@@ -719,7 +719,7 @@ server <- function(id, patient, shared_data) {
           doc <- cursor_reach(doc, "<<germline_interpretation>>")
 
           if (!is.null(germline_interpretation())) {
-            for (fpar_obj in germline_interpretation()) {
+            for (fpar_obj in rev(germline_interpretation())) {
               doc <- body_add_fpar(doc, fpar_obj, pos = "before")
             }
           }

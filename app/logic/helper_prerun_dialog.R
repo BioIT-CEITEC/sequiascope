@@ -99,6 +99,11 @@ check_and_show_fusion_dialog <- function(confirmed_paths, output_dir, shared_dat
         shared_data$pending_data_load(NULL)
         return()
       }
+      # Reset fusion_prerun_started so the observe() guard passes.
+      # This also serves as a reactive invalidation signal — the observe reads
+      # fusion_prerun_started(), so setting it FALSE re-fires the observer even
+      # when fusion_prerun_user_confirmed was already TRUE from a previous run.
+      shared_data$fusion_prerun_started(FALSE)
       shared_data$fusion_prerun_user_confirmed(TRUE)
     }
   )

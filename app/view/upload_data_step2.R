@@ -363,6 +363,7 @@ step2_ui <- function(id) {
             html = TRUE,
             callbackR = function(user_confirmed) {
               if (isTRUE(user_confirmed)) {
+                confirmed_paths_state(NULL)  # force-invalidate so identical paths still re-trigger
                 confirmed_paths_state(build_confirmed_paths(data, path()))
               } else {
                 confirmed_paths_state(NULL)
@@ -372,6 +373,7 @@ step2_ui <- function(id) {
           return()
         }
 
+        confirmed_paths_state(NULL)  # force-invalidate so identical paths still re-trigger
         confirmed_paths_state(build_confirmed_paths(data, path()))  # NO RED, NO ORANGE: pass data directly
         
         # Show waiter after confirming - will be hidden when summary/expression profile loads

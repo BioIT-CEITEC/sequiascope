@@ -389,10 +389,11 @@ server <- function(id) {
     # (fusion_prerun_status is now a list, not a reactiveVal)
 
     observeEvent(upload$confirmed_paths(), {
+      confirmed_paths <- upload$confirmed_paths()
+      req(confirmed_paths)  # NULL is set momentarily before the real value — ignore that flush
       message("🚀 [OBSERVE] confirmed_paths changed - starting data loading...")
       output_dir <- shared_data$output_path()
       unlock_navigation(session) # Unlock all navigation tabs after successful data confirmation
-      confirmed_paths <- upload$confirmed_paths()   # make visible to helper above; or pass as arg
       mounted_summary <- reactiveValues(mounted = character(0))
       
       # Check for existing fusion outputs and show resume/clean-start dialog if needed
@@ -661,31 +662,6 @@ server <- function(id) {
         
         IGV$igv_server("igv", shared_data, root_path)
     }
-      
-      observeEvent(input$save_session_btn, {
-        shinyalert(
-          title = "Save Session",
-          text  = "Save your current work? This will preserve all selected variants, genes, and settings.",
-          type  = "info",
-          showCancelButton = TRUE,
-          confirmButtonText = "Save",
-          cancelButtonText  = "Cancel",
-          callbackR = function(x) {
-            if (isTRUE(x)) {
-              # Save to session directory (where cache files are), not root output_files
-              session_dir <- shared_data$session_dir()
-              if (!is.null(session_dir) && session_dir != "") {
-                session_file <- file.path(session_dir, "session_data.json")
-                save_session(session_file, shared_data)
-                session$sendCustomMessage("allow-unload", list())  # Allow page unload after save
-              } else {
-                showNotification("⚠️ No session to save - please load data first.", type = "warning", duration = 5)
-              }
-            }
-          }
-        )
-      }, ignoreInit = TRUE)
-      
       
       # ═══════════════════════════════════════════════════════════════════════════
       # FUSION PRERUN - PARALLEL processing for each patient
@@ -1007,6 +983,32 @@ server <- function(id) {
   
     })
     
+    # Save session button — registered once at server level (NOT inside the data-loading
+    # observe block) so clicking Save always shows exactly one alert regardless of
+    # how many times the user has re-confirmed data.
+    observeEvent(input$save_session_btn, {
+      shinyalert(
+        title = "Save Session",
+        text  = "Save your current work? This will preserve all selected variants, genes, and settings.",
+        type  = "info",
+        showCancelButton = TRUE,
+        confirmButtonText = "Save",
+        cancelButtonText  = "Cancel",
+        callbackR = function(x) {
+          if (isTRUE(x)) {
+            session_dir <- shared_data$session_dir()
+            if (!is.null(session_dir) && session_dir != "") {
+              session_file <- file.path(session_dir, "session_data.json")
+              save_session(session_file, shared_data)
+              session$sendCustomMessage("allow-unload", list())
+            } else {
+              showNotification("⚠️ No session to save - please load data first.", type = "warning", duration = 5)
+            }
+          }
+        }
+      )
+    }, ignoreInit = TRUE)
+
     # Hide waiter when Summary tab is fully rendered
     observeEvent(input$summary_rendered, {
       # Only hide waiter once per data load
