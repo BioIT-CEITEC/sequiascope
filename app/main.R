@@ -27,7 +27,7 @@ box::use(
   rhino,
   shiny[h1,h2,h3,bootstrapPage,div,moduleServer,NS,renderUI,tags,uiOutput,icon,observeEvent,observe,reactive,isTruthy,onFlushed,appendTab,removeTab,withProgress,
         fluidRow,fluidPage,mainPanel,tabPanel,titlePanel,tagList,HTML,textInput,sidebarLayout,sidebarPanel,includeScript,invalidateLater,isolate,
-        br,updateTabsetPanel,imageOutput,renderImage,reactiveVal,req,fixedPanel,reactiveValues,fileInput,showNotification,showTab,hideTab],
+        br,updateTabsetPanel,imageOutput,renderImage,reactiveVal,req,fixedPanel,reactiveValues,fileInput,showNotification,showTab,hideTab,addResourcePath],
   bs4Dash[dashboardPage, dashboardHeader, dashboardSidebar, dashboardBody, sidebarMenu, menuItem, menuSubItem, dashboardControlbar,tabItems, tabItem, bs4Card,infoBox,tabBox,tabsetPanel,bs4ValueBox,
           controlbarMenu,controlbarItem,column,box,boxLabel,descriptionBlock,boxProfile,boxProfileItem,attachmentBlock,boxComment,userBlock,updateTabItems,boxDropdown,boxDropdownItem,dropdownDivider,
           navbarMenu,navbarTab,actionButton,updateNavbarTabs, insertTab],
@@ -302,6 +302,13 @@ server <- function(id) {
       output_base <- paste0("./", output_dirname)
       message("💻 Running locally - output: ", output_base)
     }
+    
+    # Register sessions directory as static resource — allows fusion_genes_table to
+    # serve IGV snapshots and Arriba SVGs via /sessions/... URL without base64 encoding.
+    sessions_dir <- file.path(output_base, "sessions")
+    dir.create(sessions_dir, recursive = TRUE, showWarnings = FALSE)
+    addResourcePath("sessions", sessions_dir)
+    message("🗂️ Static resource path registered: /sessions → ", sessions_dir)
     
     shared_data <- reactiveValues(
       data_path = reactiveVal(NULL),  # User-selected data directory path

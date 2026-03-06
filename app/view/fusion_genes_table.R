@@ -254,10 +254,10 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
             ),
             tags$p(
               {
-                stage <- if (progress <= 15) {
-                  "Processing Arriba images"       # 0–15 %: Arriba PDF → PNG
+                stage <- if (progress <= 20) {
+                  "Processing Arriba images"       # 0–20 %: Arriba PDF → PNG
                 } else if (progress <= 90) {
-                  "Processing IGV snapshots"       # 15–90 %: IGV batch watcher
+                  "Processing IGV snapshots"       # 20–90 %: IGV batch watcher
                 } else {
                   "Creating fusion manifest"       # 90–100 %: writing .tsv manifest
                 }
@@ -393,37 +393,20 @@ server <- function(id, selected_samples, shared_data, file, file_list, load_sess
                           details = function(index) {
                             svg_file <- dt$svg_path[index]
                             png_file <- dt$png_path[index]
-                            output_dir <- shared_data$session_dir()
+                            session_name <- basename(shared_data$session_dir())
                             
-                            # Helper function to read and encode image as base64 data URI
-                            read_as_base64 <- function(file_path, mime_type) {
-                              if (!file.exists(file_path)) return(NULL)
-                              tryCatch({
-                                raw_data <- readBin(file_path, "raw", file.info(file_path)$size)
-                                encoded <- base64enc::base64encode(raw_data)
-                                paste0("data:", mime_type, ";base64,", encoded)
-                              }, error = function(e) {
-                                message("[IMG ERROR] Failed to encode ", file_path, ": ", e$message)
-                                NULL
-                              })
-                            }
-                            
-                            # Build full paths and check existence
-                            svg_path <- if (!is.na(svg_file) && nzchar(svg_file)) file.path(output_dir, svg_file) else NULL
-                            png_path <- if (!is.na(png_file) && nzchar(png_file)) file.path(output_dir, png_file) else NULL
-                            
-                            svg_ok <- !is.null(svg_path) && file.exists(svg_path)
-                            png_ok <- !is.null(png_path) && file.exists(png_path)
-                            
-                            # Encode to base64 data URIs (no URL needed!)
-                            svg_data <- if (svg_ok) read_as_base64(svg_path, "image/svg+xml") else NULL
-                            png_data <- if (png_ok) read_as_base64(png_path, "image/png") else NULL
+                            # Build URLs via addResourcePath("/sessions") — zero file I/O,
+                            # browser fetches images lazily only when row is expanded.
+                            svg_url <- if (!is.na(svg_file) && nzchar(svg_file))
+                              paste0("/sessions/", session_name, "/", svg_file) else NULL
+                            png_url <- if (!is.na(png_file) && nzchar(png_file))
+                              paste0("/sessions/", session_name, "/", png_file) else NULL
                             
                             tags$div(
                               style = "display:flex; align-items:flex-start; gap:16px;",
-                              if (!is.null(svg_data)) tags$img(src = svg_data, style = "width:50%; height:auto;")
+                              if (!is.null(svg_url)) tags$img(src = svg_url, style = "width:50%; height:auto;")
                               else tags$strong("Arriba image not available.",  style = "width:50%; text-align:center; margin:40px 0;"),
-                              if (!is.null(png_data)) tags$img(src = png_data, style = "width:50%; height:auto;")
+                              if (!is.null(png_url)) tags$img(src = png_url, style = "width:50%; height:auto;")
                               else tags$strong("IGV snapshot not available.", style = "width:50%; text-align:center; margin:40px 0;")
                             )
                           },
