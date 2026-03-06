@@ -159,7 +159,14 @@ server <- function(id, shared_data) {
     
     
     observeEvent(step2$confirmed_paths(), {
-      confirmed_paths_state(step2$confirmed_paths())
+      new_paths <- step2$confirmed_paths()
+      req(new_paths)  # ignore step2's internal NULL flush (validation errors / re-trigger helper)
+      # Two separate flush cycles guarantee downstream observers always re-fire,
+      # even when the data.frame content is identical (e.g. only genome picker changed).
+      confirmed_paths_state(NULL)          # flush 1 — invalidates main.R observer (req silences it)
+      session$onFlushed(function() {
+        confirmed_paths_state(new_paths)   # flush 2 — main.R observer fires with real data
+      }, once = TRUE)
     }, ignoreInit = TRUE)
     
     
