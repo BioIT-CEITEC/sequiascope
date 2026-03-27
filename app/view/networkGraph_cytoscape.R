@@ -26,7 +26,7 @@ box::use(
 
 box::use(
   app/logic/load_data[load_data],
-  app/logic/waiters[use_spinner, use_waiter, show_waiter, hide_waiter],
+  app/logic/waiter[use_spinner, use_waiter, show_waiter, hide_waiter],
   app/logic/helper_networkGraph[get_string_interactions,prepare_cytoscape_network,get_pathway_list],
   app/view/networkGraph_tables,
 

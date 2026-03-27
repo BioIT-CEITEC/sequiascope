@@ -66,11 +66,11 @@ RUN mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 RUN mkdir -p /srv && chmod 777 /srv
 
 # Zkopírovat wrapper skript pro IGV Desktop
-COPY igv_wrapper.sh /usr/local/bin/igv_wrapper.sh
+COPY app/scripts/igv_wrapper.sh /usr/local/bin/igv_wrapper.sh
 RUN chmod +x /usr/local/bin/igv_wrapper.sh
 
 # Zkopírovat watcher skript pro automatické zpracování batch files
-COPY igv_batch_watcher.sh /usr/local/bin/igv_batch_watcher.sh
+COPY app/scripts/igv_batch_watcher.sh /usr/local/bin/igv_batch_watcher.sh
 RUN chmod +x /usr/local/bin/igv_batch_watcher.sh
 
 # Vytvoření skriptu pro spuštění http-serveru a watcheru

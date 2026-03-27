@@ -31,6 +31,7 @@ sequiaScope_paper.md
 app/view/reactable.extras_module.R
 app/reactable.extras.R
 create_demo_data_germ.R
+docker-compose.yml
 
 # renv and input data directories
 _book/
@@ -38,6 +39,7 @@ genome/
 renv/
 input_files/*
 !input_files/demo_data/
+!input_files/demo_data/**
 report_results/
 www/
 sessions/

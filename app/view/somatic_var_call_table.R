@@ -22,7 +22,7 @@ box::use(
   app/logic/prepare_main_table_and_filters[map_column_names,map_gene_region_names,map_clin_sig_names],
   app/logic/vaf_plot[generate_vaf],
   app/logic/sankey_plot[sankey_plot],
-  app/logic/waiters[use_spinner],
+  app/logic/waiter[use_spinner],
   app/logic/export_functions[get_table_download_handler,get_sankey_download_handler,get_hist_download_handler],
   app/logic/load_data[load_data],
   app/logic/prepare_table[prepare_somatic_table,colFilter],

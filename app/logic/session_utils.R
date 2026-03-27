@@ -17,6 +17,19 @@ nz <- function(x, default) if (is.null(x) || !length(x)) default else x
 #' @export
 ch <- function(x) trimws(as.character(x))
 
+#' Compute a filesystem-safe session directory name from current shared_data.
+#' Always based on sorted project folder names for consistency.
+#' @export
+get_session_dataset_name <- function(shared_data) {
+  projs <- isolate(shared_data$projects_path())
+  if (is.null(projs) || length(projs) == 0) {
+    projs <- isolate(shared_data$data_path())
+  }
+  if (is.null(projs) || length(projs) == 0) return("")
+  raw <- paste(sort(basename(projs)), collapse = "_")
+  gsub("[^A-Za-z0-9_-]", "_", raw)
+}
+
 # ============================================
 # GENERAL MODUL REGISTR SYSTEM
 # ============================================
@@ -411,7 +424,11 @@ register_module <- function(shared_data, module_type, module_id, methods) {
 create_session_cache <- function(all_files, all_patients, session_dir, variant_type = "somatic") {
   
   if (!dir.exists(session_dir)) {
-    dir.create(session_dir, recursive = TRUE)
+    created <- dir.create(session_dir, recursive = TRUE)
+    if (!created) {
+      warning("create_session_cache: could not create session directory: ", session_dir, " — skipping cache")
+      return(invisible(NULL))
+    }
   }
   
   cache_file <- file.path(session_dir, paste0("in_library_", variant_type, ".rds"))

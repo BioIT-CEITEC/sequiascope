@@ -19,7 +19,7 @@ box::use(
 box::use(
   app/logic/load_data[load_data],
   app/logic/prepare_table[prepare_fusion_genes_table], 
-  app/logic/waiters[use_spinner],
+  app/logic/waiter[use_spinner],
   app/logic/helper_reactable[create_clinvar_filter,create_consequence_filter,update_fusion_data],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
   app/logic/session_utils[create_session_handlers, register_module, safe_extract, ch],

@@ -13,6 +13,48 @@ box::use(
   app/logic/session_utils[add_in_library_from_session]
 )
 
+# Ordered list of known population-frequency columns (case-insensitive after tolower()).
+# First match found in data wins. Used across multiple modules.
+#' @export
+MAF_COLUMN_CANDIDATES <- c(
+  # gnomAD subpopulations
+  "gnomad_nfe",   # Non-Finnish European
+  "gnomad_afr",   # African
+  "gnomad_amr",   # Latino/Admixed American
+  "gnomad_eas",   # East Asian
+  "gnomad_sas",   # South Asian
+  "gnomad_fin",   # Finnish
+  "gnomad_asj",   # Ashkenazi Jewish
+  "gnomad_mid",   # Middle Eastern
+  "gnomad_af",    # gnomAD overall AF
+  # 1000 Genomes subpopulations
+  "1000g_eur_af", # European
+  "1000g_amr_af", # American
+  "1000g_afr_af", # African
+  "1000g_eas_af", # East Asian
+  "1000g_sas_af", # South Asian
+  "1000g_af"      # overall 1000G AF
+)
+
+#' @export
+MAF_COLUMN_LABELS <- c(
+  gnomad_nfe   = "gnomAD NFE",
+  gnomad_afr   = "gnomAD AFR",
+  gnomad_amr   = "gnomAD AMR",
+  gnomad_eas   = "gnomAD EAS",
+  gnomad_sas   = "gnomAD SAS",
+  gnomad_fin   = "gnomAD FIN",
+  gnomad_asj   = "gnomAD ASJ",
+  gnomad_mid   = "gnomAD MID",
+  gnomad_af    = "gnomAD AF",
+  `1000g_eur_af` = "1000G EUR AF",
+  `1000g_amr_af` = "1000G AMR AF",
+  `1000g_afr_af` = "1000G AFR AF",
+  `1000g_eas_af` = "1000G EAS AF",
+  `1000g_sas_af` = "1000G SAS AF",
+  `1000g_af`     = "1000G AF"
+)
+
 # Helper function to read HEADER of files based on extension
 #' @export
 read_file_header <- function(file_path) {
@@ -50,8 +92,6 @@ read_file_header <- function(file_path) {
     }
     # ---- XLS / XLSX ----
     if (grepl("\\.xlsx$", file_name, ignore.case = TRUE)) {
-      message("fusion data are loading!")
-      print("fusion data are loading 2!")
       return(names(read_xlsx(file_path, n_max = 0)))
     }
     # ---- CSV / TSV ----
@@ -87,7 +127,7 @@ get_required_columns <- function(dataset_type) {
   required_cols <- list(
     somatic = c("var_name", "gene_symbol", "tumor_variant_freq", "tumor_depth", "gene_region", "gnomAD_NFE",
                 "consequence", "HGVSc", "HGVSp", "variant_type", "all_full_annot_name"),
-    germline = c("var_name", "gene_symbol", "variant_freq", "coverage_depth", "gene_region", "gnomAD_NFE", 
+    germline = c("var_name", "gene_symbol", "variant_freq", "coverage_depth", "gene_region",
                  "clinvar_sig", "consequence", "HGVSc", "HGVSp", "variant_type", "all_full_annot_name"),
     # For fusion: chr1/chr2 are required (chrom1/chrom2 will be accepted and renamed during validation)
     fusion = c("gene1","gene2","chr1","chr2","pos1","pos2","strand1","strand2","arriba.called","starfus.called",

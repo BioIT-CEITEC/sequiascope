@@ -9,7 +9,7 @@ box::use(
   stringi[stri_trans_totitle],
 )
 box::use(
-  app/logic/load_data[load_data],
+  app/logic/load_data[load_data, MAF_COLUMN_CANDIDATES],
   app/logic/prepare_arriba_pictures[pdf2png],
   app/logic/filter_columns[colnames_map_list]
 )
@@ -48,7 +48,7 @@ prepare_germline_table <- function(dt, all_colNames){
   dt <- replace_underscore_with_space(dt, c("gene_region", "clinvar_sig", "consequence"))
   if ("clinvar_dbn" %in% colnames(dt)) dt <- replace_underscore_with_space(dt, "clinvar_dbn")
   
-  cols_to_numeric <- c("gnomad_nfe", "variant_freq")
+  cols_to_numeric <- intersect(c(MAF_COLUMN_CANDIDATES, "variant_freq"), colnames(dt))
   dt[, (cols_to_numeric) := lapply(.SD, as.numeric), .SDcols = cols_to_numeric]
   
   fast_lookup_column(dt, "consequence", "consequence_trimws", clean_consequence)
@@ -241,7 +241,9 @@ colFilter <- function(flag, all_column_var, tissues = NULL, session = NULL){
   } else if (flag == "germline"){
     hidden_columns <- c("sample")
     default_selection <- c("var_name","variant_freq","in_library","gene_symbol",
-                           "coverage_depth","gene_region","gnomad_nfe","clinvar_sig",
+                           "coverage_depth","gene_region",
+                           MAF_COLUMN_CANDIDATES,
+                           "clinvar_sig",
                            "snpdb","cgc_germline","trusight_genes","fone","consequence",
                            "hgvsc", "hgvsp","all_full_annot_name")
     

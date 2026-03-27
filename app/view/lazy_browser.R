@@ -29,7 +29,7 @@
 #   b$selected_dirs()   # character(0) until user adds folders
 
 box::use(
-  shiny[moduleServer, NS, uiOutput, renderUI, reactiveVal, reactive,
+  shiny[moduleServer, NS, uiOutput, renderUI, reactiveVal, reactive,isolate,
         observeEvent, observe, icon, tagList, req],
   htmltools[tags, HTML, div],
   shinyWidgets[actionBttn],
@@ -204,8 +204,11 @@ server <- function(id,
       # ── Checkboxes mode: each row has checkbox (select) + link (navigate) ─────
       } else {
 
-        # Depend on selected_dirs so pre-check state stays in sync after uncheck
-        cur_selected <- selected_dirs()
+        # isolate so ticking a checkbox does NOT re-render the whole list
+        # (which would reset scroll position). The list re-renders only when
+        # current_browse_path() changes (navigation), at which point isolate()
+        # correctly picks up the latest selected_dirs() for pre-checking.
+        cur_selected <- isolate(selected_dirs())
 
         # Unique JS identifiers per namespace instance
         cb_class  <- paste0("lazy-cb-",   gsub("[^a-zA-Z0-9]", "_", session$ns("x")))

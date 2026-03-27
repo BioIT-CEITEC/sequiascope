@@ -121,9 +121,9 @@ box::use(
   app/view/networkGraph_cytoscape,
   app/logic/session_utils[load_session, save_session, cleanup_old_sessions, create_session_cache],
   app/logic/prerun_fusion[fusion_patients_to_prerun,prerun_fusion_data,prerun_fusion_patient,get_fusion_prerun_status,check_fusion_status,cleanup_patient_fusion_outputs],
-  app/logic/test_background_process[test_background_worker_single,test_background_worker],
+
   app/logic/helper_main[get_patients, get_files_by_patient, add_dataset_tabs, add_summary_boxes],
-  app/logic/helper_waiter[show_waiter_with_progress, update_waiter_progress, hide_waiter_progress, wait_for_summary_rendered, get_waiter_js],
+  app/logic/waiter[show_waiter_with_progress, update_waiter_progress, hide_waiter_progress, wait_for_summary_rendered, get_waiter_js],
   app/logic/navigation_lock[lock_navigation, unlock_navigation, get_navigation_lock_css, get_navigation_lock_js],
   app/logic/helper_prerun_dialog[check_and_show_fusion_dialog],
 )
@@ -359,7 +359,9 @@ server <- function(id) {
     message("🗂️ Static resource path registered: /sessions → ", sessions_dir)
     
     shared_data <- reactiveValues(
-      data_path = reactiveVal(NULL),  # User-selected data directory path
+      data_path     = reactiveVal(NULL),  # User-selected data directory path (first project folder)
+      bam_path      = reactiveVal(NULL),  # User-selected BAM directory (if separate from projects)
+      projects_path = reactiveVal(NULL),  # All selected project folders
       somatic.variants = reactiveVal(NULL),
       somatic.patients  = reactiveVal(character(0)),
       somatic.patients.igv = reactiveVal(NULL),
@@ -560,11 +562,18 @@ server <- function(id) {
             data_path <- isolate(shared_data$data_path())
             
             if (!is.null(data_path) && data_path != "") {
-              # Get dataset name from input folder path (e.g., "MOII_e117" or "demo_data")
-              dataset_name <- basename(data_path)
+              # Name session after sorted project folder basenames (joined with _)
+              proj_names   <- sort(basename(isolate(shared_data$projects_path())))
+              dataset_name <- paste(proj_names, collapse = "_")
               
               # Sanitize folder name (remove problematic characters)
               dataset_name <- gsub("[^A-Za-z0-9_-]", "_", dataset_name)
+              
+              # Fallback to timestamp if sanitized name is empty
+              if (!nzchar(dataset_name)) {
+                dataset_name <- paste0("session_", format(Sys.time(), "%d_%m_%Y_%H%M%S"))
+                message("⚠️  Could not derive session name from project folders — using timestamp fallback: ", dataset_name)
+              }
               
               # Create session directory (without timestamp for reusability)
               new_session_dir <- file.path(output_dir, "sessions", dataset_name)
@@ -778,15 +787,15 @@ server <- function(id) {
         updateNavbarTabs(session, "navbarMenu", selected = ns("summary"))
         wait_for_summary_rendered(session, ns)  # JS polls DOM, fires summary_rendered input
         # Server-side fallback: if JS message is lost (K8s proxy, slow browser),
-        # force-hide after 8 s so the user is never permanently stuck.
+        # force-hide after 3 s so the user is never permanently stuck.
         later(function() {
           if (!isolate(waiter_hidden())) {
-            message("⏱️ Waiter fallback (8s) — forcing hide")
+            message("⏱️ Waiter fallback (3s) — forcing hide")
             hide_waiter_progress(session)
             waiter_hidden(TRUE)
             session$sendCustomMessage("data-loaded", list())
           }
-        }, delay = 8)
+        }, delay = 3)
         message("⏳ Waiter visible — waiting for summary DOM before hiding")
 
         # ═══════════════════════════════════════════════════════════════════════════
@@ -1038,12 +1047,12 @@ server <- function(id) {
         wait_for_summary_rendered(session, ns)
         later(function() {
           if (!isolate(waiter_hidden())) {
-            message("\u23f1\ufe0f Waiter fallback (8s) \u2014 forcing hide (no futures path)")
+            message("\u23f1\ufe0f Waiter fallback (3s) \u2014 forcing hide (no futures path)")
             hide_waiter_progress(session)
             waiter_hidden(TRUE)
             session$sendCustomMessage("data-loaded", list())
           }
-        }, delay = 8)
+        }, delay = 3)
         message("\u23f3 Waiter visible \u2014 waiting for summary DOM (no futures path)")
       }
 

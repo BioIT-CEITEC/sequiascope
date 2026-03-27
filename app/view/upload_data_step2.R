@@ -1,6 +1,6 @@
 box::use(
   shiny[NS,tagList,fileInput,moduleServer,observe,reactive,textOutput,updateTextInput,renderText,req,textInput,observeEvent,textAreaInput,column,fluidRow,reactiveVal,
-        isTruthy,actionButton,icon,updateTextAreaInput,uiOutput,renderUI,bindEvent,fluidPage,radioButtons,verbatimTextOutput,renderPrint,showModal,modalDialog],
+        isTruthy,actionButton,icon,updateTextAreaInput,uiOutput,renderUI,bindEvent,fluidPage,radioButtons,verbatimTextOutput,renderPrint,showModal,modalDialog,invalidateLater],
   htmltools[tags,HTML,div,span,h2,h4,h5,br],
   shinyFiles[shinyDirButton,shinyDirChoose,parseDirPath,getVolumes],
   shinyWidgets[actionBttn,prettySwitch,updatePrettySwitch,pickerInput,updatePickerInput, dropdownButton,tooltipOptions,radioGroupButtons],
@@ -9,11 +9,12 @@ box::use(
   stringr[str_detect,regex],
   shinyalert[shinyalert],
   reactable[reactable,reactableOutput,renderReactable,colDef],
+  mirai[mirai, unresolved],
 )
 
 box::use(
   app/logic/helper_upload_data[create_dataset_data,create_reactable,validate_datasets_status,build_confirmed_paths, validate_all_columns, create_column_error_message, create_reference_files_data, create_reference_files_reactable],
-  app/logic/waiters[show_waiter, hide_waiter]
+  app/logic/waiter[show_waiter, hide_waiter]
 )
 
 # DZ1601,MR1507,P001
@@ -38,7 +39,7 @@ step2_ui <- function(id) {
 
 
 
-  step2_server <- function(id, path, patients, datasets, tumor_pattern, normal_pattern, tissues, step, shared_data) {
+  step2_server <- function(id, path, patients, datasets, tumor_pattern, normal_pattern, variant_pattern, tissues, step, shared_data) {
     moduleServer(id, function(input, output, session) {
       ns <- session$ns
       all_files <- reactiveVal()
@@ -47,6 +48,10 @@ step2_ui <- function(id) {
       confirmed_paths_state <- reactiveVal(NULL)
       # Trigger for manual evaluation (only on refresh or when step becomes 2)
       eval_trigger <- reactiveVal(0)
+      # Async file scan state
+      scan_result  <- reactiveVal(NULL)
+      scan_pending <- reactiveVal(FALSE)
+      scan_env     <- new.env(parent = emptyenv())
       
       # Reload config when returning to step 2 (e.g., after going back to step 1)
       observeEvent(step(), {
@@ -69,20 +74,69 @@ step2_ui <- function(id) {
         }
       })
       
-      # Load files ONLY when step 2 is active
+      # Async file scan — launched when entering step 2 or path changes
+      # Uses Linux `find` via mirai subprocess so Shiny main thread is never blocked
+      last_scanned_dirs <- reactiveVal(NULL)
       observe({
-        req(step() == 2)  # Don't load files until step 2
-        req(path(), patients())
-        all_files_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
-        patient_pattern <- paste(patients(), collapse = "|")
-        matches <- stri_detect_regex(all_files_list, patient_pattern) 
-        all_files(all_files_list[matches])
+        req(step() == 2)
+        p <- path()
+        req(!is.null(p$projects) && length(p$projects) > 0)
+        bam_dirs      <- if (!is.null(p$bams) && length(p$bams) > 0) p$bams else p$projects
+        all_scan_dirs <- unique(c(p$projects, bam_dirs))
+        # Skip re-scan if path hasn't changed (e.g. user went back to step1 to remove a
+        # patient but kept the same folders — no need to run find again)
+        if (identical(sort(all_scan_dirs), sort(last_scanned_dirs()))) return()
+        last_scanned_dirs(all_scan_dirs)
+        scan_result(NULL)
+        scan_pending(TRUE)
+        scan_env$task <- mirai({
+          unique(unlist(lapply(dirs, function(d) {
+            tryCatch(
+              # -L: follow symlinks (handles NFS/K8s mounts exposed as symlinks)
+              system2("find", c("-L", d, "-maxdepth", "5", "-type", "f"), stdout = TRUE),
+              error = function(e) character(0)
+            )
+          })))
+        }, dirs = all_scan_dirs)
+      }) |> bindEvent(step(), path(), ignoreNULL = FALSE, ignoreInit = FALSE)
+
+      # Polling: check if mirai scan finished (~every 500 ms)
+      observe({
+        req(scan_pending())
+        invalidateLater(500)
+        if (!is.null(scan_env$task) && !unresolved(scan_env$task)) {
+          scan_result(scan_env$task$data)
+          scan_pending(FALSE)
+        }
       })
-      
+
+      # Derive all_files from scan_result (fast in-memory filter)
+      observe({
+        req(!is.null(scan_result()), length(patients()) > 0)
+        p           <- path()
+        patient_pattern <- paste(patients(), collapse = "|")
+        all     <- scan_result()
+        matches <- stri_detect_regex(all, patient_pattern)
+        matched <- all[matches]
+
+        # When a separate BAM folder is specified, exclude BAM/BAI files that come from
+        # the project dirs.  Intermediate pipeline BAMs (realigned.bam, etc.) live inside
+        # the project tree and would otherwise cause "multiple files found" for BAM rows.
+        # The user-designated bam_dirs is the authoritative source for alignment files.
+        has_separate_bams <- !is.null(p$bams) && length(p$bams) > 0
+        if (has_separate_bams) {
+          is_bam      <- str_detect(matched, regex("\\.(bam|bai)$", ignore_case = TRUE))
+          from_bam_dir <- Reduce(`|`, lapply(p$bams, function(d) startsWith(matched, d)))
+          matched <- matched[!is_bam | from_bam_dir]
+        }
+
+        all_files(matched)
+      })
+
       # Load genes_of_interest from config if available
       observe({
         req(step() == 2)  # Don't load files until step 2
-        
+
         # Pass path from config even if file doesn't exist
         # evaluate_file_status will check existence and return orange status if missing
         if (!is.null(shared_data$genes_of_interest_path())) {
@@ -92,24 +146,26 @@ step2_ui <- function(id) {
         }
       })
 
+      # Derive TMB_files from scan_result (fast in-memory filter)
       observe({
-        req(step() == 2)  # Don't load files until step 2
-        req(path(), patients())
-        TMB_file_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
+        req(!is.null(scan_result()), !is.null(path()$projects) && length(path()$projects) > 0)
+        file_pattern    <- paste(c("mutation_loads", "TMB"), collapse = "|")
         patient_pattern <- paste(patients(), collapse = "|")
-        file_pattern <- paste(c("mutation_loads","TMB"), collapse = "|")
-        matches <- stri_detect_regex(TMB_file_list, file_pattern) & !str_detect(TMB_file_list, regex(patient_pattern, ignore_case = TRUE))
-        TMB_files(TMB_file_list[matches])
+        all <- scan_result()
+        matches <- stri_detect_regex(all, file_pattern) & !str_detect(all, regex(patient_pattern, ignore_case = TRUE))
+        TMB_files(all[matches])
       })
       
       datasets_data <- reactive({
-        req(datasets(), all_files(), patients(), path())
+        req(datasets(), all_files(), patients())
+        req(!is.null(path()$projects) && length(path()$projects) > 0)
         # Only evaluate when trigger changes (manual refresh or initial load)
         req(eval_trigger())
-        
+        # Use first project dir as the root_path metadata for dataset objects
+        root_path_meta <- path()$projects[1]
         result <- list()
         for (dataset in datasets()) {
-          result[[dataset]] <- create_dataset_data(dataset, all_files(), goi_files(), TMB_files(), patients(), path(), tumor_pattern, normal_pattern, tissues())
+          result[[dataset]] <- create_dataset_data(dataset, all_files(), goi_files(), TMB_files(), patients(), root_path_meta, tumor_pattern, normal_pattern, variant_pattern, tissues())
         }
         return(result)
       })
@@ -135,7 +191,16 @@ step2_ui <- function(id) {
       # Upravte output$dataset_boxes aby používal cached data:
       output$dataset_boxes <- renderUI({
         req(datasets())
-        
+
+        # Show spinner while async file scan is in progress
+        if (isTRUE(scan_pending()) || is.null(scan_result())) {
+          return(div(
+            style = "display: flex; align-items: center; gap: 12px; padding: 24px 8px; color: #495057;",
+            tags$i(class = "fa fa-spinner fa-spin", style = "font-size: 1.4em; color: #74c0fc;"),
+            tags$span("Scanning files on storage, please wait…", style = "font-size: 0.95em;")
+          ))
+        }
+
         data <- datasets_data()
         ref_data <- reference_files_data()
         
@@ -173,30 +238,35 @@ step2_ui <- function(id) {
 
       # Refresh tlačítko
       observeEvent(input$refresh_files, {
-        req(path(), patients())
-        
+        req(!is.null(path()$projects) && length(path()$projects) > 0, patients())
+
         # Reload reference config from file
         shared_data$config_reload_trigger(shared_data$config_reload_trigger() + 1)
-        
-        # Znovu načti všechny soubory
-        all_files_list <- list.files(path(), full.names = TRUE, recursive = TRUE)
-        patient_pattern <- paste(patients(), collapse = "|")
-        matches <- stri_detect_regex(all_files_list, patient_pattern) 
-        all_files(all_files_list[matches])
-        
-        # Znovu načti goi soubor - POUZE z configu, žádný fallback
+
+        # Reload GOI from config
         if (!is.null(shared_data$genes_of_interest_path())) {
           goi_files(shared_data$genes_of_interest_path())
         } else {
           goi_files(NULL)
         }
-        
-        # Znovu načti TMB soubor
-        file_pattern <- paste(c("mutation_loads","TMB"), collapse = "|")
-        TMB_matches <- stri_detect_regex(all_files_list, file_pattern) & !str_detect(all_files_list, regex(patient_pattern, ignore_case = TRUE))
-        TMB_files(all_files_list[TMB_matches])
-        
-        # Trigger evaluation
+
+        # Re-launch async find scan — all_files and TMB_files update automatically when done
+        p             <- path()
+        bam_dirs      <- if (!is.null(p$bams) && length(p$bams) > 0) p$bams else p$projects
+        all_scan_dirs <- unique(c(p$projects, bam_dirs))
+        scan_result(NULL)
+        scan_pending(TRUE)
+        scan_env$task <- mirai({
+          unique(unlist(lapply(dirs, function(d) {
+            tryCatch(
+              # -L: follow symlinks
+              system2("find", c("-L", d, "-maxdepth", "5", "-type", "f"), stdout = TRUE),
+              error = function(e) character(0)
+            )
+          })))
+        }, dirs = all_scan_dirs)
+
+        # Trigger evaluation (datasets_data will re-run once scan completes + all_files updates)
         eval_trigger(eval_trigger() + 1)
       })
 
@@ -207,18 +277,24 @@ step2_ui <- function(id) {
         data <- datasets_data()
         ref_data <- reference_files_data()
         
-      # ==========================================
-      
-        column_validation <- validate_all_columns(data)
-        
-        if (column_validation$has_errors) {
+      # ========== FAST CHECKS FIRST (no file I/O) =========
+
+        # 1. Red dataset statuses — purely inspects already-computed HTML icons, instant
+        validation <- validate_datasets_status(data)
+
+        if (validation$has_red_status) {
           confirmed_paths_state(NULL)
-          
-          error_html <- create_column_error_message(column_validation)
-          
+          red_html_lines <- vapply(
+            names(validation$red_patients_list),
+            function(p) {
+              ds <- paste(sort(unique(validation$red_patients_list[[p]])), collapse = ", ")
+              sprintf("<li style='text-align: left'><b>%s</b> – %s</li>", p, ds)
+            },
+            character(1)
+          )
           shinyalert(
-            title = "Missing Required Columns",
-            text = HTML(error_html),
+            title = "Critical issues must be resolved before proceeding:",
+            text = HTML(paste0("<ul>", paste(red_html_lines, collapse = ""), "</ul>")),
             type = "error",
             showConfirmButton = TRUE,
             confirmButtonText = "OK",
@@ -226,10 +302,8 @@ step2_ui <- function(id) {
           )
           return()
         }
-        
-      # ========== REFERENCE FILES VALIDATION =========
-      
-        # Check if kegg_tab is red (required but missing)
+
+        # 2. Missing required reference file (kegg)
         if (ref_data$kegg_status == "red") {
           confirmed_paths_state(NULL)
           
@@ -253,34 +327,24 @@ step2_ui <- function(id) {
           return()
         }
         
-      
       # ==========================================
-      
-        validation <- validate_datasets_status(data)
 
-        # Pokud jsou červené stavy - blokovat postup
-        if (validation$has_red_status) {
+        # 3. Column validation — reads file headers, only reached if statuses are clean
+        column_validation <- validate_all_columns(data)
+
+        if (column_validation$has_errors) {
           confirmed_paths_state(NULL)
-          # Připrav HTML seznam
-          red_html_lines <- vapply(
-            names(validation$red_patients_list),
-            function(p) {
-              datasets <- paste(sort(unique(validation$red_patients_list[[p]])), collapse = ", ")
-              sprintf("<li style='text-align: left'><b>%s</b> – %s</li>", p, datasets)
-            },
-            character(1)
+
+          error_html <- create_column_error_message(column_validation)
+          scrollable_html <- paste0(
+            "<div style='max-height:60vh; overflow-y:auto; padding-right:4px;'>",
+            error_html,
+            "</div>"
           )
-          
-          html_text <- paste0(
-            "<div style='text-align: center;'><strong>Critical issues must be resolved before proceeding:</strong></div><br>",
-            "<ul style='text-align: left; margin-left: 2em;'>",
-            paste(red_html_lines, collapse = ""),
-            "</ul>"
-          )
-          
+
           shinyalert(
-            title = NULL,
-            text = HTML(html_text),
+            title = "Missing Required Columns",
+            text = HTML(scrollable_html),
             type = "error",
             showConfirmButton = TRUE,
             confirmButtonText = "OK",
@@ -331,6 +395,21 @@ step2_ui <- function(id) {
             warning_parts <- c(warning_parts, TMB_html)
           }
           
+          # ===== EXPRESSION TISSUE WARNINGS =====
+          if (length(validation$missing_expression_tissues) > 0) {
+            exp_lines <- vapply(names(validation$missing_expression_tissues), function(p) {
+              tissues <- paste(validation$missing_expression_tissues[[p]], collapse = ", ")
+              sprintf("<li style='text-align: left'><b>%s</b>: %s</li>", p, tissues)
+            }, character(1))
+            exp_html <- paste0(
+              "<div style='text-align: center;'><strong>Some expression tissue files are missing and won't be used:</strong></div><br>",
+              "<ul style='text-align: left; margin-left: 2em;'>",
+              paste(exp_lines, collapse = ""),
+              "</ul>"
+            )
+            warning_parts <- c(warning_parts, exp_html)
+          }
+          
           # ===== REFERENCE FILES WARNINGS =====
           
           # GOI missing
@@ -364,7 +443,7 @@ step2_ui <- function(id) {
             callbackR = function(user_confirmed) {
               if (isTRUE(user_confirmed)) {
                 confirmed_paths_state(NULL)  # force-invalidate so identical paths still re-trigger
-                confirmed_paths_state(build_confirmed_paths(data, path()))
+                confirmed_paths_state(build_confirmed_paths(data, path()$projects[1]))
               } else {
                 confirmed_paths_state(NULL)
               }
@@ -374,7 +453,7 @@ step2_ui <- function(id) {
         }
 
         confirmed_paths_state(NULL)  # force-invalidate so identical paths still re-trigger
-        confirmed_paths_state(build_confirmed_paths(data, path()))  # NO RED, NO ORANGE: pass data directly
+        confirmed_paths_state(build_confirmed_paths(data, path()$projects[1]))  # NO RED, NO ORANGE: pass data directly
         
             # Show waiter after confirming - will be hidden when summary/expression profile loads
         show_waiter("main-app", "Loading data and preparing modules...")

@@ -51,33 +51,73 @@ docker compose version
 
 ### Installation
 
-#### 1. Prepare your working directory:
+#### 1. Prepare your working directory
+
+Linux / macOS:
 
 ```bash
 mkdir -p sequiascope/input_files sequiascope/output_files
 cd sequiascope
 ```
 
-#### 2. Download the compose file:
+Windows (Command Prompt):
 
-```bash
-curl -O https://raw.githubusercontent.com/katjur01/sequiaScope/main/docker-compose.hub.yml
+```cmd
+mkdir sequiascope\input_files
+mkdir sequiascope\output_files
+cd sequiascope
 ```
 
-The application uses two separate volumes:
+---
 
-- input_files: Read-only bind mount for input data
-- output_files: Writable bind mount for session and output data
+#### 2. Download the compose file and configure your data path
 
+Linux / macOS / Windows:
 
-#### 3. Pull and start
+```bash
+curl -O https://raw.githubusercontent.com/katjur01/seqUIaSCOPE/main/docker-compose.hub.yml
+```
+
+---
+
+The application uses two volumes defined in the compose file:
+
+- `input_files` — read-only mount for your patient data
+- `output_files` — writable mount for sessions, IGV snapshots, and reports
+
+By default, the compose file expects your data to be placed inside the `input_files` subfolder you just created. If your data lives elsewhere, open `docker-compose.hub.yml` in a text editor and update the `input_files` volume to point to your actual data directory. **You must update this path in both the `app` and `igv` service sections.**
+
+```yaml
+volumes:
+  - /path/to/your/data:/input_files:ro   # ← change this path in BOTH services
+  - ./output_files:/output_files
+```
+
+On Windows, use forward slashes or a drive letter, for example:
+
+```yaml
+volumes:
+  - C:/Users/yourname/mydata:/input_files:ro
+  - ./output_files:/output_files
+```
+
+> ⚠️ **Do not change the `output_files` path.** Both containers must share the same output directory to communicate correctly.
+
+---
+
+#### 3. Pull
 
 ```bash
 docker compose -f docker-compose.hub.yml pull
+```
+
+#### 4. Start
+
+```bash
 docker compose -f docker-compose.hub.yml up -d
 ```
 
-#### 4. Open in browser
+#### 5. Open in browser
 
 ```
 http://localhost:8080
@@ -85,7 +125,7 @@ http://localhost:8080
 
 The app may take 10–20 seconds to initialize on first launch.
 
-#### 5. Stop
+#### 6. Stop
 
 ```bash
 docker compose -f docker-compose.hub.yml down
@@ -108,19 +148,6 @@ The app reads a `reference_paths.json` from the working directory. The default c
       - ./input_files:/input_files:ro
       - ./output_files:/output_files
       - ./reference_paths.json:/srv/shiny-server/sequiaScope/app/reference_paths.json:ro
-```
-
----
-
-## Build from source
-
-Building from source is not required for standard use. If you need to modify the application itself:
-
-```bash
-git clone https://github.com/katjur01/seqUIaSCOPE.git
-cd seqUIaSCOPE
-docker compose build
-docker compose up -d
 ```
 
 ---

@@ -19,7 +19,6 @@ box::use(
   app/view/upload_data_step1,
   app/view/upload_data_step2,
   app/logic/session_utils[create_session_handlers,safe_extract, register_module, load_session],
-  
 )
 
 ui <- function(id) {
@@ -104,10 +103,11 @@ server <- function(id, shared_data) {
     
     step <- reactiveVal(1)
     patients <- reactiveVal(character(0))
-    path     <- reactiveVal(NULL)
+    path     <- reactiveVal(list(projects = NULL, bams = NULL))
     datasets <- reactiveVal(character(0))
-    tumor_pattern <- reactiveValues(somatic = NULL, fusion = NULL, chimeric = NULL, arriba = NULL)
+    tumor_pattern   <- reactiveValues(somatic = NULL, fusion = NULL, chimeric = NULL, arriba = NULL)
     normal_pattern  <- reactiveValues(somatic = NULL, germline = NULL)
+    variant_pattern <- reactiveValues(somatic = NULL, germline = NULL, fusion = NULL)
     tissues <- reactiveVal(NULL)
     
     #####
@@ -141,8 +141,8 @@ server <- function(id, shared_data) {
     
     confirmed_paths_state <- reactiveVal(NULL)
     
-    step1 <- upload_data_step1$step1_server("first_step",  path, patients, datasets, tumor_pattern, normal_pattern, tissues, shared_data)
-    step2 <- upload_data_step2$step2_server("second_step", path, patients, datasets, tumor_pattern, normal_pattern, tissues, step, shared_data)
+    step1 <- upload_data_step1$step1_server("first_step",  path, patients, datasets, tumor_pattern, normal_pattern, variant_pattern, tissues, shared_data)
+    step2 <- upload_data_step2$step2_server("second_step", path, patients, datasets, tumor_pattern, normal_pattern, variant_pattern, tissues, step, shared_data)
     # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("somatic","germline","fusion","expression")), tumor_pattern=reactiveValues(fusion = "fuze",chimeric = "chimeric"), normal_pattern=reactiveValues(somatic = "krev",germline= "krev"), tissues = reactiveVal(c("Blood","Blood_Vessel")),step)
     # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("expression")), tumor_pattern=NULL, normal_pattern=NULL, tissues = reactiveVal(c("blood","blood_vessel")),step)
     # step2 <- upload_data_step2$step2_server("second_step",  path=path, patients=patients, datasets =reactiveVal(c("fusion","expression")), tumor_pattern=reactiveValues(fusion = "fuze",chimeric = "chimeric"), normal_pattern=NULL, tissues = reactiveVal(c("blood","blood_vessel")),step)
@@ -152,7 +152,12 @@ server <- function(id, shared_data) {
     
     observeEvent(step1$next1(), {
       if (!is.null(step1$next1())) {
+        waiter_show(html = tagList(
+          spin_fading_circles(),
+          tags$h4("Loading...", style = "color: white; margin-top: 20px;")
+        ))
         step(2)
+        session$onFlushed(function() { waiter_hide() }, once = TRUE)
       }
     })
     observeEvent(step2$prev2(), step(1))
@@ -180,12 +185,20 @@ server <- function(id, shared_data) {
           tissues         = tissues(),
           tumor_pattern   = reactiveValuesToList(tumor_pattern,  all.names = TRUE),
           normal_pattern  = reactiveValuesToList(normal_pattern, all.names = TRUE),
-          confirmed_paths = confirmed_paths_state()  # volitelné; můžeš vypustit, pokud je to velké
+          variant_pattern = reactiveValuesToList(variant_pattern, all.names = TRUE),
+          confirmed_paths = confirmed_paths_state()
         )
       }),
       restore_session_data = function(state) {
         if (!is.null(state$step))            step(state$step)
-        if (!is.null(state$path))            path(state$path)
+        if (!is.null(state$path)) {
+          # Backward compat: old sessions saved path as a character string
+          if (is.character(state$path)) {
+            path(list(projects = state$path, bams = NULL))
+          } else {
+            path(state$path)
+          }
+        }
         if (!is.null(state$patients))        patients(state$patients)
         if (!is.null(state$datasets))        datasets(state$datasets)
         if (!is.null(state$tissues))         tissues(state$tissues)
@@ -195,6 +208,9 @@ server <- function(id, shared_data) {
         }
         if (!is.null(state$normal_pattern) && length(state$normal_pattern)) {
           for (nm in names(state$normal_pattern)) normal_pattern[[nm]] <- state$normal_pattern[[nm]]
+        }
+        if (!is.null(state$variant_pattern) && length(state$variant_pattern)) {
+          for (nm in names(state$variant_pattern)) variant_pattern[[nm]] <- state$variant_pattern[[nm]]
         }
         
         if (!is.null(state$confirmed_paths)) confirmed_paths_state(state$confirmed_paths)
@@ -287,6 +303,8 @@ server <- function(id, shared_data) {
 
       showNotification(paste0("✅ Session '", selected_name, "' successfully loaded."), type = "message")
       step(2)
+      # Do NOT hide waiter here — main.R will take over with show_waiter_with_progress
+      # and hide it only after summary is fully rendered.
     })
     
     return(list(confirmed_paths = reactive(confirmed_paths_state())))

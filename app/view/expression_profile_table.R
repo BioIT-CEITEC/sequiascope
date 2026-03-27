@@ -23,7 +23,7 @@ box::use(
 
 box::use(
   app/logic/plots[prepare_barPlot_data, create_barPlot, prepare_volcano, volcanoPlot, ggvolcanoPlot, classify_volcano_genes],
-  app/logic/waiters[use_spinner],
+  app/logic/waiter[use_spinner],
   app/logic/load_data[load_data],
   app/logic/helper_reactable[custom_colGroup_setting],
   app/logic/filter_columns[map_checkbox_names, colnames_map_list, generate_columnsDef, expand_expression_columns, contract_expression_columns],

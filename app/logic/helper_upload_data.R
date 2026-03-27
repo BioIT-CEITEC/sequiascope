@@ -2,7 +2,7 @@
 box::use(
   shiny[isTruthy],
   htmltools[tags,HTML,div,span,h2,h4,h5,br],
-  stringr[str_detect,regex,str_replace,str_remove],
+  stringr[str_detect,regex,fixed,str_replace,str_remove],
   reactable[reactable,colDef],
   data.table[fread,rbindlist],
   stats[setNames],
@@ -10,7 +10,7 @@ box::use(
 )
 
 box::use(
-  app/logic/load_data[read_file_header,read_by_extension,get_required_columns]
+  app/logic/load_data[read_file_header,read_by_extension,get_required_columns,MAF_COLUMN_CANDIDATES]
 )
 
 get_status_icon <- function(color, simple = FALSE, reason = "unknown") {
@@ -160,7 +160,7 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
     chimeric_fusion  = list(extensions = "\\.(bam|bai)$", keywords = NULL, exclude = "transcriptome|qc_|feature_count|flagstat|idxstats|species_", required = FALSE, check_pair = TRUE, pair = "bam_bai"),
     arriba_fusion    = list(extensions = "\\.(pdf|tsv)$", keywords = "arriba", exclude = "discarded|STAR", required = FALSE, check_pair = TRUE, pair = "pdf_tsv"),
     
-    expression_expression = list(extensions = "\\.(tsv|xlsx)$", keywords = "expression|RNAseq", exclude = "report|genes_of_interest", required = TRUE),
+    expression_expression = list(extensions = "\\.(tsv|xlsx)$", keywords = "expression|RNAseq", exclude = "genes_of_interest", required = TRUE),
     goi_expression        = list(extensions = "\\.(tsv|xlsx)$", keywords = NULL, exclude = NULL, required = FALSE)  # Exact path from config, no pattern matching
   )
   
@@ -206,28 +206,29 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
   
   base_keywords <- config$keywords
   
-  # For expression, keep OR logic (tissues can be different)
-  # For other file types with patterns: require config_keyword AND pattern (both must match)
+  # Build keyword lists — config keywords use regex(), user patterns use fixed().
+  # Keeping them separate prevents config OR-syntax like "fusion|fuze" from being
+  # treated as a literal string (which broke fusion search without user pattern).
+  config_kws <- character(0)  # matched with regex()
+  user_kws   <- character(0)  # matched with fixed() — literal strings
+
   if (config_key == "expression_expression") {
-    keyword_regex <- config$keywords
+    config_kws    <- config$keywords
+    keyword_regex <- config_kws  # kept for debug logging
+  } else if (config_key %in% c("variant_somatic", "variant_germline", "fusion_fusion") && length(pattern_list) > 0 && any(nzchar(pattern_list))) {
+    # User pattern REPLACES config keyword for these types
+    user_kws      <- pattern_list[nzchar(pattern_list)]
+    keyword_regex <- user_kws
   } else {
-    # NEW LOGIC: When patterns are provided, require BOTH config keyword AND pattern
-    # Exception: if search_without_pattern = TRUE (user specified "-"), use ONLY config keyword
-    # Exception: if config$keywords is NULL, use ONLY user patterns (for BAM files without dataset-type keywords)
     if (search_without_pattern) {
-      # Search using only config keyword (e.g., "somatic", "fusion"), no additional pattern
-      # If config$keywords is NULL, this results in no keyword filtering (extension + exclude only)
-      all_keywords <- if (!is.null(config$keywords)) c(config$keywords) else character(0)
+      config_kws <- if (!is.null(config$keywords)) c(config$keywords) else character(0)
     } else {
-      # Normal mode: combine config keyword + user patterns
-      # If config$keywords is NULL, use only user patterns
-      all_keywords <- c(
-        if (!is.null(config$keywords)) config$keywords else character(0),
-        pattern_list
-      )
+      config_kws <- if (!is.null(config$keywords)) c(config$keywords) else character(0)
+      user_kws   <- pattern_list[nzchar(pattern_list)]
     }
-    all_keywords <- all_keywords[nzchar(all_keywords)]
-    keyword_regex <- all_keywords  # Store as vector for AND logic
+    config_kws    <- config_kws[nzchar(config_kws)]
+    user_kws      <- user_kws[nzchar(user_kws)]
+    keyword_regex <- c(config_kws, user_kws)  # for debug logging only
   }
   
   # DEBUG: Log keyword construction for tumor_fusion
@@ -235,7 +236,7 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
     message("[FILE_EVAL] Evaluating ", config_key, " for patient: ", patient)
     message("[FILE_EVAL]   - pattern_list after parsing: ", paste(pattern_list, collapse=", "))
     message("[FILE_EVAL]   - search_without_pattern: ", search_without_pattern)
-    message("[FILE_EVAL]   - all_keywords combined: ", paste(all_keywords, collapse=", "))
+    message("[FILE_EVAL]   - all_keywords combined: ", paste(keyword_regex, collapse=", "))
     message("[FILE_EVAL]   - final keyword_regex (AND logic): ", paste(keyword_regex, collapse=" AND "))
   }
   
@@ -286,13 +287,34 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
       matched <- candidates
     }
   } else {
-    # For other types: AND logic - file must contain ALL keywords
+    # For other types: AND logic.
+    # config_kws use regex() (may contain OR syntax like "fusion|fuze").
+    # user_kws  use fixed() (literal strings, no regex interpretation).
     matched <- relevant_files[str_detect(relevant_files, config$extensions)]
-    for (kw in keyword_regex) {
+    for (kw in config_kws) {
       matched <- matched[str_detect(matched, regex(kw, ignore_case = TRUE))]
     }
+    for (kw in user_kws) {
+      matched <- matched[str_detect(matched, fixed(kw, ignore_case = TRUE))]
+    }
   }
-  
+
+  # For variant files: patient ID must appear in the BASENAME, not just in the folder path.
+  # This removes intermediate pipeline files (Ensemble.sINDEL.tsv, VarDict.vcf, etc.) whose
+  # patient ID is only present in a parent folder name like somatic_varcalls/AJ0910_FFPE/.
+  if (config_key %in% c("variant_somatic", "variant_germline", "fusion_fusion")) {
+    matched <- matched[str_detect(basename(matched), regex(patient, ignore_case = TRUE))]
+  }
+
+  # Cross-dataset contamination guard: a file whose path contains the OTHER dataset's
+  # keyword almost certainly comes from the wrong project folder (e.g. 130_germline/
+  # bleeding into a somatic search when variant_pattern replaces the config keyword).
+  if (config_key == "variant_somatic") {
+    matched <- matched[!str_detect(matched, regex("germline", ignore_case = TRUE))]
+  } else if (config_key == "variant_germline") {
+    matched <- matched[!str_detect(matched, regex("somatic", ignore_case = TRUE))]
+  }
+
   # When "none" is specified (search_without_pattern), apply stricter filtering
   # to ensure we only match files with exact patient ID, not patient ID + additional text
   # e.g., "DZ1601.bam" ✓  but "DZ1601FFPE.bam" ✗
@@ -418,8 +440,12 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
           expression_files = matched,
           tissues_str      = pattern_list
         )
-        matched <- as.character(filtered$mapping)  # jen mapované soubory (mohou být length 0)
-        status  <- if (filtered$status == "green") "green" else "red"
+        matched <- as.character(filtered$mapping)  # jen detekované soubory (bez NA)
+        status  <- switch(filtered$status,
+          "green" = "green",
+          "mixed" = "orange",
+          "red"   = "red",
+          "red")
         reason  <- if (status == "green") "files_ok" else "required_missing_exp"
         tissues_matched <- names(filtered$mapping)
         # No need to clear matched when red - red status blocks user from proceeding anyway
@@ -466,7 +492,7 @@ evaluate_file_status <- function(files, patient, file_type, dataset_type, patter
 }
 
 #' @export
-create_dataset_data <- function(dataset_type, files, goi_files, TMB_files, patients, path, tumor_pattern, normal_pattern, tissues) {
+create_dataset_data <- function(dataset_type, files, goi_files, TMB_files, patients, path, tumor_pattern, normal_pattern, variant_pattern = NULL, tissues) {
   
   if (length(patients) == 0) return(NULL)
   
@@ -478,19 +504,19 @@ create_dataset_data <- function(dataset_type, files, goi_files, TMB_files, patie
     
     if (dataset_type == "somatic") {
       list(
-        variant = evaluate_file_status(files, patient, "variant", "somatic"),
+        variant = evaluate_file_status(files, patient, "variant", "somatic", if (!is.null(variant_pattern)) variant_pattern$somatic else NULL),
         tumor = evaluate_file_status(files, patient, "tumor", "somatic", tumor_pattern$somatic),
         normal = evaluate_file_status(files, patient, "normal", "somatic", normal_pattern$somatic),
         TMB = evaluate_file_status(TMB_files, patient, "TMB", "somatic")
       )
     } else if (dataset_type == "germline") {
       list(
-        variant = evaluate_file_status(files, patient, "variant", "germline"),
+        variant = evaluate_file_status(files, patient, "variant", "germline", if (!is.null(variant_pattern)) variant_pattern$germline else NULL),
         normal = evaluate_file_status(files, patient, "normal", "germline", normal_pattern$germline)
       )
     } else if (dataset_type == "fusion") {
       list(
-        fusion = evaluate_file_status(files, patient, "fusion", "fusion"),
+        fusion = evaluate_file_status(files, patient, "fusion", "fusion", if (!is.null(variant_pattern)) variant_pattern$fusion else NULL),
         tumor = evaluate_file_status(files, patient, "tumor", "fusion", tumor_pattern$fusion),
         chimeric = evaluate_file_status(files, patient, "chimeric", "fusion", tumor_pattern$chimeric),
         arriba = evaluate_file_status(files, patient, "arriba", "fusion", tumor_pattern$arriba)
@@ -727,7 +753,8 @@ validate_datasets_status <- function(datasets_data) {
     orange_patients_list = list(),
     igv_issues = character(),
     arriba_issues = character(),
-    TMB_issues = c()
+    TMB_issues = c(),
+    missing_expression_tissues = list()
   )
   
   for (dataset in names(datasets_data)) {
@@ -750,10 +777,19 @@ validate_datasets_status <- function(datasets_data) {
           if (dataset == "somatic" && "TMB" %in% colnames(data) && grepl("#fd7e14", data$TMB[i])) {
             validation_results$TMB_issues <- c(validation_results$TMB_issues, patient)
           } else {
+            # columns_to_check: all orange columns that are shown in the warning dialog
+            # igv_columns:      subset that actually affect IGV snapshot availability
+            #   somatic  → only tumor BAM (normal BAM missing ≠ IGV unavailable)
+            #   germline → none (germline doesn't use IGV snapshots)
+            #   fusion   → tumor + chimeric
             columns_to_check <- switch(dataset,
                                        "somatic" = c("tumor", "normal"),
                                        "germline" = c("normal"),
                                        "fusion" = c("tumor", "chimeric", "arriba"))
+            igv_columns <- switch(dataset,
+                                  "somatic"  = c("tumor"),
+                                  "germline" = character(0),
+                                  "fusion"   = c("tumor", "chimeric"))
             for (col in columns_to_check) {
               if (!col %in% colnames(data)) next
               cell_html <- data[[col]][i]
@@ -761,19 +797,18 @@ validate_datasets_status <- function(datasets_data) {
               
               # Detect different types of orange issues
               if (grepl("Missing BAM or BAI", cell_html, fixed = TRUE)) {
-                validation_results$igv_issues <- c(validation_results$igv_issues, patient)
+                if (col %in% igv_columns)
+                  validation_results$igv_issues <- c(validation_results$igv_issues, patient)
               } else if (grepl("Missing PDF or TSV", cell_html, fixed = TRUE)) {
                 validation_results$arriba_issues <- c(validation_results$arriba_issues, patient)
               } else if (grepl("Multiple files found", cell_html, fixed = TRUE)) {
-                # Multiple files can affect both IGV (BAM) and Arriba (PDF/TSV)
-                if (col %in% c("tumor", "normal", "chimeric")) {
+                if (col %in% igv_columns) {
                   validation_results$igv_issues <- c(validation_results$igv_issues, patient)
                 } else if (col == "arriba") {
                   validation_results$arriba_issues <- c(validation_results$arriba_issues, patient)
                 }
               } else if (grepl("Required file missing", cell_html, fixed = TRUE)) {
-                # Pattern specified but file not found
-                if (col %in% c("tumor", "normal", "chimeric")) {
+                if (col %in% igv_columns) {
                   validation_results$igv_issues <- c(validation_results$igv_issues, patient)
                 } else if (col == "arriba") {
                   validation_results$arriba_issues <- c(validation_results$arriba_issues, patient)
@@ -785,6 +820,17 @@ validate_datasets_status <- function(datasets_data) {
     
         }
         # Note: GOI is now checked in reference files, not per-patient
+      }
+      
+      # Collect missing tissues for expression warning dialog
+      if (dataset == "expression") {
+        raw <- datasets_data[[dataset]]$raw_results[[patient]]
+        if (!is.null(raw)) {
+          mt <- raw$expression$missing_tissues
+          if (length(mt) > 0) {
+            validation_results$missing_expression_tissues[[patient]] <- mt
+          }
+        }
       }
     }
   }
@@ -918,9 +964,11 @@ create_tissue_file_mapping <- function(expression_files, tissues_str) {
   
   missing_tissues <- names(tissue_to_file)[is.na(tissue_to_file)]
   
-  # Status depends only on whether all specified tissues have a file
-  if (length(missing_tissues) > 0) {
-    status <- "red"  # Missing files for some tissues
+  # Status depends on how many tissues have matching files
+  if (length(missing_tissues) == length(tissues)) {
+    status <- "red"    # ALL tissues missing - no expression files found at all
+  } else if (length(missing_tissues) > 0) {
+    status <- "mixed"  # SOME tissues missing, some found - user can proceed with warning
   } else {
     status <- "green"  # All specified tissues have exactly one file
   }
@@ -1333,6 +1381,23 @@ validate_file_columns <- function(file_path, dataset_type, patient_id) {
         # Recheck missing columns after renaming
         missing_cols <- required_cols[!tolower(required_cols) %in% actual_cols_lower]
       }
+    }
+    
+    # Special handling for germline: accept any known MAF column as fallback for gnomad_nfe
+    if (dataset_type == "germline") {
+      has_maf <- any(MAF_COLUMN_CANDIDATES %in% actual_cols_lower)
+      if (!has_maf) {
+        return(list(
+          valid = FALSE,
+          error_type = "missing_columns",
+          missing = c("gnomAD_NFE (or any population frequency column: gnomad_af, 1000g_eur_af, etc.)"),
+          dataset = dataset_type,
+          patient = patient_id,
+          file_path = fp
+        ))
+      }
+      # If validation flagged gnomad_nfe as missing but another MAF col is present, clear it
+      missing_cols <- missing_cols[tolower(missing_cols) != "gnomad_nfe"]
     }
     
     

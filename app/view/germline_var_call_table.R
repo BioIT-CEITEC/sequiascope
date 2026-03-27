@@ -26,9 +26,9 @@ box::use(
 )
 
 box::use(
-  app/logic/load_data[load_data],
+  app/logic/load_data[load_data, MAF_COLUMN_CANDIDATES, MAF_COLUMN_LABELS],
   app/logic/prepare_table[prepare_germline_table],
-  app/logic/waiters[use_spinner],
+  app/logic/waiter[use_spinner],
   app/logic/helper_reactable[selectFilter,minRangeFilter,filterMinValue,create_clinvar_filter,create_consequence_filter],
   app/logic/filter_columns[map_checkbox_names,colnames_map_list,generate_columnsDef],
   app/logic/session_utils[create_session_handlers, register_module, safe_extract, nz, ch],
@@ -88,8 +88,12 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
         clinvar_N = length(data()[clinvar_sig %in% c("Pathogenic", "Likely_pathogenic", "Pathogenic/Likely_pathogenic",
                                                       "Pathogenic_(VUS)", "Likely_pathogenic (VUS)", "Pathogenic_(VUS)"), unique(var_name)]),
 
-        for_review = length(data()[gnomad_nfe <= 0.01 & coverage_depth > 10 & consequence != "synonymous variant" &
-                                      (gene_region == "exon" | gene_region == "splice"), unique(var_name)]))
+        for_review = {
+          mc <- maf_col()
+          if (!is.null(mc)) length(data()[get(mc) <= 0.01 & coverage_depth > 10 & consequence != "synonymous variant" &
+                                           (gene_region == "exon" | gene_region == "splice"), unique(var_name)])
+          else 0L
+        })
       # print(overview_dt)
       shared_data$germline.overview[[ selected_samples ]] <- overview_dt
     })
@@ -104,6 +108,13 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
     data <- reactive(prepare_data()$dt)
     colnames_list <- prepare_data()$columns
     
+    # Detect which MAF column is available — first match from the priority list wins
+    maf_col <- reactive({
+      req(data())
+      found <- intersect(MAF_COLUMN_CANDIDATES, names(data()))
+      if (length(found) > 0) found[1] else NULL
+    })
+    
     map_list <- colnames_map_list("germline") # gives list of all columns with their column definitions
     # mapped_checkbox_names <- map_checkbox_names(map_list) # gives list of all columns with their display names for checkbox
     mapped_checkbox_names <- reactive({
@@ -113,7 +124,11 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
     })
     
     # start <- Sys.time()
-    filter_state <- filterTab_server("filterTab_dropdown",colnames_list, data(),mapped_checkbox_names, is_restoring = is_restoring_session)
+    filter_state <- filterTab_server("filterTab_dropdown", colnames_list, data(), mapped_checkbox_names,
+                                      maf_label = if (!is.null(maf_col())) {
+                                        paste(MAF_COLUMN_LABELS[maf_col()], "min")
+                                      } else "MAF filter min",
+                                      is_restoring = is_restoring_session)
     # end <- Sys.time()
     # message("⏱️ render UI filterTab: ", round(difftime(end, start, units = "secs"), 3), " sec")
     
@@ -163,7 +178,8 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
         if (nrow(dt) == 0) return(dt)
       }
       if (!is.null(selected_gnomAD_min())) {
-        dt <- dt[gnomad_nfe <= selected_gnomAD_min(), ]
+        mc <- maf_col()
+        if (!is.null(mc)) dt <- dt[get(mc) <= selected_gnomAD_min(), ]
         if (nrow(dt) == 0) return(dt)
       }
       if (!is.null(selected_gene_region()) && length(selected_gene_region()) > 0) {
@@ -549,7 +565,7 @@ server <- function(id, selected_samples, shared_data, file, file_list) {
 
 
 
-filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_restoring = NULL) {
+filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, maf_label = "MAF filter min", is_restoring = NULL) {
   moduleServer(id, function(input, output, session) {
     
     initialized <- reactiveVal(FALSE)
@@ -692,7 +708,9 @@ filterTab_server <- function(id, colnames_list, data, mapped_checkbox_names, is_
           updateNumericInput(session, "coverage_depth", value = 10)
         }
         if (isTruthy(is.na(input$gnomAD_min))) {
-          updateNumericInput(session, "gnomAD_min", value = 0.01)
+          updateNumericInput(session, "gnomAD_min", value = 0.01, label = tags$strong(maf_label))
+        } else {
+          updateNumericInput(session, "gnomAD_min", label = tags$strong(maf_label))
         }
       }
     }
@@ -805,7 +823,7 @@ filterTab_ui <- function(id){
                       box(width = 12,title = tags$div(style = "padding-top: 8px;","Filter data by:"),closable = FALSE, collapsible = FALSE,style = "height: 100%;",
                           fluidRow(
                             column(6, numericInput(ns("coverage_depth"), tags$strong("Coverage min"), value = 10, min = 0)),
-                            column(6, numericInput(ns("gnomAD_min"), tags$strong("gnomAD NFE min"), value = 0.01, min = 0, max = 1))
+                            column(6, numericInput(ns("gnomAD_min"), tags$strong("MAF filter min"), value = 0.01, min = 0, max = 1))
                           ),
                             div(
                               div(class = "two-col-checkbox-group", style = "margin-bottom: 15px;",

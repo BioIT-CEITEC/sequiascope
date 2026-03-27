@@ -19,7 +19,7 @@ RUN mkdir -p /dist/js && \
 # -----------------------------------------------------------
 # STAGE 2 — Shiny aplikace (hlavní runtime)
 # -----------------------------------------------------------
-FROM rocker/shiny:latest
+FROM rocker/shiny:4.5.2
 
 
 # Systémové závislosti pro R, IGV Desktop a snapshoty
