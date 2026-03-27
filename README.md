@@ -1,4 +1,4 @@
-# sequiaScope
+# SeqUIaSCOPE
 
 SeqUIaSCOPE is a web application designed for routine clinical oncology diagnostics through patient-centric integration and visualization of genomic variants, fusion events, and expression profiles. It includes embedded genome browsing, pathway-level interpretation, and customizable reporting.
 
