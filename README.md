@@ -75,7 +75,7 @@ cd sequiascope
 Linux / macOS / Windows:
 
 ```bash
-curl -O https://raw.githubusercontent.com/katjur01/seqUIaSCOPE/main/docker-compose.yaml
+curl -O https://raw.githubusercontent.com/BioIT-CEITEC/sequiascope/master/docker-compose.yaml
 ```
 
 ---
@@ -166,6 +166,9 @@ docker compose logs app
 **IGV snapshots not generated**
 - Check the IGV container is running: `docker ps | grep igv`
 - Check IGV logs: `docker compose logs igv`
+
+## Notes {-}
+**For organizational deployment**: If you're interested in using SeqUIaSCOPE but don't have Docker expertise, contact your bioinformatics team or IT department. They can help set up and maintain SeqUIaSCOPE in your organization's infrastructure.
 
 ## License
 MIT © Kateřina Jurásková
